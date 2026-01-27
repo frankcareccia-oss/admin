@@ -2,7 +2,6 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login, me, clearAccessToken } from "../api/client";
-
 import PageContainer from "../components/layout/PageContainer";
 
 export default function Login() {
@@ -19,6 +18,19 @@ export default function Login() {
   const notice = location.state?.notice || "";
   const from = location.state?.from?.pathname;
 
+  function normalizeLanding(v) {
+    const s = String(v || "").trim();
+    return s.startsWith("/") ? s : "";
+  }
+
+  // POS-7: normalize API systemRole into UI gate role
+  // API returns: "pv_admin" | "user"
+  // UI gates expect: "pv_admin" | "merchant"
+  function normalizeUiRole(apiRole) {
+    const r = String(apiRole || "");
+    return r === "pv_admin" ? "pv_admin" : "merchant";
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
@@ -30,26 +42,49 @@ export default function Login() {
 
       const r = await login(emailNorm, passRaw);
 
-      let landing = r?.landing;
-      let role = r?.systemRole;
+      let landing = normalizeLanding(r?.landing);
+      let apiRole = String(r?.systemRole || "");
 
-      if (!landing || !role) {
+      // If server didn't return enough info, ask /me (browser helper)
+      if (!landing || !apiRole) {
         const m = await me();
-        landing = landing || m?.landing;
-        role = role || m?.user?.systemRole;
+        landing = landing || normalizeLanding(m?.landing);
+        apiRole = apiRole || String(m?.user?.systemRole || "");
       }
 
-      if (role) localStorage.setItem("perkvalet_system_role", role);
-      if (landing) localStorage.setItem("perkvalet_landing", landing);
+      const uiRole = normalizeUiRole(apiRole);
 
-      const safeDefault = landing || (role === "pv_admin" ? "/merchants" : "/merchant");
-      const dest = from || safeDefault;
+      // Persist roles
+      localStorage.setItem("perkvalet_system_role", uiRole);
+      localStorage.setItem("perkvalet_system_role_raw", apiRole || "");
+
+      // POS-7: deterministic POS landing override (email-based for now)
+      const forcePos = emailNorm === "pos@perkvalet.host";
+      if (forcePos) {
+        landing = "/merchant/pos";
+        localStorage.setItem("perkvalet_is_pos", "1");
+        localStorage.setItem("perkvalet_landing", landing);
+      } else {
+        localStorage.removeItem("perkvalet_is_pos");
+        if (landing) localStorage.setItem("perkvalet_landing", landing);
+        else localStorage.removeItem("perkvalet_landing");
+      }
+
+      // Choose destination:
+      // - For POS, ignore `from` unless it’s already a POS path
+      const safeDefault = landing || (uiRole === "pv_admin" ? "/merchants" : "/merchant");
+      const dest =
+        forcePos
+          ? (String(from || "").startsWith("/merchant/pos") ? from : "/merchant/pos")
+          : (from || safeDefault);
 
       navigate(dest, { replace: true });
     } catch (err) {
       clearAccessToken();
       localStorage.removeItem("perkvalet_system_role");
+      localStorage.removeItem("perkvalet_system_role_raw");
       localStorage.removeItem("perkvalet_landing");
+      localStorage.removeItem("perkvalet_is_pos");
       setError(err?.message || "Login failed");
     } finally {
       setBusy(false);
@@ -180,7 +215,7 @@ export default function Login() {
               fontWeight: 800,
             }}
           >
-            {busy ? "Signing in…" : "Sign in"}
+            {busy ? "Signing in..." : "Sign in"}
           </button>
 
           {error ? (

@@ -1,5 +1,6 @@
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { getAccessToken } from "../api/client";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -11,6 +12,27 @@ function pvUiHook(event, fields = {}) {
       })
     );
   } catch {}
+}
+
+function apiBase() {
+  const v = (import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:3001").trim();
+  return v.replace(/\/+$/, "");
+}
+
+function randomHex(bytes = 16) {
+  const arr = new Uint8Array(bytes);
+  window.crypto.getRandomValues(arr);
+  return Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function buildPosHeaders() {
+  return {
+    "X-POS-Timestamp": String(Math.floor(Date.now() / 1000)),
+    "X-POS-Nonce": randomHex(16),
+    "X-POS-Idempotency-Key": randomHex(16),
+  };
 }
 
 function classifyIdentifier(raw) {
@@ -39,32 +61,28 @@ function maskIdentifier(raw) {
   return v.length <= 6 ? "***" : `${v.slice(0, 3)}***${v.slice(-2)}`;
 }
 
-function getApiBase() {
-  return "http://localhost:3001";
-}
-
-function friendlyErrorFromResponse(status, body) {
-  const code = body?.error?.code || body?.code || null;
-  const message = body?.error?.message || body?.message || null;
-
-  if (status === 401) return "You are not logged in. Please log in again.";
-  if (status === 403) return message || "You do not have permission to use POS.";
-  if (status === 404) return "Not found.";
-  if (status === 400) return message || "Please check the input and try again.";
-  if (status >= 500) return "Server error. Please try again.";
-
-  return message || `Request failed (${code || status}).`;
+function isUiDebugEnabled() {
+  // Debug payload display is:
+  // - DEV-only, and
+  // - requires explicit opt-in: localStorage.PV_UI_DEBUG === "1"
+  try {
+    const dev = Boolean(import.meta?.env?.DEV);
+    const optIn = String(localStorage.getItem("PV_UI_DEBUG") || "") === "1";
+    return dev && optIn;
+  } catch {
+    return false;
+  }
 }
 
 export default function PosGrantReward() {
-  const navigate = useNavigate();
-
   const [identifier, setIdentifier] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
   const [result, setResult] = React.useState(null);
+  const [successMsg, setSuccessMsg] = React.useState("");
+  const [debugOpen, setDebugOpen] = React.useState(false);
 
-  const inputRef = React.useRef(null);
+  const debugEnabled = isUiDebugEnabled();
 
   React.useEffect(() => {
     pvUiHook("pos.reward.page_loaded.ui", {
@@ -72,45 +90,7 @@ export default function PosGrantReward() {
       sev: "info",
       stable: "pos:reward",
     });
-
-    // Keyboard-first: focus immediately
-    setTimeout(() => {
-      try {
-        inputRef.current?.focus();
-      } catch {}
-    }, 0);
   }, []);
-
-  async function callGrantReward(v) {
-    const token =
-      localStorage.getItem("perkvalet_access_token") ||
-      localStorage.getItem("access_token") ||
-      "";
-
-    const res = await fetch(`${getApiBase()}/pos/reward`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-        "X-POS-Timestamp": new Date().toISOString(),
-        "X-POS-Idempotency-Key": `ui-reward-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      },
-      body: JSON.stringify({ identifier: v }),
-    });
-
-    let body = null;
-    try {
-      body = await res.json();
-    } catch {
-      body = null;
-    }
-
-    if (!res.ok) {
-      throw new Error(friendlyErrorFromResponse(res.status, body));
-    }
-
-    return body;
-  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -119,6 +99,8 @@ export default function PosGrantReward() {
     setBusy(true);
     setError("");
     setResult(null);
+    setSuccessMsg("");
+    setDebugOpen(false);
 
     const v = String(identifier || "").trim();
     const { kind } = classifyIdentifier(v);
@@ -132,10 +114,40 @@ export default function PosGrantReward() {
     });
 
     try {
-      if (!v) throw new Error("Customer identifier is required.");
+      if (!v) throw new Error("Customer identifier is required");
 
-      const res = await callGrantReward(v);
-      setResult(res);
+      const token = getAccessToken();
+      if (!token) throw new Error("Not authenticated");
+
+      const res = await fetch(`${apiBase()}/pos/reward`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...buildPosHeaders(),
+        },
+        body: JSON.stringify({ identifier: v }),
+      });
+
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {}
+
+      if (!res.ok) {
+        const msg =
+          data?.message ||
+          data?.error?.message ||
+          (typeof data === "string" ? data : "") ||
+          `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setResult(data);
+
+      // IMPORTANT: Do NOT expose raw payload / tokens / IDs on the POS screen.
+      // Show only a success banner (optionally includes masked identifier).
+      setSuccessMsg(`OK — Reward granted. (${maskIdentifier(v)})`);
 
       pvUiHook("pos.reward.submit_succeeded.ui", {
         tc: "TC-POS-REWARD-UI-03",
@@ -144,12 +156,9 @@ export default function PosGrantReward() {
         identifierKind: kind,
         identifierMasked: maskIdentifier(v),
         ms: Date.now() - started,
-        rewardId: res?.rewardId || null,
       });
-
-      navigate("/merchant/pos?success=reward");
     } catch (err) {
-      const msg = err?.message || "Failed to grant reward.";
+      const msg = err?.message || "Failed to grant reward";
       setError(msg);
 
       pvUiHook("pos.reward.submit_failed.ui", {
@@ -161,11 +170,6 @@ export default function PosGrantReward() {
         ms: Date.now() - started,
         error: msg,
       });
-
-      try {
-        inputRef.current?.focus();
-        inputRef.current?.select();
-      } catch {}
     } finally {
       setBusy(false);
     }
@@ -173,9 +177,9 @@ export default function PosGrantReward() {
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
         <Link to="/merchant/pos" style={styles.pill}>
-          ← POS Dashboard
+          {"< POS Dashboard"}
         </Link>
         <Link to="/merchant/pos/visit" style={styles.pill}>
           Register Visit
@@ -189,41 +193,40 @@ export default function PosGrantReward() {
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
         <input
-          ref={inputRef}
           value={identifier}
           onChange={(e) => setIdentifier(e.target.value)}
           placeholder="Phone / Email / Token"
           inputMode="text"
-          autoComplete="off"
           style={styles.input}
         />
 
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button disabled={busy} type="submit" style={styles.primaryBtn}>
-            {busy ? "Working..." : "Grant"}
-          </button>
-
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setIdentifier("");
-              setError("");
-              setResult(null);
-              try {
-                inputRef.current?.focus();
-              } catch {}
-            }}
-            style={styles.secondaryBtn}
-          >
-            Clear
-          </button>
-        </div>
+        <button disabled={busy} type="submit" style={styles.primaryBtn}>
+          {busy ? "Working..." : "Grant"}
+        </button>
       </form>
 
       {error ? <div style={styles.errorBox}>{error}</div> : null}
+      {successMsg ? <div style={styles.successBox}>{successMsg}</div> : null}
 
-      {result ? <pre style={styles.pre}>{JSON.stringify(result, null, 2)}</pre> : null}
+      {/* DEV-only, opt-in debug payload view (hidden by default). */}
+      {debugEnabled && result ? (
+        <div style={styles.debugWrap}>
+          <button
+            type="button"
+            onClick={() => setDebugOpen((v) => !v)}
+            style={styles.debugBtn}
+            aria-expanded={debugOpen ? "true" : "false"}
+          >
+            {debugOpen ? "Hide debug details" : "Show debug details"}
+          </button>
+
+          {debugOpen ? <pre style={styles.pre}>{JSON.stringify(result, null, 2)}</pre> : null}
+
+          <div style={styles.debugHint}>
+            Debug is enabled because <code>localStorage.PV_UI_DEBUG</code> is set to <code>"1"</code> (DEV only).
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -252,14 +255,6 @@ const styles = {
     fontWeight: 800,
     width: 180,
   },
-  secondaryBtn: {
-    padding: 12,
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
-  },
   errorBox: {
     marginTop: 12,
     padding: 12,
@@ -267,6 +262,35 @@ const styles = {
     color: "red",
     border: "1px solid rgba(255,0,0,0.18)",
     background: "rgba(255,0,0,0.04)",
+  },
+  successBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid rgba(0,150,0,0.18)",
+    background: "rgba(0,150,0,0.06)",
+    fontWeight: 800,
+  },
+  debugWrap: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    border: "1px dashed rgba(0,0,0,0.25)",
+    background: "rgba(0,0,0,0.02)",
+  },
+  debugBtn: {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  debugHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "rgba(0,0,0,0.55)",
+    lineHeight: 1.35,
   },
   pre: {
     marginTop: 12,
