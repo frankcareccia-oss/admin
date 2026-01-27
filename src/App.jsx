@@ -42,6 +42,11 @@ import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import ChangePassword from "./pages/Auth/ChangePassword";
 
+// POS pages (POS-7)
+import MerchantPos from "./pages/MerchantPos";
+import PosRegisterVisit from "./pages/PosRegisterVisit";
+import PosGrantReward from "./pages/PosGrantReward";
+
 import { logout, getAccessToken } from "./api/client";
 
 /**
@@ -70,6 +75,11 @@ function getLanding() {
   return localStorage.getItem("perkvalet_landing") || "";
 }
 
+// POS hint set at login-time (we'll wire this in Login.jsx next if needed)
+function isPosHint() {
+  return localStorage.getItem("perkvalet_is_pos") === "1";
+}
+
 function computeHome() {
   const authed = Boolean(getAccessToken());
   if (!authed) return "/login";
@@ -78,7 +88,14 @@ function computeHome() {
   if (landing) return landing;
 
   const role = getSystemRole();
+
+  // pv_admin → Admin console
   if (role === "pv_admin") return "/merchants";
+
+  // POS associates → POS dashboard (if hint is present)
+  if (isPosHint()) return "/merchant/pos";
+
+  // default merchant
   return "/merchant";
 }
 
@@ -135,6 +152,7 @@ function Layout({ children }) {
     await logout();
     localStorage.removeItem("perkvalet_system_role");
     localStorage.removeItem("perkvalet_landing");
+    localStorage.removeItem("perkvalet_is_pos");
 
     pvUiHook("app.layout.logout_completed.ui", {
       tc: "TC-APP-UI-11",
@@ -145,10 +163,7 @@ function Layout({ children }) {
     navigate("/login", { replace: true, state: { from: location } });
   }
 
-  // Public pay pages should look like public pages:
-  // - no sticky header
-  // - no admin/merchant chrome
-  // - still scroll correctly
+  // Public pay pages should look like public pages
   if (onPublicPay) {
     return (
       <div style={{ minHeight: "100vh" }}>
@@ -157,7 +172,6 @@ function Layout({ children }) {
     );
   }
 
-  // App shell: sticky header + scrollable main (ensures right-side scrollbar is visible & consistent)
   return (
     <div
       style={{
@@ -218,7 +232,13 @@ function Layout({ children }) {
                   <NavLink
                     to="/merchants"
                     style={navPill}
-                    onClick={() => pvUiHook("app.layout.nav_merchants_clicked.ui", { tc: "TC-APP-UI-22", sev: "info", stable: "app:nav" })}
+                    onClick={() =>
+                      pvUiHook("app.layout.nav_merchants_clicked.ui", {
+                        tc: "TC-APP-UI-22",
+                        sev: "info",
+                        stable: "app:nav",
+                      })
+                    }
                   >
                     Merchants
                   </NavLink>
@@ -226,7 +246,13 @@ function Layout({ children }) {
                   <NavLink
                     to="/admin/billing-policy"
                     style={navPill}
-                    onClick={() => pvUiHook("app.layout.nav_billing_policy_clicked.ui", { tc: "TC-APP-UI-23", sev: "info", stable: "app:nav" })}
+                    onClick={() =>
+                      pvUiHook("app.layout.nav_billing_policy_clicked.ui", {
+                        tc: "TC-APP-UI-23",
+                        sev: "info",
+                        stable: "app:nav",
+                      })
+                    }
                   >
                     Billing Policy
                   </NavLink>
@@ -234,7 +260,13 @@ function Layout({ children }) {
                   <NavLink
                     to="/admin/invoices"
                     style={navPill}
-                    onClick={() => pvUiHook("app.layout.nav_admin_invoices_clicked.ui", { tc: "TC-APP-UI-24", sev: "info", stable: "app:nav" })}
+                    onClick={() =>
+                      pvUiHook("app.layout.nav_admin_invoices_clicked.ui", {
+                        tc: "TC-APP-UI-24",
+                        sev: "info",
+                        stable: "app:nav",
+                      })
+                    }
                   >
                     Invoices (All)
                   </NavLink>
@@ -242,7 +274,13 @@ function Layout({ children }) {
                   <NavLink
                     to="/settings/admin-key"
                     style={navPill}
-                    onClick={() => pvUiHook("app.layout.nav_admin_key_clicked.ui", { tc: "TC-APP-UI-25", sev: "info", stable: "app:nav" })}
+                    onClick={() =>
+                      pvUiHook("app.layout.nav_admin_key_clicked.ui", {
+                        tc: "TC-APP-UI-25",
+                        sev: "info",
+                        stable: "app:nav",
+                      })
+                    }
                   >
                     Admin Key
                   </NavLink>
@@ -252,7 +290,13 @@ function Layout({ children }) {
                   <NavLink
                     to="/merchant"
                     style={navPill}
-                    onClick={() => pvUiHook("app.layout.nav_my_stores_clicked.ui", { tc: "TC-APP-UI-26", sev: "info", stable: "app:nav" })}
+                    onClick={() =>
+                      pvUiHook("app.layout.nav_my_stores_clicked.ui", {
+                        tc: "TC-APP-UI-26",
+                        sev: "info",
+                        stable: "app:nav",
+                      })
+                    }
                   >
                     My Stores
                   </NavLink>
@@ -260,7 +304,13 @@ function Layout({ children }) {
                   <NavLink
                     to="/merchant/invoices"
                     style={navPill}
-                    onClick={() => pvUiHook("app.layout.nav_merchant_invoices_clicked.ui", { tc: "TC-APP-UI-27", sev: "info", stable: "app:nav" })}
+                    onClick={() =>
+                      pvUiHook("app.layout.nav_merchant_invoices_clicked.ui", {
+                        tc: "TC-APP-UI-27",
+                        sev: "info",
+                        stable: "app:nav",
+                      })
+                    }
                   >
                     Invoices
                   </NavLink>
@@ -270,7 +320,13 @@ function Layout({ children }) {
               <NavLink
                 to="/account/change-password"
                 style={navPill}
-                onClick={() => pvUiHook("app.layout.nav_account_clicked.ui", { tc: "TC-APP-UI-28", sev: "info", stable: "app:nav" })}
+                onClick={() =>
+                  pvUiHook("app.layout.nav_account_clicked.ui", {
+                    tc: "TC-APP-UI-28",
+                    sev: "info",
+                    stable: "app:nav",
+                  })
+                }
               >
                 Account
               </NavLink>
@@ -314,9 +370,7 @@ export default function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          {/* -----------------------------
-              Public (no auth)
-          -------------------------------- */}
+          {/* Public */}
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
@@ -328,9 +382,7 @@ export default function App() {
           {/* Default */}
           <Route path="/" element={<Navigate to={authed ? computeHome() : "/login"} replace />} />
 
-          {/* -----------------------------
-              Account (all logged-in users)
-          -------------------------------- */}
+          {/* Account */}
           <Route
             path="/account/change-password"
             element={
@@ -340,9 +392,7 @@ export default function App() {
             }
           />
 
-          {/* -----------------------------
-              PV Admin routes (pv_admin)
-          -------------------------------- */}
+          {/* PV Admin */}
           <Route
             path="/settings/admin-key"
             element={
@@ -433,14 +483,12 @@ export default function App() {
             }
           />
 
-          {/* -----------------------------
-              Merchant routes (merchant)
-          -------------------------------- */}
+          {/* Merchant */}
           <Route
             path="/merchant"
             element={
               <RequireAuth requiredRole="merchant">
-                <MerchantStores />
+                {isPosHint() ? <Navigate to="/merchant/pos" replace /> : <MerchantStores />}
               </RequireAuth>
             }
           />
@@ -468,6 +516,34 @@ export default function App() {
             element={
               <RequireAuth requiredRole="merchant">
                 <MerchantInvoiceDetail />
+              </RequireAuth>
+            }
+          />
+
+          {/* POS */}
+          <Route
+            path="/merchant/pos"
+            element={
+              <RequireAuth requiredRole="merchant">
+                <MerchantPos />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/pos/visit"
+            element={
+              <RequireAuth requiredRole="merchant">
+                <PosRegisterVisit />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/pos/reward"
+            element={
+              <RequireAuth requiredRole="merchant">
+                <PosGrantReward />
               </RequireAuth>
             }
           />
