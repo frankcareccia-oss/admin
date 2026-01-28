@@ -36,30 +36,26 @@ function buildPosHeaders() {
   };
 }
 
-function classifyIdentifier(raw) {
-  const v = String(raw || "").trim();
-  const digits = v.replace(/[^\d]/g, "");
-  const looksPhone = digits.length >= 10 && digits.length <= 15 && v.indexOf("@") === -1;
-  const looksEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  return { kind: looksEmail ? "email" : looksPhone ? "phone" : "token", digits };
+function onlyDigits(s) {
+  return String(s || "").replace(/[^\d]/g, "");
 }
 
-function maskIdentifier(raw) {
-  const v = String(raw || "").trim();
-  const { kind, digits } = classifyIdentifier(v);
+function looksEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
+}
 
-  if (kind === "email") {
-    const [u, d] = v.split("@");
-    const uMasked = u ? `${u.slice(0, 2)}***` : "***";
-    return `${uMasked}@${d || "***"}`;
-  }
+function maskPhoneDigits(digits) {
+  const d = onlyDigits(digits);
+  const last4 = d.slice(-4);
+  return `***-***-${last4 || "****"}`;
+}
 
-  if (kind === "phone") {
-    const last4 = digits.slice(-4);
-    return `***-***-${last4 || "****"}`;
-  }
-
-  return v.length <= 6 ? "***" : `${v.slice(0, 3)}***${v.slice(-2)}`;
+function maskEmail(email) {
+  const v = String(email || "").trim();
+  if (!v.includes("@")) return "***@***";
+  const [u, d] = v.split("@");
+  const uMasked = u ? `${u.slice(0, 2)}***` : "***";
+  return `${uMasked}@${d || "***"}`;
 }
 
 function isUiDebugEnabled() {
@@ -90,36 +86,67 @@ function friendlyError(res, data) {
   );
 }
 
-function validateIdentifier(raw) {
+function validatePhone(raw) {
+  const digits = onlyDigits(raw);
+  if (!raw) return { ok: false, reason: "Phone is empty." };
+  if (/[A-Za-z]/.test(String(raw))) {
+    return { ok: false, reason: "Phone cannot contain letters." };
+  }
+  if (digits.length < 10 || digits.length > 15) {
+    return { ok: false, reason: "Phone should be 10–15 digits (you can include dashes/spaces)." };
+  }
+  return { ok: true, digits, note: `Phone detected (${digits.length} digits).` };
+}
+
+function validateEmail(raw) {
   const v = String(raw || "").trim();
-  if (!v) return { ok: false, reason: "Customer identifier is required." };
+  if (!v) return { ok: false, reason: "Email is empty." };
+  if (!looksEmail(v)) return { ok: false, reason: "Email format looks invalid." };
+  return { ok: true, email: v.toLowerCase(), note: "Email detected." };
+}
 
-  const { kind, digits } = classifyIdentifier(v);
+function computeChoice(phoneRaw, emailRaw) {
+  const phone = String(phoneRaw || "");
+  const email = String(emailRaw || "").trim();
 
-  if (kind === "email") {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-      return { ok: false, kind, reason: "Email format looks invalid." };
-    }
-    return { ok: true, kind, normalized: v.toLowerCase(), note: "Email detected." };
+  const phoneHas = phone.trim().length > 0;
+  const emailHas = email.length > 0;
+
+  if (!phoneHas && !emailHas) {
+    return { ok: false, kind: "none", reason: "Enter a phone OR an email." };
+  }
+  if (phoneHas && emailHas) {
+    return { ok: false, kind: "both", reason: "Choose phone OR email (not both)." };
   }
 
-  if (kind === "phone") {
-    if (digits.length < 10 || digits.length > 15) {
-      return { ok: false, kind, reason: "Phone should be 10–15 digits (you can include dashes/spaces)." };
-    }
-    return { ok: true, kind, normalized: digits, note: `Phone detected (${digits.length} digits).` };
+  if (phoneHas) {
+    const v = validatePhone(phone);
+    if (!v.ok) return { ok: false, kind: "phone", reason: v.reason };
+    return {
+      ok: true,
+      kind: "phone",
+      identifier: v.digits,
+      masked: maskPhoneDigits(v.digits),
+      note: v.note,
+    };
   }
 
-  if (/\s/.test(v)) return { ok: false, kind, reason: "Token cannot contain spaces." };
-  if (v.length < 6) return { ok: false, kind, reason: "Token looks too short (min 6 characters)." };
-  if (!/^[A-Za-z0-9._:-]+$/.test(v)) return { ok: false, kind, reason: "Token contains unsupported characters." };
-  return { ok: true, kind, normalized: v, note: "Token detected." };
+  const v = validateEmail(email);
+  if (!v.ok) return { ok: false, kind: "email", reason: v.reason };
+  return {
+    ok: true,
+    kind: "email",
+    identifier: v.email,
+    masked: maskEmail(v.email),
+    note: v.note,
+  };
 }
 
 export default function PosGrantReward() {
   const debugEnabled = isUiDebugEnabled();
 
-  const [identifier, setIdentifier] = React.useState("");
+  const [phone, setPhone] = React.useState("");
+  const [email, setEmail] = React.useState("");
   const [touched, setTouched] = React.useState(false);
 
   const [busy, setBusy] = React.useState(false);
@@ -130,7 +157,7 @@ export default function PosGrantReward() {
 
   const inFlightRef = React.useRef(false);
 
-  const validation = React.useMemo(() => validateIdentifier(identifier), [identifier]);
+  const choice = React.useMemo(() => computeChoice(phone, email), [phone, email]);
 
   React.useEffect(() => {
     pvUiHook("pos.reward.page_loaded.ui", {
@@ -140,11 +167,25 @@ export default function PosGrantReward() {
     });
   }, []);
 
+  function onChangePhone(v) {
+    setPhone(v);
+    if (String(v || "").trim().length > 0) setEmail("");
+    setError("");
+    setSuccessMsg("");
+  }
+
+  function onChangeEmail(v) {
+    setEmail(v);
+    if (String(v || "").trim().length > 0) setPhone("");
+    setError("");
+    setSuccessMsg("");
+  }
+
   async function onSubmit(e) {
     e.preventDefault();
     setTouched(true);
 
-    if (!validation.ok) return;
+    if (!choice.ok) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
@@ -155,15 +196,12 @@ export default function PosGrantReward() {
     setSuccessMsg("");
     setDebugOpen(false);
 
-    const v = String(identifier || "").trim();
-    const { kind } = classifyIdentifier(v);
-
     pvUiHook("pos.reward.submit_clicked.ui", {
       tc: "TC-POS-REWARD-UI-02",
       sev: "info",
       stable: "pos:reward",
-      identifierKind: kind,
-      identifierMasked: maskIdentifier(v),
+      identifierKind: choice.kind,
+      identifierMasked: choice.masked,
     });
 
     try {
@@ -177,7 +215,7 @@ export default function PosGrantReward() {
           Authorization: `Bearer ${token}`,
           ...buildPosHeaders(),
         },
-        body: JSON.stringify({ identifier: v }),
+        body: JSON.stringify({ identifier: choice.identifier }),
       });
 
       let data = null;
@@ -188,14 +226,14 @@ export default function PosGrantReward() {
       if (!res.ok) throw new Error(friendlyError(res, data));
 
       setResult(data);
-      setSuccessMsg(`OK — Reward granted. (${maskIdentifier(v)})`);
+      setSuccessMsg(`OK — Reward granted. (${choice.masked})`);
 
       pvUiHook("pos.reward.submit_succeeded.ui", {
         tc: "TC-POS-REWARD-UI-03",
         sev: "info",
         stable: "pos:reward",
-        identifierKind: kind,
-        identifierMasked: maskIdentifier(v),
+        identifierKind: choice.kind,
+        identifierMasked: choice.masked,
         ms: Date.now() - started,
       });
     } catch (err) {
@@ -206,8 +244,8 @@ export default function PosGrantReward() {
         tc: "TC-POS-REWARD-UI-04",
         sev: "warn",
         stable: "pos:reward",
-        identifierKind: kind,
-        identifierMasked: maskIdentifier(v),
+        identifierKind: choice.kind,
+        identifierMasked: choice.masked,
         ms: Date.now() - started,
         error: msg,
       });
@@ -217,7 +255,7 @@ export default function PosGrantReward() {
     }
   }
 
-  const showInlineProblem = touched && !validation.ok;
+  const showInlineProblem = touched && !choice.ok;
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -232,57 +270,81 @@ export default function PosGrantReward() {
 
       <h2>Grant Reward</h2>
       <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>
-        Enter a customer identifier (phone, email, or scan token).
+        Enter a customer phone <b>or</b> email.
       </div>
 
       <div style={styles.hintBox}>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Accepted formats</div>
         <ul style={styles.hintList}>
-          <li><b>Phone</b>: (408) 205-4684, 4082054684, +1 408 205 4684</li>
-          <li><b>Email</b>: name@example.com</li>
-          <li><b>Token</b>: scanned code (letters/numbers, no spaces)</li>
+          <li>
+            <b>Phone</b>: (408) 205-4684, 4082054684, +1 408 205 4684
+          </li>
+          <li>
+            <b>Email</b>: name@example.com
+          </li>
         </ul>
       </div>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <input
-          value={identifier}
-          onChange={(e) => {
-            setIdentifier(e.target.value);
-            setError("");
-            setSuccessMsg("");
-          }}
-          onBlur={() => setTouched(true)}
-          placeholder="Phone / Email / Token"
-          inputMode="text"
-          autoComplete="off"
-          style={styles.input}
-        />
+        <label style={{ display: "grid", gap: 6 }}>
+          <div style={styles.label}>Phone</div>
+          <input
+            value={phone}
+            onChange={(e) => onChangePhone(e.target.value)}
+            onBlur={() => setTouched(true)}
+            placeholder="(408) 205-4684"
+            inputMode="tel"
+            autoComplete="off"
+            disabled={busy}
+            style={styles.input}
+          />
+          <div style={styles.hintSmall}>Digits only are sent to the server. Letters are rejected.</div>
+        </label>
+
+        <div style={styles.orRow}>
+          <div style={styles.orLine} />
+          <div style={styles.orText}>OR</div>
+          <div style={styles.orLine} />
+        </div>
+
+        <label style={{ display: "grid", gap: 6 }}>
+          <div style={styles.label}>Email</div>
+          <input
+            value={email}
+            onChange={(e) => onChangeEmail(e.target.value)}
+            onBlur={() => setTouched(true)}
+            placeholder="name@example.com"
+            inputMode="email"
+            autoComplete="off"
+            disabled={busy}
+            style={styles.input}
+          />
+          <div style={styles.hintSmall}>Email is lowercased before sending.</div>
+        </label>
 
         <div style={styles.inlineMetaRow}>
           <div style={styles.detectPill}>
-            Detected: <span style={{ fontWeight: 900 }}>{String(validation.kind || "—").toUpperCase()}</span>
-            {validation.ok ? (
-              <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>
-                ✓ valid
-              </span>
+            Detected:{" "}
+            <span style={{ fontWeight: 900 }}>
+              {choice.kind === "none" ? "—" : String(choice.kind || "—").toUpperCase()}
+            </span>
+            {choice.ok ? (
+              <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>✓ valid</span>
             ) : (
-              <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>
-                ✕ needs attention
-              </span>
+              <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>✕ needs attention</span>
             )}
           </div>
 
-          {validation.ok ? (
+          {choice.ok ? (
             <div style={styles.metaNote}>
-              {validation.note} (masked: <b>{maskIdentifier(identifier)}</b>)
+              {choice.note} (masked: <b>{choice.masked}</b>)
             </div>
           ) : (
-            <div style={styles.metaNote}>{showInlineProblem ? validation.reason : " "}</div>
+            <div style={styles.metaNote}>{showInlineProblem ? choice.reason : " "}</div>
           )}
         </div>
 
-        <button disabled={busy || !validation.ok} type="submit" style={styles.primaryBtn}>
+        <button disabled={busy || !choice.ok} type="submit" style={styles.primaryBtn}>
           {busy ? "Working..." : "Grant"}
         </button>
       </form>
@@ -334,14 +396,25 @@ const styles = {
     fontWeight: 700,
     lineHeight: 1.35,
   },
+  label: { fontSize: 13, color: "rgba(0,0,0,0.7)", fontWeight: 900 },
+  hintSmall: { fontSize: 12, color: "rgba(0,0,0,0.55)", fontWeight: 700 },
   input: {
     padding: 12,
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.22)",
   },
+  orRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto 1fr",
+    alignItems: "center",
+    gap: 10,
+    margin: "6px 0",
+  },
+  orLine: { height: 1, background: "rgba(0,0,0,0.12)" },
+  orText: { fontWeight: 900, color: "rgba(0,0,0,0.55)", fontSize: 12 },
   inlineMetaRow: {
     display: "grid",
-    gridTemplateColumns: "220px 1fr",
+    gridTemplateColumns: "240px 1fr",
     gap: 10,
     alignItems: "center",
   },
