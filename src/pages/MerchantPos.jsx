@@ -1,6 +1,6 @@
 // admin/src/pages/MerchantPos.jsx
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { clearAccessToken, posGetTodayStats, posGetRecentActivity } from "../api/client";
 
 /**
@@ -38,6 +38,12 @@ const LS_POS_AUTHED_STORE_ID = "perkvalet_pos_authed_store_id";
 const LS_POS_AUTHED_TERMINAL_ID = "perkvalet_pos_authed_terminal_id";
 const LS_POS_AUTHED_MERCHANT_ID = "perkvalet_pos_authed_merchant_id";
 
+// Optional cross-page hint (not required): other pages MAY set this to "1" before navigating back
+const SS_POS_DASH_NEEDS_REFRESH = "perkvalet_pos_dash_needs_refresh";
+
+// Route constant
+const POS_DASH_PATH = "/merchant/pos";
+
 function readStr(key) {
   return String(localStorage.getItem(key) || "").trim();
 }
@@ -71,8 +77,25 @@ function formatLocal(ts) {
   }
 }
 
+function readDashNeedsRefresh() {
+  try {
+    return String(sessionStorage.getItem(SS_POS_DASH_NEEDS_REFRESH) || "") === "1";
+  } catch {
+    return false;
+  }
+}
+
+function clearDashNeedsRefresh() {
+  try {
+    sessionStorage.removeItem(SS_POS_DASH_NEEDS_REFRESH);
+  } catch {
+    // ignore
+  }
+}
+
 export default function MerchantPos() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [prov, setProv] = React.useState(() => readProvisioning());
 
@@ -91,6 +114,10 @@ export default function MerchantPos() {
     fetchedAt: null,
   });
 
+  // Auto-refresh guards
+  const initialLoadDoneRef = React.useRef(false);
+  const lastAutoRefreshAtRef = React.useRef(0);
+
   React.useEffect(() => {
     pvUiHook("pos.dashboard.page_loaded.ui", {
       tc: "TC-POS-DASH-UI-01",
@@ -103,9 +130,43 @@ export default function MerchantPos() {
 
     // Load stats on entry (best-effort)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    refreshAll();
+    refreshAll({ reason: "initial_mount" }).finally(() => {
+      initialLoadDoneRef.current = true;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // If this page is NOT unmounted when navigating (nested routing), this catches "return to dashboard".
+  React.useEffect(() => {
+    if (location?.pathname !== POS_DASH_PATH) return;
+
+    // Avoid double-refresh immediately on first mount.
+    if (!initialLoadDoneRef.current) return;
+
+    // If other pages opted-in (sessionStorage flag), always refresh once.
+    const flagged = readDashNeedsRefresh();
+
+    // Otherwise do a conservative "route return" refresh with cooldown.
+    const now = Date.now();
+    const cooldownMs = 2000; // prevent accidental double calls (HMR / double effects / rapid nav)
+    const recentlyAutoRefreshed = now - lastAutoRefreshAtRef.current < cooldownMs;
+
+    if (flagged || !recentlyAutoRefreshed) {
+      if (flagged) clearDashNeedsRefresh();
+      lastAutoRefreshAtRef.current = now;
+
+      pvUiHook("pos.dashboard.auto_refresh_on_return.ui", {
+        tc: "TC-POS-DASH-UI-05",
+        sev: "info",
+        stable: "pos:dash",
+        reason: flagged ? "flagged_return" : "route_return",
+        path: location?.pathname || null,
+      });
+
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      refreshAll({ reason: flagged ? "flagged_return" : "route_return" });
+    }
+  }, [location?.pathname]);
 
   function refreshTerminalOnly() {
     const p = readProvisioning();
@@ -122,14 +183,11 @@ export default function MerchantPos() {
 
   function normalizeTodayResponse(t) {
     // Prefer backend shape: { ok:true, today:{ visitsCount, rewardsCount, lastUpdatedAt } }
-    const visitsCount =
-      t?.today?.visitsCount ?? t?.visitsCount ?? t?.visits ?? 0;
+    const visitsCount = t?.today?.visitsCount ?? t?.visitsCount ?? t?.visits ?? 0;
 
-    const rewardsCount =
-      t?.today?.rewardsCount ?? t?.rewardsCount ?? t?.rewards ?? 0;
+    const rewardsCount = t?.today?.rewardsCount ?? t?.rewardsCount ?? t?.rewards ?? 0;
 
-    const lastUpdatedAt =
-      t?.today?.lastUpdatedAt ?? t?.lastUpdatedAt ?? t?.updatedAt ?? null;
+    const lastUpdatedAt = t?.today?.lastUpdatedAt ?? t?.lastUpdatedAt ?? t?.updatedAt ?? null;
 
     return {
       visits: Number(visitsCount || 0),
@@ -146,7 +204,8 @@ export default function MerchantPos() {
     };
   }
 
-  async function refreshAll() {
+  async function refreshAll(opts = {}) {
+    const reason = String(opts?.reason || "manual_refresh");
     const p = readProvisioning();
     setProv(p);
     setError("");
@@ -158,6 +217,7 @@ export default function MerchantPos() {
       stable: "pos:dash",
       storeId: p.storeId || null,
       terminalIdPresent: Boolean(p.terminalId),
+      reason,
     });
 
     try {
@@ -194,6 +254,7 @@ export default function MerchantPos() {
         visits: t.visits,
         rewards: t.rewards,
         recentCount: r.items.length,
+        reason,
       });
     } catch (e) {
       const msg = e?.message || String(e) || "Failed to refresh";
@@ -204,6 +265,7 @@ export default function MerchantPos() {
         sev: "warn",
         stable: "pos:dash",
         error: msg,
+        reason,
       });
     } finally {
       setBusy(false);
@@ -270,7 +332,7 @@ export default function MerchantPos() {
       </div>
 
       <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button onClick={refreshAll} disabled={busy} style={styles.secondaryBtn}>
+        <button onClick={() => refreshAll({ reason: "manual_click" })} disabled={busy} style={styles.secondaryBtn}>
           {busy ? "Refreshing..." : "Refresh"}
         </button>
 
@@ -324,14 +386,10 @@ export default function MerchantPos() {
             {today.updatedAt || today.fetchedAt ? (
               <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
                 {today.updatedAt ? (
-                  <div style={styles.metaLine}>
-                    Updated (local): {formatLocal(today.updatedAt)}
-                  </div>
+                  <div style={styles.metaLine}>Updated (local): {formatLocal(today.updatedAt)}</div>
                 ) : null}
                 {today.fetchedAt ? (
-                  <div style={styles.metaLine}>
-                    Refreshed (local): {formatLocal(today.fetchedAt)}
-                  </div>
+                  <div style={styles.metaLine}>Refreshed (local): {formatLocal(today.fetchedAt)}</div>
                 ) : null}
               </div>
             ) : (

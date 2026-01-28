@@ -119,12 +119,14 @@ export default function PosRegisterVisit() {
   const [debugOpen, setDebugOpen] = React.useState(false);
 
   const inFlightRef = React.useRef(false);
+  const phoneInputRef = React.useRef(null);
 
   const phoneV = React.useMemo(() => validatePhone(phone), [phone]);
   const emailV = React.useMemo(() => validateEmail(email), [email]);
 
   const phoneHasValue = String(phone || "").trim().length > 0;
   const emailHasValue = String(email || "").trim().length > 0;
+  const hasAnyValue = phoneHasValue || emailHasValue;
 
   const phoneValid = phoneHasValue && phoneV.ok;
   const emailValid = emailHasValue && emailV.ok;
@@ -132,11 +134,12 @@ export default function PosRegisterVisit() {
   const bothPresent = phoneHasValue && emailHasValue;
   const bothValid = phoneValid && emailValid;
 
-  // Determine what we're submitting (and whether we can submit)
   function resolveSubmission() {
     // If both valid, honor user selection
     if (bothValid) {
-      if (useKind === "phone") return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
+      if (useKind === "phone") {
+        return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
+      }
       return { kind: "email", identifier: emailV.normalized, masked: maskEmail(emailV.normalized) };
     }
 
@@ -144,7 +147,6 @@ export default function PosRegisterVisit() {
     if (phoneValid) return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
     if (emailValid) return { kind: "email", identifier: emailV.normalized, masked: maskEmail(emailV.normalized) };
 
-    // Neither valid (or both empty)
     return null;
   }
 
@@ -157,7 +159,35 @@ export default function PosRegisterVisit() {
       sev: "info",
       stable: "pos:visit",
     });
+
+    // UX: focus phone on initial load for rapid entry
+    try {
+      setTimeout(() => phoneInputRef.current?.focus?.(), 0);
+    } catch {}
   }, []);
+
+  function clearInputsAfterSubmit(submittedKind) {
+    // Clear both so operator can quickly move to next customer without leftovers.
+    setPhone("");
+    setEmail("");
+    setUseKind("phone");
+    setTouchedPhone(false);
+    setTouchedEmail(false);
+
+    pvUiHook("pos.visit.inputs_cleared.ui", {
+      tc: "TC-POS-VISIT-UI-05",
+      sev: "info",
+      stable: "pos:visit",
+      submittedKind,
+      clearedPhone: true,
+      clearedEmail: true,
+    });
+
+    // Put focus back to phone for rapid entry
+    try {
+      setTimeout(() => phoneInputRef.current?.focus?.(), 0);
+    } catch {}
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -221,6 +251,8 @@ export default function PosRegisterVisit() {
         identifierMasked: submission.masked,
         ms: Date.now() - started,
       });
+
+      clearInputsAfterSubmit(submission.kind);
     } catch (err) {
       const msg = err?.message || "Failed to register visit";
       setError(msg);
@@ -229,8 +261,8 @@ export default function PosRegisterVisit() {
         tc: "TC-POS-VISIT-UI-04",
         sev: "warn",
         stable: "pos:visit",
-        identifierKind: submission.kind,
-        identifierMasked: submission.masked,
+        identifierKind: submission?.kind,
+        identifierMasked: submission?.masked,
         ms: Date.now() - started,
         error: msg,
       });
@@ -244,8 +276,14 @@ export default function PosRegisterVisit() {
   const phoneInlineErr = touchedPhone && phoneHasValue && !phoneV.ok ? phoneV.reason : "";
   const emailInlineErr = touchedEmail && emailHasValue && !emailV.ok ? emailV.reason : "";
 
+  // Detection display:
+  // - If nothing entered: neutral "—" (no red X)
+  // - If something entered but invalid: show "needs attention" (red)
+  // - If valid submission exists: show "valid" (green)
   const detectedKindLabel = submission ? submission.kind.toUpperCase() : "—";
-  const detectedOk = Boolean(submission);
+  const showNeutral = !hasAnyValue;
+  const showNeedsAttention = hasAnyValue && !submission;
+  const showValid = Boolean(submission);
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -277,6 +315,7 @@ export default function PosRegisterVisit() {
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ fontWeight: 900 }}>Phone</div>
           <input
+            ref={phoneInputRef}
             value={phone}
             onChange={(e) => {
               setPhone(e.target.value);
@@ -320,24 +359,14 @@ export default function PosRegisterVisit() {
           <div style={styles.selectorBox}>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>Both are valid — which should we use?</div>
             <label style={styles.radioRow}>
-              <input
-                type="radio"
-                name="useKind"
-                checked={useKind === "phone"}
-                onChange={() => setUseKind("phone")}
-              />
+              <input type="radio" name="useKind" checked={useKind === "phone"} onChange={() => setUseKind("phone")} />
               <span style={{ fontWeight: 900 }}>Use phone</span>
               <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
                 ({maskPhoneDigits(phoneV.normalized)})
               </span>
             </label>
             <label style={styles.radioRow}>
-              <input
-                type="radio"
-                name="useKind"
-                checked={useKind === "email"}
-                onChange={() => setUseKind("email")}
-              />
+              <input type="radio" name="useKind" checked={useKind === "email"} onChange={() => setUseKind("email")} />
               <span style={{ fontWeight: 900 }}>Use email</span>
               <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
                 ({maskEmail(emailV.normalized)})
@@ -349,16 +378,21 @@ export default function PosRegisterVisit() {
         <div style={styles.inlineMetaRow}>
           <div style={styles.detectPill}>
             Detected: <span style={{ fontWeight: 900 }}>{detectedKindLabel}</span>
-            {detectedOk ? (
+            {showValid ? (
               <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>✓ valid</span>
-            ) : (
+            ) : showNeedsAttention ? (
               <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>✕ needs attention</span>
+            ) : (
+              <span style={{ marginLeft: 8, color: "rgba(0,0,0,0.45)", fontWeight: 900 }}>ready</span>
             )}
           </div>
+
           <div style={styles.metaNote}>
             {submission
               ? `${submission.kind === "phone" ? phoneV.note : emailV.note} (masked: ${submission.masked})`
-              : "Enter a valid phone or email."}
+              : showNeutral
+              ? "Enter a valid phone or email."
+              : "Fix the invalid value (or clear it) to continue."}
           </div>
         </div>
 
@@ -480,15 +514,18 @@ const styles = {
     fontWeight: 800,
     whiteSpace: "pre-wrap",
   },
+
+  // Stronger green success banner
   successBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid rgba(0,150,0,0.18)",
-    background: "rgba(0,150,0,0.06)",
-    fontWeight: 800,
-    whiteSpace: "pre-wrap",
-  },
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 12,
+  border: "1px solid rgba(0,140,0,0.40)",
+  background: "rgba(0,170,0,0.14)",
+  color: "rgba(0,85,0,0.95)",
+  fontWeight: 900,
+  whiteSpace: "pre-wrap",
+},
   debugWrap: {
     marginTop: 12,
     padding: 12,

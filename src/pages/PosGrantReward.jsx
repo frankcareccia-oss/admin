@@ -15,6 +15,22 @@ function pvUiHook(event, fields = {}) {
   } catch {}
 }
 
+const LS_POS_NEEDS_REFRESH = "perkvalet_pos_needs_refresh";
+const LS_POS_LAST_ACTION = "perkvalet_pos_last_action";
+
+function markDashboardNeedsRefresh(payload) {
+  try {
+    localStorage.setItem(LS_POS_NEEDS_REFRESH, "1");
+    localStorage.setItem(
+      LS_POS_LAST_ACTION,
+      JSON.stringify({
+        ...payload,
+        at: new Date().toISOString(),
+      })
+    );
+  } catch {}
+}
+
 function apiBase() {
   const v = (import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:3001").trim();
   return v.replace(/\/+$/, "");
@@ -117,6 +133,7 @@ export default function PosGrantReward() {
   const [debugOpen, setDebugOpen] = React.useState(false);
 
   const inFlightRef = React.useRef(false);
+  const phoneInputRef = React.useRef(null);
 
   const phoneV = React.useMemo(() => validatePhone(phone), [phone]);
   const emailV = React.useMemo(() => validateEmail(email), [email]);
@@ -149,7 +166,32 @@ export default function PosGrantReward() {
       sev: "info",
       stable: "pos:reward",
     });
+
+    try {
+      setTimeout(() => phoneInputRef.current?.focus?.(), 0);
+    } catch {}
   }, []);
+
+  function clearInputsAfterSuccess(submittedKind) {
+    setPhone("");
+    setEmail("");
+    setUseKind("phone");
+    setTouchedPhone(false);
+    setTouchedEmail(false);
+
+    try {
+      setTimeout(() => phoneInputRef.current?.focus?.(), 0);
+    } catch {}
+
+    pvUiHook("pos.reward.inputs_cleared.ui", {
+      tc: "TC-POS-REWARD-UI-05",
+      sev: "info",
+      stable: "pos:reward",
+      submittedKind: submittedKind || null,
+      clearedPhone: true,
+      clearedEmail: true,
+    });
+  }
 
   async function onSubmit(e) {
     e.preventDefault();
@@ -213,6 +255,11 @@ export default function PosGrantReward() {
         identifierMasked: submission.masked,
         ms: Date.now() - started,
       });
+
+      // NEW: tell dashboard to refresh next time it's shown
+      markDashboardNeedsRefresh({ type: "reward", identifierMasked: submission.masked });
+
+      clearInputsAfterSuccess(submission.kind);
     } catch (err) {
       const msg = err?.message || "Failed to grant reward";
       setError(msg);
@@ -221,8 +268,8 @@ export default function PosGrantReward() {
         tc: "TC-POS-REWARD-UI-04",
         sev: "warn",
         stable: "pos:reward",
-        identifierKind: submission.kind,
-        identifierMasked: submission.masked,
+        identifierKind: submission?.kind,
+        identifierMasked: submission?.masked,
         ms: Date.now() - started,
         error: msg,
       });
@@ -268,6 +315,7 @@ export default function PosGrantReward() {
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ fontWeight: 900 }}>Phone</div>
           <input
+            ref={phoneInputRef}
             value={phone}
             onChange={(e) => {
               setPhone(e.target.value);
@@ -313,16 +361,12 @@ export default function PosGrantReward() {
             <label style={styles.radioRow}>
               <input type="radio" name="useKind" checked={useKind === "phone"} onChange={() => setUseKind("phone")} />
               <span style={{ fontWeight: 900 }}>Use phone</span>
-              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
-                ({maskPhoneDigits(phoneV.normalized)})
-              </span>
+              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>({maskPhoneDigits(phoneV.normalized)})</span>
             </label>
             <label style={styles.radioRow}>
               <input type="radio" name="useKind" checked={useKind === "email"} onChange={() => setUseKind("email")} />
               <span style={{ fontWeight: 900 }}>Use email</span>
-              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
-                ({maskEmail(emailV.normalized)})
-              </span>
+              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>({maskEmail(emailV.normalized)})</span>
             </label>
           </div>
         ) : null}
@@ -333,7 +377,7 @@ export default function PosGrantReward() {
             {detectedOk ? (
               <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>✓ valid</span>
             ) : (
-              <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>✕ needs attention</span>
+              <span style={{ marginLeft: 8, color: "rgba(0,0,0,0.55)", fontWeight: 900 }}>ready</span>
             )}
           </div>
           <div style={styles.metaNote}>
@@ -353,12 +397,7 @@ export default function PosGrantReward() {
 
       {debugEnabled && result ? (
         <div style={styles.debugWrap}>
-          <button
-            type="button"
-            onClick={() => setDebugOpen((v) => !v)}
-            style={styles.debugBtn}
-            aria-expanded={debugOpen ? "true" : "false"}
-          >
+          <button type="button" onClick={() => setDebugOpen((v) => !v)} style={styles.debugBtn} aria-expanded={debugOpen ? "true" : "false"}>
             {debugOpen ? "Hide debug details" : "Show debug details"}
           </button>
           {debugOpen ? <pre style={styles.pre}>{JSON.stringify(result, null, 2)}</pre> : null}
@@ -461,14 +500,16 @@ const styles = {
     whiteSpace: "pre-wrap",
   },
   successBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid rgba(0,150,0,0.18)",
-    background: "rgba(0,150,0,0.06)",
-    fontWeight: 800,
-    whiteSpace: "pre-wrap",
-  },
+  marginTop: 12,
+  padding: 12,
+  borderRadius: 12,
+  border: "1px solid rgba(0,140,0,0.40)",
+  background: "rgba(0,170,0,0.14)",
+  color: "rgba(0,85,0,0.95)",
+  fontWeight: 900,
+  whiteSpace: "pre-wrap",
+},
+
   debugWrap: {
     marginTop: 12,
     padding: 12,
