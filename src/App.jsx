@@ -42,6 +42,10 @@ import MerchantPos from "./pages/MerchantPos";
 import PosRegisterVisit from "./pages/PosRegisterVisit";
 import PosGrantReward from "./pages/PosGrantReward";
 
+// POS-8A public pages
+import PosProvision from "./pages/PosProvision";
+import PosLogin from "./pages/PosLogin";
+
 // Auth pages
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
@@ -77,6 +81,7 @@ function getLanding() {
 
 function isPosSession() {
   // POS-7: explicit POS flag set during login for pos@perkvalet.host
+  // POS-8A: POS flag set during POS login
   return localStorage.getItem("perkvalet_is_pos") === "1";
 }
 
@@ -293,6 +298,10 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* POS-8A (PUBLIC) — Terminal provisioning + POS login */}
+          <Route path="/pos/provision" element={<PosProvision />} />
+          <Route path="/pos/login" element={<PosLogin />} />
 
           {/* Guest Pay (PUBLIC) */}
           <Route path="/p/:code" element={<GuestPayPage />} />

@@ -58,7 +58,7 @@ export default function Login() {
       localStorage.setItem("perkvalet_system_role", uiRole);
       localStorage.setItem("perkvalet_system_role_raw", apiRole || "");
 
-      // POS-7: deterministic POS landing override (email-based for now)
+      // Legacy POS email-based override (still supported)
       const forcePos = emailNorm === "pos@perkvalet.host";
       if (forcePos) {
         landing = "/merchant/pos";
@@ -66,17 +66,19 @@ export default function Login() {
         localStorage.setItem("perkvalet_landing", landing);
       } else {
         localStorage.removeItem("perkvalet_is_pos");
+        localStorage.removeItem("perkvalet_pos_store_label");
+        localStorage.removeItem("perkvalet_pos_store_id");
+        localStorage.removeItem("perkvalet_pos_assoc_label");
         if (landing) localStorage.setItem("perkvalet_landing", landing);
         else localStorage.removeItem("perkvalet_landing");
       }
 
-      // Choose destination:
-      // - For POS, ignore `from` unless it’s already a POS path
       const safeDefault = landing || (uiRole === "pv_admin" ? "/merchants" : "/merchant");
-      const dest =
-        forcePos
-          ? (String(from || "").startsWith("/merchant/pos") ? from : "/merchant/pos")
-          : (from || safeDefault);
+      const dest = forcePos
+        ? String(from || "").startsWith("/merchant/pos")
+          ? from
+          : "/merchant/pos"
+        : from || safeDefault;
 
       navigate(dest, { replace: true });
     } catch (err) {
@@ -85,6 +87,9 @@ export default function Login() {
       localStorage.removeItem("perkvalet_system_role_raw");
       localStorage.removeItem("perkvalet_landing");
       localStorage.removeItem("perkvalet_is_pos");
+      localStorage.removeItem("perkvalet_pos_store_label");
+      localStorage.removeItem("perkvalet_pos_store_id");
+      localStorage.removeItem("perkvalet_pos_assoc_label");
       setError(err?.message || "Login failed");
     } finally {
       setBusy(false);
@@ -186,21 +191,39 @@ export default function Login() {
               Emails are case-insensitive; passwords are case-sensitive.
             </div>
 
-            <Link
-              to="/forgot-password"
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                textDecoration: "none",
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                whiteSpace: "nowrap",
-              }}
-            >
-              Forgot password?
-            </Link>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Link
+                to="/pos/login"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "white",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                POS Login
+              </Link>
+
+              <Link
+                to="/forgot-password"
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "white",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Forgot password?
+              </Link>
+            </div>
           </div>
 
           <button
