@@ -1,3 +1,4 @@
+// admin/src/pages/PosGrantReward.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import { getAccessToken } from "../api/client";
@@ -29,7 +30,7 @@ function randomHex(bytes = 16) {
 
 function buildPosHeaders() {
   return {
-    "X-POS-Timestamp": String(Math.floor(Date.now() / 1000)),
+    "X-POS-Timestamp": new Date().toISOString(),
     "X-POS-Nonce": randomHex(16),
     "X-POS-Idempotency-Key": randomHex(16),
   };
@@ -39,7 +40,7 @@ function classifyIdentifier(raw) {
   const v = String(raw || "").trim();
   const digits = v.replace(/[^\d]/g, "");
   const looksPhone = digits.length >= 10 && digits.length <= 15 && v.indexOf("@") === -1;
-  const looksEmail = v.includes("@") && v.includes(".");
+  const looksEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
   return { kind: looksEmail ? "email" : looksPhone ? "phone" : "token", digits };
 }
 
@@ -62,9 +63,6 @@ function maskIdentifier(raw) {
 }
 
 function isUiDebugEnabled() {
-  // Debug payload display is:
-  // - DEV-only, and
-  // - requires explicit opt-in: localStorage.PV_UI_DEBUG === "1"
   try {
     const dev = Boolean(import.meta?.env?.DEV);
     const optIn = String(localStorage.getItem("PV_UI_DEBUG") || "") === "1";
@@ -74,15 +72,65 @@ function isUiDebugEnabled() {
   }
 }
 
+function friendlyError(res, data) {
+  const s = res.status;
+
+  if (s === 401) return "Session expired. Please re-login.";
+  if (s === 403) return "Not authorized for POS actions.";
+  if (s === 409) return "Request rejected (replay/clock). Try again.";
+  if (s === 429) return "Too many requests. Please wait a moment and retry.";
+  if (s >= 500) return "Server error. Please retry.";
+
+  return (
+    data?.message ||
+    data?.error?.message ||
+    data?.error ||
+    (typeof data === "string" ? data : "") ||
+    `Request failed (${s})`
+  );
+}
+
+function validateIdentifier(raw) {
+  const v = String(raw || "").trim();
+  if (!v) return { ok: false, reason: "Customer identifier is required." };
+
+  const { kind, digits } = classifyIdentifier(v);
+
+  if (kind === "email") {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      return { ok: false, kind, reason: "Email format looks invalid." };
+    }
+    return { ok: true, kind, normalized: v.toLowerCase(), note: "Email detected." };
+  }
+
+  if (kind === "phone") {
+    if (digits.length < 10 || digits.length > 15) {
+      return { ok: false, kind, reason: "Phone should be 10–15 digits (you can include dashes/spaces)." };
+    }
+    return { ok: true, kind, normalized: digits, note: `Phone detected (${digits.length} digits).` };
+  }
+
+  if (/\s/.test(v)) return { ok: false, kind, reason: "Token cannot contain spaces." };
+  if (v.length < 6) return { ok: false, kind, reason: "Token looks too short (min 6 characters)." };
+  if (!/^[A-Za-z0-9._:-]+$/.test(v)) return { ok: false, kind, reason: "Token contains unsupported characters." };
+  return { ok: true, kind, normalized: v, note: "Token detected." };
+}
+
 export default function PosGrantReward() {
+  const debugEnabled = isUiDebugEnabled();
+
   const [identifier, setIdentifier] = React.useState("");
+  const [touched, setTouched] = React.useState(false);
+
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
-  const [result, setResult] = React.useState(null);
   const [successMsg, setSuccessMsg] = React.useState("");
+  const [result, setResult] = React.useState(null);
   const [debugOpen, setDebugOpen] = React.useState(false);
 
-  const debugEnabled = isUiDebugEnabled();
+  const inFlightRef = React.useRef(false);
+
+  const validation = React.useMemo(() => validateIdentifier(identifier), [identifier]);
 
   React.useEffect(() => {
     pvUiHook("pos.reward.page_loaded.ui", {
@@ -94,8 +142,13 @@ export default function PosGrantReward() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    const started = Date.now();
+    setTouched(true);
 
+    if (!validation.ok) return;
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+
+    const started = Date.now();
     setBusy(true);
     setError("");
     setResult(null);
@@ -114,8 +167,6 @@ export default function PosGrantReward() {
     });
 
     try {
-      if (!v) throw new Error("Customer identifier is required");
-
       const token = getAccessToken();
       if (!token) throw new Error("Not authenticated");
 
@@ -134,19 +185,9 @@ export default function PosGrantReward() {
         data = await res.json();
       } catch {}
 
-      if (!res.ok) {
-        const msg =
-          data?.message ||
-          data?.error?.message ||
-          (typeof data === "string" ? data : "") ||
-          `Request failed (${res.status})`;
-        throw new Error(msg);
-      }
+      if (!res.ok) throw new Error(friendlyError(res, data));
 
       setResult(data);
-
-      // IMPORTANT: Do NOT expose raw payload / tokens / IDs on the POS screen.
-      // Show only a success banner (optionally includes masked identifier).
       setSuccessMsg(`OK — Reward granted. (${maskIdentifier(v)})`);
 
       pvUiHook("pos.reward.submit_succeeded.ui", {
@@ -172,8 +213,11 @@ export default function PosGrantReward() {
       });
     } finally {
       setBusy(false);
+      inFlightRef.current = false;
     }
   }
+
+  const showInlineProblem = touched && !validation.ok;
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -187,20 +231,58 @@ export default function PosGrantReward() {
       </div>
 
       <h2>Grant Reward</h2>
-      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
+      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>
         Enter a customer identifier (phone, email, or scan token).
+      </div>
+
+      <div style={styles.hintBox}>
+        <div style={{ fontWeight: 900, marginBottom: 6 }}>Accepted formats</div>
+        <ul style={styles.hintList}>
+          <li><b>Phone</b>: (408) 205-4684, 4082054684, +1 408 205 4684</li>
+          <li><b>Email</b>: name@example.com</li>
+          <li><b>Token</b>: scanned code (letters/numbers, no spaces)</li>
+        </ul>
       </div>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
         <input
           value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
+          onChange={(e) => {
+            setIdentifier(e.target.value);
+            setError("");
+            setSuccessMsg("");
+          }}
+          onBlur={() => setTouched(true)}
           placeholder="Phone / Email / Token"
           inputMode="text"
+          autoComplete="off"
           style={styles.input}
         />
 
-        <button disabled={busy} type="submit" style={styles.primaryBtn}>
+        <div style={styles.inlineMetaRow}>
+          <div style={styles.detectPill}>
+            Detected: <span style={{ fontWeight: 900 }}>{String(validation.kind || "—").toUpperCase()}</span>
+            {validation.ok ? (
+              <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>
+                ✓ valid
+              </span>
+            ) : (
+              <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>
+                ✕ needs attention
+              </span>
+            )}
+          </div>
+
+          {validation.ok ? (
+            <div style={styles.metaNote}>
+              {validation.note} (masked: <b>{maskIdentifier(identifier)}</b>)
+            </div>
+          ) : (
+            <div style={styles.metaNote}>{showInlineProblem ? validation.reason : " "}</div>
+          )}
+        </div>
+
+        <button disabled={busy || !validation.ok} type="submit" style={styles.primaryBtn}>
           {busy ? "Working..." : "Grant"}
         </button>
       </form>
@@ -208,7 +290,6 @@ export default function PosGrantReward() {
       {error ? <div style={styles.errorBox}>{error}</div> : null}
       {successMsg ? <div style={styles.successBox}>{successMsg}</div> : null}
 
-      {/* DEV-only, opt-in debug payload view (hidden by default). */}
       {debugEnabled && result ? (
         <div style={styles.debugWrap}>
           <button
@@ -219,9 +300,7 @@ export default function PosGrantReward() {
           >
             {debugOpen ? "Hide debug details" : "Show debug details"}
           </button>
-
           {debugOpen ? <pre style={styles.pre}>{JSON.stringify(result, null, 2)}</pre> : null}
-
           <div style={styles.debugHint}>
             Debug is enabled because <code>localStorage.PV_UI_DEBUG</code> is set to <code>"1"</code> (DEV only).
           </div>
@@ -241,10 +320,43 @@ const styles = {
     color: "inherit",
     fontWeight: 700,
   },
+  hintBox: {
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "rgba(0,0,0,0.02)",
+    marginBottom: 12,
+  },
+  hintList: {
+    margin: 0,
+    paddingLeft: 18,
+    color: "rgba(0,0,0,0.70)",
+    fontWeight: 700,
+    lineHeight: 1.35,
+  },
   input: {
     padding: 12,
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.22)",
+  },
+  inlineMetaRow: {
+    display: "grid",
+    gridTemplateColumns: "220px 1fr",
+    gap: 10,
+    alignItems: "center",
+  },
+  detectPill: {
+    padding: "8px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    fontWeight: 800,
+  },
+  metaNote: {
+    color: "rgba(0,0,0,0.60)",
+    fontWeight: 800,
+    fontSize: 13,
+    whiteSpace: "pre-wrap",
   },
   primaryBtn: {
     padding: 12,
@@ -262,6 +374,8 @@ const styles = {
     color: "red",
     border: "1px solid rgba(255,0,0,0.18)",
     background: "rgba(255,0,0,0.04)",
+    fontWeight: 800,
+    whiteSpace: "pre-wrap",
   },
   successBox: {
     marginTop: 12,
@@ -270,6 +384,7 @@ const styles = {
     border: "1px solid rgba(0,150,0,0.18)",
     background: "rgba(0,150,0,0.06)",
     fontWeight: 800,
+    whiteSpace: "pre-wrap",
   },
   debugWrap: {
     marginTop: 12,

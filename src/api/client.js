@@ -363,6 +363,7 @@ export async function adminVoidInvoice(invoiceId) {
     auth: "auto",
   });
 }
+
 // -------- Admin: merchant-scoped invoices (UI convenience) --------
 
 export async function adminListMerchantInvoices(merchantId, { status } = {}) {
@@ -402,4 +403,63 @@ export async function guestPayByToken(token, { payerEmail }) {
     body: { payerEmail },
     auth: "none",
   });
+}
+
+/* -----------------------------
+   POS (POS-8A) — Associate login (code-based)
+   Public endpoint: POST /pos/auth/login
+   Returns { accessToken, systemRole, landing, posSession, storeId, merchantId }
+-------------------------------- */
+
+/**
+ * POS associate "fast login" using short code / shift code.
+ *
+ * IMPORTANT: UI calls this with an object (storeId/terminalId/terminalLabel/code).
+ * Prior versions stringified the object into "[object Object]" and sent that as code.
+ * This implementation accepts either a string or an object and always extracts the string code.
+ */
+export async function posAuthLogin(input) {
+  const rawCode =
+    typeof input === "string"
+      ? input
+      : input && typeof input === "object"
+        ? input.code
+        : "";
+
+  const c = String(rawCode || "").trim();
+  if (!c) throw new Error("POS code is required");
+
+  // If the UI provided extra fields, we send them too (backend may ignore).
+  const body =
+    typeof input === "object" && input && !(input instanceof FormData)
+      ? { ...input, code: c }
+      : { code: c };
+
+  const result = await request("/pos/auth/login", {
+    method: "POST",
+    body,
+    auth: "none",
+  });
+
+  if (!result?.accessToken) throw new Error("POS login failed: missing accessToken");
+  setAccessToken(result.accessToken);
+  return result;
+}
+
+/* -----------------------------
+   POS (POS-8A) — Dashboard stats / activity (JWT)
+   Endpoints expected:
+   - GET /pos/stats/today
+   - GET /pos/activity/recent?limit=20
+-------------------------------- */
+
+export async function posGetTodayStats() {
+  // POS endpoints are JWT protected; caller is a POS associate (merchant systemRole).
+  return request("/pos/stats/today", { auth: "jwt" });
+}
+
+export async function posGetRecentActivity({ limit = 20 } = {}) {
+  const qs = new URLSearchParams();
+  qs.set("limit", String(limit));
+  return request(`/pos/activity/recent?${qs}`, { auth: "jwt" });
 }
