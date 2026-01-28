@@ -36,28 +36,6 @@ function buildPosHeaders() {
   };
 }
 
-function onlyDigits(s) {
-  return String(s || "").replace(/[^\d]/g, "");
-}
-
-function looksEmail(v) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
-}
-
-function maskPhoneDigits(digits) {
-  const d = onlyDigits(digits);
-  const last4 = d.slice(-4);
-  return `***-***-${last4 || "****"}`;
-}
-
-function maskEmail(email) {
-  const v = String(email || "").trim();
-  if (!v.includes("@")) return "***@***";
-  const [u, d] = v.split("@");
-  const uMasked = u ? `${u.slice(0, 2)}***` : "***";
-  return `${uMasked}@${d || "***"}`;
-}
-
 function isUiDebugEnabled() {
   try {
     const dev = Boolean(import.meta?.env?.DEV);
@@ -86,60 +64,40 @@ function friendlyError(res, data) {
   );
 }
 
+function normalizePhone(raw) {
+  const v = String(raw || "").trim();
+  const hasLetters = /[A-Za-z]/.test(v);
+  const digits = v.replace(/[^\d]/g, "");
+  return { v, digits, hasLetters };
+}
+
 function validatePhone(raw) {
-  const digits = onlyDigits(raw);
-  if (!raw) return { ok: false, reason: "Phone is empty." };
-  if (/[A-Za-z]/.test(String(raw))) {
-    return { ok: false, reason: "Phone cannot contain letters." };
-  }
-  if (digits.length < 10 || digits.length > 15) {
-    return { ok: false, reason: "Phone should be 10–15 digits (you can include dashes/spaces)." };
-  }
-  return { ok: true, digits, note: `Phone detected (${digits.length} digits).` };
+  const { v, digits, hasLetters } = normalizePhone(raw);
+  if (!v) return { ok: false, reason: "" };
+  if (hasLetters) return { ok: false, reason: "Phone cannot contain letters." };
+  if (digits.length < 10 || digits.length > 15) return { ok: false, reason: "Phone should be 10–15 digits." };
+  return { ok: true, normalized: digits, note: `Phone detected (${digits.length} digits).` };
 }
 
 function validateEmail(raw) {
   const v = String(raw || "").trim();
-  if (!v) return { ok: false, reason: "Email is empty." };
-  if (!looksEmail(v)) return { ok: false, reason: "Email format looks invalid." };
-  return { ok: true, email: v.toLowerCase(), note: "Email detected." };
+  if (!v) return { ok: false, reason: "" };
+  const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  if (!ok) return { ok: false, reason: "Email format looks invalid." };
+  return { ok: true, normalized: v.toLowerCase(), note: "Email detected." };
 }
 
-function computeChoice(phoneRaw, emailRaw) {
-  const phone = String(phoneRaw || "");
-  const email = String(emailRaw || "").trim();
+function maskPhoneDigits(digits) {
+  const d = String(digits || "");
+  const last4 = d.slice(-4);
+  return `***-***-${last4 || "****"}`;
+}
 
-  const phoneHas = phone.trim().length > 0;
-  const emailHas = email.length > 0;
-
-  if (!phoneHas && !emailHas) {
-    return { ok: false, kind: "none", reason: "Enter a phone OR an email." };
-  }
-  if (phoneHas && emailHas) {
-    return { ok: false, kind: "both", reason: "Choose phone OR email (not both)." };
-  }
-
-  if (phoneHas) {
-    const v = validatePhone(phone);
-    if (!v.ok) return { ok: false, kind: "phone", reason: v.reason };
-    return {
-      ok: true,
-      kind: "phone",
-      identifier: v.digits,
-      masked: maskPhoneDigits(v.digits),
-      note: v.note,
-    };
-  }
-
-  const v = validateEmail(email);
-  if (!v.ok) return { ok: false, kind: "email", reason: v.reason };
-  return {
-    ok: true,
-    kind: "email",
-    identifier: v.email,
-    masked: maskEmail(v.email),
-    note: v.note,
-  };
+function maskEmail(email) {
+  const v = String(email || "").trim();
+  const [u, d] = v.split("@");
+  const uMasked = u ? `${u.slice(0, 2)}***` : "***";
+  return `${uMasked}@${d || "***"}`;
 }
 
 export default function PosGrantReward() {
@@ -147,7 +105,10 @@ export default function PosGrantReward() {
 
   const [phone, setPhone] = React.useState("");
   const [email, setEmail] = React.useState("");
-  const [touched, setTouched] = React.useState(false);
+  const [useKind, setUseKind] = React.useState("phone");
+
+  const [touchedPhone, setTouchedPhone] = React.useState(false);
+  const [touchedEmail, setTouchedEmail] = React.useState(false);
 
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -157,7 +118,30 @@ export default function PosGrantReward() {
 
   const inFlightRef = React.useRef(false);
 
-  const choice = React.useMemo(() => computeChoice(phone, email), [phone, email]);
+  const phoneV = React.useMemo(() => validatePhone(phone), [phone]);
+  const emailV = React.useMemo(() => validateEmail(email), [email]);
+
+  const phoneHasValue = String(phone || "").trim().length > 0;
+  const emailHasValue = String(email || "").trim().length > 0;
+
+  const phoneValid = phoneHasValue && phoneV.ok;
+  const emailValid = emailHasValue && emailV.ok;
+
+  const bothPresent = phoneHasValue && emailHasValue;
+  const bothValid = phoneValid && emailValid;
+
+  function resolveSubmission() {
+    if (bothValid) {
+      if (useKind === "phone") return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
+      return { kind: "email", identifier: emailV.normalized, masked: maskEmail(emailV.normalized) };
+    }
+    if (phoneValid) return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
+    if (emailValid) return { kind: "email", identifier: emailV.normalized, masked: maskEmail(emailV.normalized) };
+    return null;
+  }
+
+  const submission = resolveSubmission();
+  const canSubmit = Boolean(submission) && !busy;
 
   React.useEffect(() => {
     pvUiHook("pos.reward.page_loaded.ui", {
@@ -167,25 +151,15 @@ export default function PosGrantReward() {
     });
   }, []);
 
-  function onChangePhone(v) {
-    setPhone(v);
-    if (String(v || "").trim().length > 0) setEmail("");
-    setError("");
-    setSuccessMsg("");
-  }
-
-  function onChangeEmail(v) {
-    setEmail(v);
-    if (String(v || "").trim().length > 0) setPhone("");
-    setError("");
-    setSuccessMsg("");
-  }
-
   async function onSubmit(e) {
     e.preventDefault();
-    setTouched(true);
+    setTouchedPhone(true);
+    setTouchedEmail(true);
 
-    if (!choice.ok) return;
+    if (!submission) {
+      setError("Enter a valid phone or email.");
+      return;
+    }
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
@@ -200,8 +174,11 @@ export default function PosGrantReward() {
       tc: "TC-POS-REWARD-UI-02",
       sev: "info",
       stable: "pos:reward",
-      identifierKind: choice.kind,
-      identifierMasked: choice.masked,
+      identifierKind: submission.kind,
+      identifierMasked: submission.masked,
+      bothPresent,
+      bothValid,
+      chosenKind: useKind,
     });
 
     try {
@@ -215,7 +192,7 @@ export default function PosGrantReward() {
           Authorization: `Bearer ${token}`,
           ...buildPosHeaders(),
         },
-        body: JSON.stringify({ identifier: choice.identifier }),
+        body: JSON.stringify({ identifier: submission.identifier }),
       });
 
       let data = null;
@@ -226,14 +203,14 @@ export default function PosGrantReward() {
       if (!res.ok) throw new Error(friendlyError(res, data));
 
       setResult(data);
-      setSuccessMsg(`OK — Reward granted. (${choice.masked})`);
+      setSuccessMsg(`OK — Reward granted. (${submission.masked})`);
 
       pvUiHook("pos.reward.submit_succeeded.ui", {
         tc: "TC-POS-REWARD-UI-03",
         sev: "info",
         stable: "pos:reward",
-        identifierKind: choice.kind,
-        identifierMasked: choice.masked,
+        identifierKind: submission.kind,
+        identifierMasked: submission.masked,
         ms: Date.now() - started,
       });
     } catch (err) {
@@ -244,8 +221,8 @@ export default function PosGrantReward() {
         tc: "TC-POS-REWARD-UI-04",
         sev: "warn",
         stable: "pos:reward",
-        identifierKind: choice.kind,
-        identifierMasked: choice.masked,
+        identifierKind: submission.kind,
+        identifierMasked: submission.masked,
         ms: Date.now() - started,
         error: msg,
       });
@@ -255,7 +232,11 @@ export default function PosGrantReward() {
     }
   }
 
-  const showInlineProblem = touched && !choice.ok;
+  const phoneInlineErr = touchedPhone && phoneHasValue && !phoneV.ok ? phoneV.reason : "";
+  const emailInlineErr = touchedEmail && emailHasValue && !emailV.ok ? emailV.reason : "";
+
+  const detectedKindLabel = submission ? submission.kind.toUpperCase() : "—";
+  const detectedOk = Boolean(submission);
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -269,9 +250,7 @@ export default function PosGrantReward() {
       </div>
 
       <h2>Grant Reward</h2>
-      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>
-        Enter a customer phone <b>or</b> email.
-      </div>
+      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>Enter a customer phone or email.</div>
 
       <div style={styles.hintBox}>
         <div style={{ fontWeight: 900, marginBottom: 6 }}>Accepted formats</div>
@@ -286,65 +265,85 @@ export default function PosGrantReward() {
       </div>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <div style={styles.label}>Phone</div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontWeight: 900 }}>Phone</div>
           <input
             value={phone}
-            onChange={(e) => onChangePhone(e.target.value)}
-            onBlur={() => setTouched(true)}
+            onChange={(e) => {
+              setPhone(e.target.value);
+              setUseKind("phone");
+              setError("");
+              setSuccessMsg("");
+            }}
+            onBlur={() => setTouchedPhone(true)}
             placeholder="(408) 205-4684"
             inputMode="tel"
             autoComplete="off"
-            disabled={busy}
             style={styles.input}
           />
-          <div style={styles.hintSmall}>Digits only are sent to the server. Letters are rejected.</div>
-        </label>
-
-        <div style={styles.orRow}>
-          <div style={styles.orLine} />
-          <div style={styles.orText}>OR</div>
-          <div style={styles.orLine} />
+          <div style={styles.smallNote}>Digits only are sent to the server. Letters are rejected.</div>
+          {phoneInlineErr ? <div style={styles.inlineErr}>{phoneInlineErr}</div> : null}
         </div>
 
-        <label style={{ display: "grid", gap: 6 }}>
-          <div style={styles.label}>Email</div>
+        <div style={{ textAlign: "center", color: "rgba(0,0,0,0.45)", fontWeight: 900, margin: "2px 0" }}>OR</div>
+
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontWeight: 900 }}>Email</div>
           <input
             value={email}
-            onChange={(e) => onChangeEmail(e.target.value)}
-            onBlur={() => setTouched(true)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setUseKind("email");
+              setError("");
+              setSuccessMsg("");
+            }}
+            onBlur={() => setTouchedEmail(true)}
             placeholder="name@example.com"
             inputMode="email"
             autoComplete="off"
-            disabled={busy}
             style={styles.input}
           />
-          <div style={styles.hintSmall}>Email is lowercased before sending.</div>
-        </label>
+          <div style={styles.smallNote}>Email is lowercased before sending.</div>
+          {emailInlineErr ? <div style={styles.inlineErr}>{emailInlineErr}</div> : null}
+        </div>
+
+        {bothValid ? (
+          <div style={styles.selectorBox}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>Both are valid — which should we use?</div>
+            <label style={styles.radioRow}>
+              <input type="radio" name="useKind" checked={useKind === "phone"} onChange={() => setUseKind("phone")} />
+              <span style={{ fontWeight: 900 }}>Use phone</span>
+              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
+                ({maskPhoneDigits(phoneV.normalized)})
+              </span>
+            </label>
+            <label style={styles.radioRow}>
+              <input type="radio" name="useKind" checked={useKind === "email"} onChange={() => setUseKind("email")} />
+              <span style={{ fontWeight: 900 }}>Use email</span>
+              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
+                ({maskEmail(emailV.normalized)})
+              </span>
+            </label>
+          </div>
+        ) : null}
 
         <div style={styles.inlineMetaRow}>
           <div style={styles.detectPill}>
-            Detected:{" "}
-            <span style={{ fontWeight: 900 }}>
-              {choice.kind === "none" ? "—" : String(choice.kind || "—").toUpperCase()}
-            </span>
-            {choice.ok ? (
+            Detected: <span style={{ fontWeight: 900 }}>{detectedKindLabel}</span>
+            {detectedOk ? (
               <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>✓ valid</span>
             ) : (
               <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>✕ needs attention</span>
             )}
           </div>
-
-          {choice.ok ? (
-            <div style={styles.metaNote}>
-              {choice.note} (masked: <b>{choice.masked}</b>)
-            </div>
-          ) : (
-            <div style={styles.metaNote}>{showInlineProblem ? choice.reason : " "}</div>
-          )}
+          <div style={styles.metaNote}>
+            {submission
+              ? `${submission.kind === "phone" ? phoneV.note : emailV.note} (masked: ${submission.masked})`
+              : "Enter a valid phone or email."}
+          </div>
         </div>
 
-        <button disabled={busy || !choice.ok} type="submit" style={styles.primaryBtn}>
+        <button disabled={!canSubmit} type="submit" style={styles.primaryBtn}>
           {busy ? "Working..." : "Grant"}
         </button>
       </form>
@@ -396,25 +395,36 @@ const styles = {
     fontWeight: 700,
     lineHeight: 1.35,
   },
-  label: { fontSize: 13, color: "rgba(0,0,0,0.7)", fontWeight: 900 },
-  hintSmall: { fontSize: 12, color: "rgba(0,0,0,0.55)", fontWeight: 700 },
   input: {
     padding: 12,
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.22)",
   },
-  orRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    alignItems: "center",
-    gap: 10,
-    margin: "6px 0",
+  smallNote: {
+    fontSize: 12,
+    color: "rgba(0,0,0,0.55)",
+    fontWeight: 800,
   },
-  orLine: { height: 1, background: "rgba(0,0,0,0.12)" },
-  orText: { fontWeight: 900, color: "rgba(0,0,0,0.55)", fontSize: 12 },
+  inlineErr: {
+    fontSize: 12,
+    color: "rgba(150,0,0,0.85)",
+    fontWeight: 900,
+  },
+  selectorBox: {
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "rgba(0,0,0,0.02)",
+  },
+  radioRow: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    marginTop: 6,
+  },
   inlineMetaRow: {
     display: "grid",
-    gridTemplateColumns: "240px 1fr",
+    gridTemplateColumns: "220px 1fr",
     gap: 10,
     alignItems: "center",
   },
