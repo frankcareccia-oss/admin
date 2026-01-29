@@ -124,6 +124,28 @@ function MerchantHomeGate() {
   return <MerchantStores />;
 }
 
+/**
+ * RequirePosSession:
+ * Hard gate: POS pages under /merchant/pos/* require perkvalet_is_pos=1.
+ * If not a POS session, redirect to /pos/login with a notice.
+ */
+function RequirePosSession({ children }) {
+  const location = useLocation();
+  if (!isPosSession()) {
+    return (
+      <Navigate
+        to="/pos/login"
+        replace
+        state={{
+          notice: "POS session required. Please sign in.",
+          from: location.pathname,
+        }}
+      />
+    );
+  }
+  return children;
+}
+
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -436,12 +458,14 @@ export default function App() {
             }
           />
 
-          {/* POS */}
+          {/* POS (AUTH + POS SESSION REQUIRED) */}
           <Route
             path="/merchant/pos"
             element={
               <RequireAuth requiredRole="merchant">
-                <MerchantPos />
+                <RequirePosSession>
+                  <MerchantPos />
+                </RequirePosSession>
               </RequireAuth>
             }
           />
@@ -449,7 +473,9 @@ export default function App() {
             path="/merchant/pos/visit"
             element={
               <RequireAuth requiredRole="merchant">
-                <PosRegisterVisit />
+                <RequirePosSession>
+                  <PosRegisterVisit />
+                </RequirePosSession>
               </RequireAuth>
             }
           />
@@ -457,7 +483,9 @@ export default function App() {
             path="/merchant/pos/reward"
             element={
               <RequireAuth requiredRole="merchant">
-                <PosGrantReward />
+                <RequirePosSession>
+                  <PosGrantReward />
+                </RequirePosSession>
               </RequireAuth>
             }
           />

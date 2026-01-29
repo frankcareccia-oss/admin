@@ -107,7 +107,6 @@ function normalizePosCode({ provisionedStoreId }, rawInput) {
       return { ok: false, error: "PIN must be 4–8 digits." };
     }
     if (!provisionedStoreId) {
-      // we *could* allow “pin-only” without store if backend supports it, but your current flow requires provisioning
       return { ok: false, error: 'This terminal is not provisioned. Click "Provision Terminal" first.' };
     }
     return { ok: true, code: `${provisionedStoreId}#${digits}`, mode: "pin" };
@@ -131,6 +130,7 @@ export default function PosLogin() {
   const [error, setError] = React.useState("");
 
   const notice = location.state?.notice || "";
+  const fromPath = location.state?.from || "";
 
   React.useEffect(() => {
     const p = readProvisioning();
@@ -143,6 +143,7 @@ export default function PosLogin() {
       provisioned: p.provisioned,
       storeIdPresent: Boolean(p.storeId),
       terminalIdPresent: Boolean(p.terminalId),
+      from: fromPath || null,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -214,7 +215,6 @@ export default function PosLogin() {
       return;
     }
 
-    // If they typed pin-only, provisioning is required (normalizePosCode enforces this)
     if (!p.provisioned) {
       setError('This terminal is not provisioned. Click "Provision Terminal" first.');
       pvUiHook("pos.login.submit_failed.ui", {
@@ -239,10 +239,17 @@ export default function PosLogin() {
         terminalLabel: p.terminalLabel,
         codeMode: norm.mode,
         codeMasked: maskCodeForLogs(code), // do NOT leak
-        codeType: typeof code,
       });
 
-      const r = await posAuthLogin(code);
+      // IMPORTANT: send context as an object so backend can validate terminal/store.
+      const payload = {
+        storeId: p.storeId,
+        terminalId: p.terminalId,
+        terminalLabel: p.terminalLabel,
+        code,
+      };
+
+      const r = await posAuthLogin(payload);
 
       // Persist standard session UI keys
       localStorage.setItem(LS_SYSTEM_ROLE, "merchant");
@@ -262,9 +269,12 @@ export default function PosLogin() {
         storeId: String(r?.storeId || p.storeId || ""),
         merchantId: String(r?.merchantId || ""),
         terminalId: p.terminalId,
+        redirectedFrom: fromPath || null,
       });
 
-      navigate("/merchant/pos", { replace: true });
+      // If we were redirected here from a POS route, go back there; otherwise go to dashboard.
+      const dest = String(fromPath || "").startsWith("/merchant/pos") ? fromPath : "/merchant/pos";
+      navigate(dest, { replace: true });
     } catch (err) {
       const msg = err?.message || "Invalid code";
       setError(msg);
@@ -349,7 +359,7 @@ export default function PosLogin() {
               style={styles.input}
             />
             <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-              If you type <b>7931</b>, we send <b>storeId#7931</b> using the provisioned store.
+              If you type <b>7931</b>, we send <b>storeId#PIN</b> and also include terminal context.
             </div>
           </label>
 
