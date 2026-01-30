@@ -2,10 +2,79 @@
 
 const API_BASE = "http://localhost:3001";
 
-// Storage keys
+// Storage keys (canonical)
 const ADMIN_KEY_STORAGE = "perkvalet_admin_api_key";
 const JWT_STORAGE = "perkvalet_access_token";
 const SYSTEM_ROLE_STORAGE = "perkvalet_system_role";
+
+// Cross-tab sync channel
+export const AUTH_BC_NAME = "perkvalet_auth";
+
+// All known PerkValet localStorage keys (wipe as one unit)
+export const PV_LOCAL_KEYS = [
+  // auth + routing
+  ADMIN_KEY_STORAGE,
+  JWT_STORAGE,
+  SYSTEM_ROLE_STORAGE,
+  "perkvalet_system_role_raw",
+  "perkvalet_landing",
+
+  // POS legacy flag
+  "perkvalet_is_pos",
+
+  // POS legacy details
+  "perkvalet_pos_store_label",
+  "perkvalet_pos_store_id",
+  "perkvalet_pos_assoc_label",
+
+  // POS-8A/8B-ish “dingle berries” seen in your screenshots
+  "perkvalet_pos_authed_merchant_id",
+  "perkvalet_pos_authed_store_id",
+  "perkvalet_pos_authed_terminal_id",
+  "perkvalet_pos_terminal_id",
+  "perkvalet_pos_terminal_label",
+  "perkvalet_pos_last_action",
+  "perkvalet_pos_needs_refresh",
+];
+
+// Session storage keys (tab-scoped)
+export const PV_SESSION_KEYS = ["perkvalet_return_to"];
+
+/* -----------------------------
+   Cross-tab broadcast helper
+-------------------------------- */
+export function pvBroadcast(type, fields = {}) {
+  try {
+    const bc = new BroadcastChannel(AUTH_BC_NAME);
+    bc.postMessage({ type, ts: new Date().toISOString(), ...fields });
+    bc.close();
+  } catch {
+    // ignore (older browsers)
+  }
+}
+
+/* -----------------------------
+   One true “clear session”
+-------------------------------- */
+export function pvClearSession({ reason = "clear", broadcast = true } = {}) {
+  // localStorage wipe (only our keys; do NOT nuke everything)
+  try {
+    PV_LOCAL_KEYS.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+
+  // sessionStorage wipe (only our keys)
+  try {
+    PV_SESSION_KEYS.forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
+
+  if (broadcast) {
+    pvBroadcast("session_cleared", { reason });
+  }
+}
 
 /* -----------------------------
    Token / key handling
@@ -42,7 +111,6 @@ export function getSystemRole() {
 function assertNotPvAdminForMerchantCall(endpointPath) {
   const role = getSystemRole();
   if (role === "pv_admin") {
-    // Prevent noisy 403s in admin UI by refusing to call merchant endpoints at all.
     throw new Error(`Forbidden in pv_admin session: attempted merchant endpoint ${endpointPath}`);
   }
 }
@@ -79,13 +147,8 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
     if (tok) h.set("Authorization", `Bearer ${tok}`);
   }
 
-  const res = await fetch(url, {
-    method,
-    headers: h,
-    body: payload,
-  });
+  const res = await fetch(url, { method, headers: h, body: payload });
 
-  // Rate limit handling
   if (res.status === 429) {
     const retryAfter = res.headers.get("Retry-After");
     throw new Error(retryAfter ? `Rate limited. Retry after ${retryAfter}s.` : "Rate limited.");
@@ -104,9 +167,9 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
       if (text) msg = text;
     }
 
-    // Session hygiene: if token is revoked/expired, clear it so UI can route to /login cleanly
+    // If token is revoked/expired: clear session consistently.
     if (res.status === 401) {
-      clearAccessToken();
+      pvClearSession({ reason: "http_401", broadcast: true });
     }
 
     throw new Error(msg);
@@ -123,12 +186,15 @@ export async function login(email, password) {
   const result = await request("/auth/login", {
     method: "POST",
     body: { email, password },
-    auth: "auto", // safe: sends admin key if present, not required for login
+    auth: "auto",
   });
 
   if (!result?.accessToken) throw new Error("Login failed: missing accessToken");
   setAccessToken(result.accessToken);
-  return result; // { accessToken, systemRole, landing } (if backend returns)
+
+  // tell other tabs “a login happened” so they can re-render if needed
+  pvBroadcast("login", {});
+  return result;
 }
 
 export async function me() {
@@ -136,14 +202,13 @@ export async function me() {
 }
 
 export async function logout() {
-  clearAccessToken();
+  pvClearSession({ reason: "logout", broadcast: true });
 }
 
 /* -----------------------------
-   Password management (Thread C1)
+   Password management
 -------------------------------- */
 
-// Public (no auth): always returns ok (generic message)
 export async function forgotPassword(email) {
   const emailNorm = String(email || "").trim().toLowerCase();
   if (!emailNorm) throw new Error("Email is required");
@@ -155,7 +220,6 @@ export async function forgotPassword(email) {
   });
 }
 
-// Public (no auth): token + new password
 export async function resetPassword(token, newPassword) {
   const t = String(token || "").trim();
   const pw = String(newPassword || "");
@@ -169,8 +233,6 @@ export async function resetPassword(token, newPassword) {
   });
 }
 
-// Authenticated: current + new password.
-// Backend revokes session by bumping tokenVersion; so after success we should force re-login.
 export async function changePassword(currentPassword, newPassword) {
   const cur = String(currentPassword || "");
   const pw = String(newPassword || "");
@@ -183,13 +245,13 @@ export async function changePassword(currentPassword, newPassword) {
     auth: "jwt",
   });
 
-  // Current token is invalid after password change (tokenVersion increments). Force logout client-side.
-  clearAccessToken();
+  // force re-login
+  pvClearSession({ reason: "password_changed", broadcast: true });
   return result;
 }
 
 /* -----------------------------
-   Admin debug (admin + jwt)
+   Admin debug
 -------------------------------- */
 
 export async function whoAmI() {
@@ -197,7 +259,7 @@ export async function whoAmI() {
 }
 
 /* -----------------------------
-   Merchants (admin routes require JWT + admin key now)
+   Merchants (admin)
 -------------------------------- */
 
 export async function listMerchants({ status = "active" } = {}) {
@@ -212,11 +274,7 @@ export async function getMerchant(merchantId) {
 }
 
 export async function createMerchant({ name }) {
-  return request("/merchants", {
-    method: "POST",
-    body: { name },
-    auth: "auto",
-  });
+  return request("/merchants", { method: "POST", body: { name }, auth: "auto" });
 }
 
 export async function updateMerchantStatus(merchantId, { status, statusReason }) {
@@ -228,15 +286,11 @@ export async function updateMerchantStatus(merchantId, { status, statusReason })
 }
 
 /* -----------------------------
-   Stores (admin routes require JWT + admin key now)
+   Stores (admin)
 -------------------------------- */
 
 export async function createStore(data) {
-  return request("/stores", {
-    method: "POST",
-    body: data,
-    auth: "auto",
-  });
+  return request("/stores", { method: "POST", body: data, auth: "auto" });
 }
 
 export async function getStore(storeId) {
@@ -252,7 +306,7 @@ export async function updateStoreStatus(storeId, { status, statusReason }) {
 }
 
 /* -----------------------------
-   Store QR (admin routes require JWT + admin key now)
+   Store QR (admin)
 -------------------------------- */
 
 export async function listStoreQrs(storeId) {
@@ -260,10 +314,7 @@ export async function listStoreQrs(storeId) {
 }
 
 export async function mintStoreQr(storeId) {
-  return request(`/stores/${storeId}/qrs`, {
-    method: "POST",
-    auth: "auto",
-  });
+  return request(`/stores/${storeId}/qrs`, { method: "POST", auth: "auto" });
 }
 
 export function getStoreQrPngUrl(storeId) {
@@ -272,7 +323,6 @@ export function getStoreQrPngUrl(storeId) {
 
 /* -----------------------------
    Merchant portal (JWT protected)
-   Guarded to prevent pv_admin from calling merchant endpoints.
 -------------------------------- */
 
 export async function listMerchantStores() {
@@ -282,10 +332,7 @@ export async function listMerchantStores() {
 
 /* -----------------------------
    Billing (v2.02.1)
-   Admin + Merchant + Guest pay
 -------------------------------- */
-
-// -------- Admin: billing policy --------
 
 export async function adminGetMerchantBillingPolicy(merchantId) {
   return request(`/admin/merchants/${merchantId}/billing-policy`, { auth: "auto" });
@@ -312,14 +359,8 @@ export async function getBillingPolicy() {
 }
 
 export async function updateBillingPolicy(policy) {
-  return request("/admin/billing-policy", {
-    method: "PUT",
-    body: policy,
-    auth: "auto",
-  });
+  return request("/admin/billing-policy", { method: "PUT", body: policy, auth: "auto" });
 }
-
-// -------- Admin: invoices --------
 
 export async function adminListInvoices({ merchantId, status, from, to } = {}) {
   const qs = new URLSearchParams();
@@ -327,7 +368,6 @@ export async function adminListInvoices({ merchantId, status, from, to } = {}) {
   if (status) qs.set("status", status);
   if (from) qs.set("from", from);
   if (to) qs.set("to", to);
-
   const suffix = qs.toString() ? `?${qs}` : "";
   return request(`/admin/invoices${suffix}`, { auth: "auto" });
 }
@@ -364,8 +404,6 @@ export async function adminVoidInvoice(invoiceId) {
   });
 }
 
-// -------- Admin: merchant-scoped invoices (UI convenience) --------
-
 export async function adminListMerchantInvoices(merchantId, { status } = {}) {
   return adminListInvoices({ merchantId, status });
 }
@@ -373,9 +411,6 @@ export async function adminListMerchantInvoices(merchantId, { status } = {}) {
 export async function adminGenerateMerchantInvoice(merchantId, { totalCents, netTermsDays } = {}) {
   return adminGenerateInvoice({ merchantId, totalCents, netTermsDays });
 }
-
-// -------- Merchant: invoices (JWT) --------
-// Guarded to prevent pv_admin from calling merchant endpoints.
 
 export async function merchantListInvoices() {
   assertNotPvAdminForMerchantCall("/merchant/invoices");
@@ -387,8 +422,6 @@ export async function merchantGetInvoice(invoiceId) {
   return request(`/merchant/invoices/${invoiceId}`, { auth: "jwt" });
 }
 
-// -------- Guest pay (NO AUTH) --------
-
 export async function guestGetInvoiceByToken(token) {
   const qs = new URLSearchParams();
   qs.set("token", token);
@@ -398,26 +431,13 @@ export async function guestGetInvoiceByToken(token) {
 export async function guestPayByToken(token, { payerEmail }) {
   const qs = new URLSearchParams();
   qs.set("token", token);
-  return request(`/pay/pay?${qs}`, {
-    method: "POST",
-    body: { payerEmail },
-    auth: "none",
-  });
+  return request(`/pay/pay?${qs}`, { method: "POST", body: { payerEmail }, auth: "none" });
 }
 
 /* -----------------------------
-   POS (POS-8A) — Associate login (code-based)
-   Public endpoint: POST /pos/auth/login
-   Returns { accessToken, systemRole, landing, posSession, storeId, merchantId }
+   POS login + stats
 -------------------------------- */
 
-/**
- * POS associate "fast login" using short code / shift code.
- *
- * IMPORTANT: UI calls this with an object (storeId/terminalId/terminalLabel/code).
- * Prior versions stringified the object into "[object Object]" and sent that as code.
- * This implementation accepts either a string or an object and always extracts the string code.
- */
 export async function posAuthLogin(input) {
   const rawCode =
     typeof input === "string"
@@ -429,32 +449,20 @@ export async function posAuthLogin(input) {
   const c = String(rawCode || "").trim();
   if (!c) throw new Error("POS code is required");
 
-  // If the UI provided extra fields, we send them too (backend may ignore).
   const body =
     typeof input === "object" && input && !(input instanceof FormData)
       ? { ...input, code: c }
       : { code: c };
 
-  const result = await request("/pos/auth/login", {
-    method: "POST",
-    body,
-    auth: "none",
-  });
+  const result = await request("/pos/auth/login", { method: "POST", body, auth: "none" });
 
   if (!result?.accessToken) throw new Error("POS login failed: missing accessToken");
   setAccessToken(result.accessToken);
+  pvBroadcast("login", {});
   return result;
 }
 
-/* -----------------------------
-   POS (POS-8A) — Dashboard stats / activity (JWT)
-   Endpoints expected:
-   - GET /pos/stats/today
-   - GET /pos/activity/recent?limit=20
--------------------------------- */
-
 export async function posGetTodayStats() {
-  // POS endpoints are JWT protected; caller is a POS associate (merchant systemRole).
   return request("/pos/stats/today", { auth: "jwt" });
 }
 

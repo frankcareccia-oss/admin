@@ -1,8 +1,37 @@
 // admin/src/pages/Login.jsx
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { login, me, clearAccessToken } from "../api/client";
+import { login, me, getAccessToken, pvClearSession } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
+
+/**
+ * pvUiHook: structured UI events for QA/docs/chatbot.
+ * Must never throw.
+ */
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(
+      JSON.stringify({
+        pvUiHook: event,
+        ts: new Date().toISOString(),
+        ...fields,
+      })
+    );
+  } catch {}
+}
+
+// Storage keys (keep in sync with src/api/client.js conventions)
+const ADMIN_KEY_STORAGE = "perkvalet_admin_api_key";
+const JWT_STORAGE = "perkvalet_access_token";
+const SYSTEM_ROLE_STORAGE = "perkvalet_system_role";
+const SYSTEM_ROLE_RAW_STORAGE = "perkvalet_system_role_raw";
+const LANDING_STORAGE = "perkvalet_landing";
+const IS_POS_STORAGE = "perkvalet_is_pos";
+const MERCHANT_ROLE_HINT_STORAGE = "perkvalet_merchant_role";
+const RETURN_TO_STORAGE = "perkvalet_return_to";
+
+// Broadcast key (optional cross-tab signal; harmless if no listener)
+const AUTH_BROADCAST_KEY = "perkvalet_auth_broadcast";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -16,25 +45,139 @@ export default function Login() {
   const [error, setError] = React.useState("");
 
   const notice = location.state?.notice || "";
-  const from = location.state?.from?.pathname;
+  const alreadyAuthed = Boolean(getAccessToken());
+
+  React.useEffect(() => {
+    pvUiHook("auth.login.page_loaded.ui", {
+      tc: "TC-LOGIN-UI-00",
+      sev: "info",
+      stable: "auth:login",
+      alreadyAuthed,
+      path: location?.pathname || null,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function normalizeLanding(v) {
     const s = String(v || "").trim();
     return s.startsWith("/") ? s : "";
   }
 
-  // POS-7: normalize API systemRole into UI gate role
-  // API returns: "pv_admin" | "user"
-  // UI gates expect: "pv_admin" | "merchant"
   function normalizeUiRole(apiRole) {
     const r = String(apiRole || "");
     return r === "pv_admin" ? "pv_admin" : "merchant";
+  }
+
+  function readReturnTo() {
+    const rt = String(sessionStorage.getItem(RETURN_TO_STORAGE) || "").trim();
+    if (rt) sessionStorage.removeItem(RETURN_TO_STORAGE);
+    return rt.startsWith("/") ? rt : "";
+  }
+
+  function goHome() {
+    const role = String(localStorage.getItem(SYSTEM_ROLE_STORAGE) || "").trim();
+    const landing = String(localStorage.getItem(LANDING_STORAGE) || "").trim();
+    const dest = landing || (role === "pv_admin" ? "/merchants" : "/merchant");
+
+    pvUiHook("auth.login.go_home.click.ui", {
+      tc: "TC-LOGIN-UI-20",
+      sev: "info",
+      stable: "auth:login",
+      dest,
+      role: role || null,
+    });
+
+    navigate(dest, { replace: true });
+  }
+
+  function clearSessionKeys({ keepAdminKey }) {
+    // Capture approval token if we intend to keep it
+    const adminKey = keepAdminKey ? String(localStorage.getItem(ADMIN_KEY_STORAGE) || "") : "";
+
+    // Auth/session keys
+    localStorage.removeItem(JWT_STORAGE);
+    localStorage.removeItem(SYSTEM_ROLE_STORAGE);
+    localStorage.removeItem(SYSTEM_ROLE_RAW_STORAGE);
+    localStorage.removeItem(LANDING_STORAGE);
+    localStorage.removeItem(IS_POS_STORAGE);
+    localStorage.removeItem(MERCHANT_ROLE_HINT_STORAGE);
+
+    // Return-to / deep-link state
+    sessionStorage.removeItem(RETURN_TO_STORAGE);
+
+    // If we do NOT want to keep admin approval, remove it too
+    if (!keepAdminKey) {
+      localStorage.removeItem(ADMIN_KEY_STORAGE);
+    } else if (adminKey) {
+      // Re-apply to be explicit (in case something else touched it)
+      localStorage.setItem(ADMIN_KEY_STORAGE, adminKey);
+    }
+
+    // Optional: cross-tab nudge (harmless if no listener exists)
+    try {
+      localStorage.setItem(
+        AUTH_BROADCAST_KEY,
+        JSON.stringify({ ts: new Date().toISOString(), action: "reset_session", keepAdminKey: !!keepAdminKey })
+      );
+    } catch {}
+  }
+
+  function onResetSession({ keepAdminKey }) {
+    setError("");
+
+    pvUiHook("auth.login.reset_session.click.ui", {
+      tc: keepAdminKey ? "TC-LOGIN-UI-30" : "TC-LOGIN-UI-31",
+      sev: "info",
+      stable: "auth:reset",
+      keepAdminKey: !!keepAdminKey,
+      alreadyAuthed,
+    });
+
+    try {
+      clearSessionKeys({ keepAdminKey });
+
+      // Best-effort call into shared helper (if its signature changes, we don't break the UI)
+      try {
+        pvClearSession({
+          reason: keepAdminKey ? "start_over_keep_approval" : "remove_admin_access",
+          broadcast: true,
+        });
+      } catch {}
+
+      navigate("/login", { replace: true });
+
+      pvUiHook("auth.login.reset_session.success.ui", {
+        tc: keepAdminKey ? "TC-LOGIN-UI-32" : "TC-LOGIN-UI-33",
+        sev: "info",
+        stable: "auth:reset",
+        keepAdminKey: !!keepAdminKey,
+      });
+    } catch (e) {
+      const msg = e?.message || "Start over failed";
+      setError(msg);
+
+      pvUiHook("auth.login.reset_session.failure.ui", {
+        tc: "TC-LOGIN-UI-34",
+        sev: "error",
+        stable: "auth:reset",
+        keepAdminKey: !!keepAdminKey,
+        error: e?.message || String(e),
+      });
+    }
   }
 
   async function onSubmit(e) {
     e.preventDefault();
     setError("");
     setBusy(true);
+
+    pvUiHook("auth.login.submit.click.ui", {
+      tc: "TC-LOGIN-UI-10",
+      sev: "info",
+      stable: "auth:login",
+      emailLength: String(email || "").trim().length,
+      alreadyAuthed,
+    });
 
     try {
       const emailNorm = String(email || "").trim().toLowerCase();
@@ -45,7 +188,6 @@ export default function Login() {
       let landing = normalizeLanding(r?.landing);
       let apiRole = String(r?.systemRole || "");
 
-      // If server didn't return enough info, ask /me (browser helper)
       if (!landing || !apiRole) {
         const m = await me();
         landing = landing || normalizeLanding(m?.landing);
@@ -54,43 +196,40 @@ export default function Login() {
 
       const uiRole = normalizeUiRole(apiRole);
 
-      // Persist roles
-      localStorage.setItem("perkvalet_system_role", uiRole);
-      localStorage.setItem("perkvalet_system_role_raw", apiRole || "");
+      localStorage.setItem(SYSTEM_ROLE_STORAGE, uiRole);
+      localStorage.setItem(SYSTEM_ROLE_RAW_STORAGE, apiRole || "");
 
-      // Legacy POS email-based override (still supported)
-      const forcePos = emailNorm === "pos@perkvalet.host";
-      if (forcePos) {
-        landing = "/merchant/pos";
-        localStorage.setItem("perkvalet_is_pos", "1");
-        localStorage.setItem("perkvalet_landing", landing);
-      } else {
-        localStorage.removeItem("perkvalet_is_pos");
-        localStorage.removeItem("perkvalet_pos_store_label");
-        localStorage.removeItem("perkvalet_pos_store_id");
-        localStorage.removeItem("perkvalet_pos_assoc_label");
-        if (landing) localStorage.setItem("perkvalet_landing", landing);
-        else localStorage.removeItem("perkvalet_landing");
-      }
+      if (landing) localStorage.setItem(LANDING_STORAGE, landing);
+      else localStorage.removeItem(LANDING_STORAGE);
 
       const safeDefault = landing || (uiRole === "pv_admin" ? "/merchants" : "/merchant");
-      const dest = forcePos
-        ? String(from || "").startsWith("/merchant/pos")
-          ? from
-          : "/merchant/pos"
-        : from || safeDefault;
+      const rt = readReturnTo();
+      const dest = rt || safeDefault;
+
+      pvUiHook("auth.login.submit.success.ui", {
+        tc: "TC-LOGIN-UI-11",
+        sev: "info",
+        stable: "auth:login",
+        uiRole,
+        dest,
+        usedReturnTo: Boolean(rt),
+      });
 
       navigate(dest, { replace: true });
     } catch (err) {
-      clearAccessToken();
-      localStorage.removeItem("perkvalet_system_role");
-      localStorage.removeItem("perkvalet_system_role_raw");
-      localStorage.removeItem("perkvalet_landing");
-      localStorage.removeItem("perkvalet_is_pos");
-      localStorage.removeItem("perkvalet_pos_store_label");
-      localStorage.removeItem("perkvalet_pos_store_id");
-      localStorage.removeItem("perkvalet_pos_assoc_label");
-      setError(err?.message || "Login failed");
+      try {
+        pvClearSession({ reason: "login_failed", broadcast: false });
+      } catch {}
+
+      const msg = err?.message || "Login failed";
+      setError(msg);
+
+      pvUiHook("auth.login.submit.failure.ui", {
+        tc: "TC-LOGIN-UI-12",
+        sev: "error",
+        stable: "auth:login",
+        error: err?.message || String(err),
+      });
     } finally {
       setBusy(false);
     }
@@ -100,9 +239,73 @@ export default function Login() {
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
         <h2 style={{ marginTop: 0, marginBottom: 6 }}>PerkValet Login</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
-          Sign in to access your portal.
-        </div>
+        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>Sign in to access your portal.</div>
+
+        {alreadyAuthed ? (
+          <div
+            style={{
+              background: "rgba(0,120,255,0.08)",
+              border: "1px solid rgba(0,120,255,0.18)",
+              padding: 12,
+              borderRadius: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>You’re already signed in</div>
+            <div style={{ color: "rgba(0,0,0,0.78)", marginBottom: 10, lineHeight: 1.35 }}>
+              If things feel out of sync, you can start over on this computer.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={goHome}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "white",
+                  cursor: "pointer",
+                  fontWeight: 800,
+                }}
+              >
+                Go to Home
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onResetSession({ keepAdminKey: true })}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "white",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+                title="Signs you out and returns you to the login screen (keeps admin approval for this browser)"
+              >
+                Start over on this computer
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onResetSession({ keepAdminKey: false })}
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.18)",
+                  background: "rgba(255,0,0,0.06)",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+                title="Signs you out and removes admin approval for this browser"
+              >
+                Remove admin access from this computer
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {notice ? (
           <div
@@ -128,6 +331,7 @@ export default function Login() {
             borderRadius: 14,
             padding: 14,
             background: "white",
+            opacity: alreadyAuthed ? 0.6 : 1,
           }}
         >
           <label style={{ display: "grid", gap: 6 }}>
@@ -136,11 +340,8 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                border: "1px solid rgba(0,0,0,0.22)",
-              }}
+              disabled={busy}
+              style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(0,0,0,0.22)" }}
             />
           </label>
 
@@ -153,6 +354,7 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
+                disabled={busy}
                 style={{
                   padding: "10px 44px 10px 10px",
                   borderRadius: 10,
@@ -227,18 +429,18 @@ export default function Login() {
           </div>
 
           <button
-            disabled={busy}
+            disabled={busy || alreadyAuthed}
             type="submit"
             style={{
               padding: 12,
               borderRadius: 12,
               border: "1px solid rgba(0,0,0,0.18)",
               background: "white",
-              cursor: busy ? "not-allowed" : "pointer",
+              cursor: busy || alreadyAuthed ? "not-allowed" : "pointer",
               fontWeight: 800,
             }}
           >
-            {busy ? "Signing in..." : "Sign in"}
+            {alreadyAuthed ? "Signed in" : busy ? "Signing in..." : "Sign in"}
           </button>
 
           {error ? (

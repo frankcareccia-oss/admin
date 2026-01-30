@@ -1,7 +1,7 @@
 // admin/src/components/RequireAuth.jsx
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { getAccessToken, clearAccessToken } from "../api/client";
+import { getAccessToken, pvClearSession } from "../api/client";
 
 function readRole() {
   const role = String(localStorage.getItem("perkvalet_system_role") || "").trim();
@@ -20,15 +20,16 @@ function isPosUser() {
   return localStorage.getItem("perkvalet_is_pos") === "1";
 }
 
-function clearSession() {
-  clearAccessToken();
-  localStorage.removeItem("perkvalet_system_role");
-  localStorage.removeItem("perkvalet_system_role_raw");
-  localStorage.removeItem("perkvalet_landing");
-  localStorage.removeItem("perkvalet_is_pos");
-  localStorage.removeItem("perkvalet_pos_store_label");
-  localStorage.removeItem("perkvalet_pos_store_id");
-  localStorage.removeItem("perkvalet_pos_assoc_label");
+function shouldRememberReturnTo(path) {
+  const p = String(path || "");
+  // Remember deep links into protected areas.
+  return (
+    p.startsWith("/admin/") ||
+    p.startsWith("/merchants") ||
+    p.startsWith("/stores/") ||
+    p.startsWith("/settings/") ||
+    p.startsWith("/merchant/")
+  );
 }
 
 export default function RequireAuth({ children, requiredRole }) {
@@ -42,31 +43,31 @@ export default function RequireAuth({ children, requiredRole }) {
   const isPosPath = path.startsWith("/merchant/pos");
   const isPosLogin = path.startsWith("/pos/login");
 
-  // Not logged in: allow the app to route to public pages.
+  // Not logged in
   if (!token) {
-    // Let /pos/login render without redirect loops
+    // Let /pos/login render without loops
     if (isPosLogin) return children;
 
-    return (
-      <Navigate to="/login" replace state={{ from: location, notice: "Please sign in." }} />
-    );
+    // Save deep-link return-to (one time)
+    if (shouldRememberReturnTo(path)) {
+      try {
+        const full = `${location.pathname || ""}${location.search || ""}`;
+        sessionStorage.setItem("perkvalet_return_to", full);
+      } catch {
+        // ignore
+      }
+    }
+
+    return <Navigate to="/login" replace state={{ notice: "Please sign in." }} />;
   }
 
   // Token exists but no role => invalid session
   if (!role) {
-    clearSession();
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location, notice: "Session invalid. Please sign in again." }}
-      />
-    );
+    pvClearSession({ reason: "missing_role", broadcast: true });
+    return <Navigate to="/login" replace state={{ notice: "Session invalid. Please sign in again." }} />;
   }
 
-  // POS enforcement:
-  // - POS users should ONLY live under /merchant/pos, /account/*, and /pos/login (for shift switching)
-  // - Non-POS users should NOT access /merchant/pos
+  // POS enforcement (leave as-is if you still use perkvalet_is_pos)
   if (pos && !isPosPath && !isAccount && !isPosLogin) {
     return <Navigate to="/merchant/pos" replace />;
   }

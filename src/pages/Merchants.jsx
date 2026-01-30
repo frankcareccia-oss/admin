@@ -1,6 +1,6 @@
 // src/pages/Merchants.jsx
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { listMerchants, createMerchant, getAdminKey } from "../api/client";
 import Toast from "../components/Toast";
 
@@ -72,7 +72,18 @@ export default function Merchants() {
 
   const [toast, setToast] = React.useState(null);
 
-  const adminKey = getAdminKey();
+  // This page never mentions the secret. It only checks whether this browser is enabled.
+  const [isBrowserEnabled, setIsBrowserEnabled] = React.useState(() => Boolean(getAdminKey() || ""));
+
+  React.useEffect(() => {
+    // If user enabled the browser in another tab/page, reflect it on focus.
+    function onFocus() {
+      const ok = Boolean(getAdminKey() || "");
+      setIsBrowserEnabled(ok);
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   async function refresh(reason = "auto") {
     setLoading(true);
@@ -84,7 +95,7 @@ export default function Merchants() {
       stable: "merchants:list",
       status: status || null,
       reason,
-      hasAdminKey: Boolean(adminKey),
+      isBrowserEnabled,
     });
 
     try {
@@ -122,8 +133,16 @@ export default function Merchants() {
       sev: "info",
       stable: "merchants:page",
       status: status || null,
-      hasAdminKey: Boolean(adminKey),
+      isBrowserEnabled,
     });
+
+    if (!isBrowserEnabled) {
+      pvUiHook("admin.merchants.browser_enablement.banner_shown.ui", {
+        tc: "TC-MER-UI-30",
+        sev: "info",
+        stable: "merchants:enablementBanner",
+      });
+    }
 
     refresh("status_change");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -138,8 +157,23 @@ export default function Merchants() {
       sev: "info",
       stable: "merchants:create",
       nameLength: name.length,
-      hasAdminKey: Boolean(adminKey),
+      isBrowserEnabled,
     });
+
+    if (!isBrowserEnabled) {
+      setToast({
+        type: "error",
+        message: "This browser isn’t enabled for admin setup yet. Use Admin Key in the top menu.",
+      });
+
+      pvUiHook("admin.merchants.create.blocked.ui", {
+        tc: "TC-MER-UI-10B",
+        sev: "warn",
+        stable: "merchants:create",
+        blockedReason: "browser_not_enabled",
+      });
+      return;
+    }
 
     if (!name) {
       pvUiHook("admin.merchants.create.blocked.ui", {
@@ -212,33 +246,42 @@ export default function Merchants() {
       />
 
       <div style={{ marginTop: 18, display: "grid", gap: 16 }}>
-        {!adminKey && (
+        {!isBrowserEnabled ? (
           <div
             style={{
-              padding: 12,
+              padding: 14,
               border: "1px solid rgba(0,0,0,0.15)",
               borderRadius: 14,
               background: "rgba(255, 215, 0, 0.18)",
+              display: "grid",
+              gap: 10,
             }}
           >
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>Admin key required</div>
-            <div style={{ opacity: 0.85, marginBottom: 8 }}>
-              You are logged in (JWT), but admin provisioning endpoints require an Admin API key.
+            <div style={{ fontWeight: 900, fontSize: 16 }}>You’re almost there</div>
+
+            <div style={{ opacity: 0.92, lineHeight: 1.4 }}>
+              You’re signed in, but <b>this browser</b> isn’t yet enabled for admin setup tasks like creating merchants
+              or issuing invoices.
             </div>
-            <Link
-              to="/settings/admin-key"
-              onClick={() => {
-                pvUiHook("admin.merchants.admin_key_prompt.click.ui", {
-                  tc: "TC-MER-UI-30",
-                  sev: "info",
-                  stable: "merchants:adminKey",
-                });
+
+            <div style={{ opacity: 0.9, lineHeight: 1.4 }}>
+              For security, admin setup is only enabled on trusted computers.
+            </div>
+
+            <div
+              style={{
+                marginTop: 4,
+                padding: 12,
+                borderRadius: 12,
+                background: "rgba(255,255,255,0.65)",
+                border: "1px solid rgba(0,0,0,0.12)",
+                fontWeight: 900,
               }}
             >
-              Go set Admin Key
-            </Link>
+              Next step: Use the top menu → <span style={{ fontWeight: 900 }}>Admin Key</span> to enable this browser.
+            </div>
           </div>
-        )}
+        ) : null}
 
         <form
           onSubmit={onCreate}
@@ -249,6 +292,7 @@ export default function Merchants() {
             display: "grid",
             gap: 10,
             background: "white",
+            opacity: !isBrowserEnabled ? 0.65 : 1,
           }}
         >
           <div style={{ fontWeight: 800 }}>Create merchant</div>
@@ -256,10 +300,9 @@ export default function Merchants() {
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={newName}
-              onChange={(e) => {
-                setNewName(e.target.value);
-              }}
+              onChange={(e) => setNewName(e.target.value)}
               placeholder='e.g., "Merchant A"'
+              disabled={!isBrowserEnabled || creating}
               style={{
                 padding: 10,
                 borderRadius: 10,
@@ -270,15 +313,21 @@ export default function Merchants() {
 
             <button
               type="submit"
-              disabled={creating || !newName.trim()}
+              disabled={!isBrowserEnabled || creating || !newName.trim()}
               style={{
                 ...buttonBase,
-                background: creating || !newName.trim() ? "rgba(0,0,0,0.03)" : "white",
-                cursor: creating || !newName.trim() ? "not-allowed" : "pointer",
+                background: !isBrowserEnabled || creating || !newName.trim() ? "rgba(0,0,0,0.03)" : "white",
+                cursor: !isBrowserEnabled || creating || !newName.trim() ? "not-allowed" : "pointer",
               }}
               onClick={() => {
-                // This fires even when disabled is false; blocked case handled in onCreate too.
-                if (!newName.trim()) {
+                if (!isBrowserEnabled) {
+                  pvUiHook("admin.merchants.create.blocked.ui", {
+                    tc: "TC-MER-UI-11B",
+                    sev: "warn",
+                    stable: "merchants:create",
+                    blockedReason: "browser_not_enabled",
+                  });
+                } else if (!newName.trim()) {
                   pvUiHook("admin.merchants.create.blocked.ui", {
                     tc: "TC-MER-UI-11A",
                     sev: "warn",
@@ -320,6 +369,12 @@ export default function Merchants() {
               </select>
             </div>
           </div>
+
+          {!isBrowserEnabled ? (
+            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+              Creating merchants is disabled until this browser is enabled (top menu → Admin Key).
+            </div>
+          ) : null}
 
           {err ? (
             <div
