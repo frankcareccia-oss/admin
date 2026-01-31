@@ -162,6 +162,7 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
     if (isJson) {
       const data = await res.json().catch(() => null);
       if (data?.error?.message) msg = data.error.message;
+      if (data?.message && !data?.error?.message) msg = String(data.message);
     } else {
       const text = await res.text().catch(() => "");
       if (text) msg = text;
@@ -470,4 +471,172 @@ export async function posGetRecentActivity({ limit = 20 } = {}) {
   const qs = new URLSearchParams();
   qs.set("limit", String(limit));
   return request(`/pos/activity/recent?${qs}`, { auth: "jwt" });
+}
+
+/* -----------------------------
+   POS-11 Customer identity flow
+-------------------------------- */
+
+function normalizePhone10(phone) {
+  return String(phone || "").replace(/\D/g, "").slice(0, 10);
+}
+
+function pickFirst(obj, paths) {
+  try {
+    for (const p of paths) {
+      const parts = p.split(".");
+      let cur = obj;
+      let ok = true;
+      for (const part of parts) {
+        if (!cur || typeof cur !== "object") {
+          ok = false;
+          break;
+        }
+        cur = cur[part];
+      }
+      if (ok && cur != null && String(cur).trim() !== "") return cur;
+    }
+  } catch {}
+  return null;
+}
+
+function splitDisplayNameToParts(displayName) {
+  const s = String(displayName || "").trim();
+  if (!s) return { firstName: null, lastName: null };
+
+  // Collapse whitespace and strip trailing commas
+  const cleaned = s.replace(/\s+/g, " ").replace(/,+$/g, "").trim();
+
+  // If there's only one token, treat as firstName
+  const parts = cleaned.split(" ");
+  if (parts.length === 1) return { firstName: parts[0], lastName: null };
+
+  // first token = firstName, remaining = lastName-ish
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
+/**
+ * POST /pos/customer/preview
+ *
+ * Observed response shape:
+ * {
+ *   ok: true,
+ *   found: true,
+ *   customer: { consumerId: 3, displayName: "Jane D.", createdAt: ... }
+ * }
+ */
+export async function posCustomerPreview({ phone } = {}) {
+  const digits = normalizePhone10(phone);
+  if (digits.length !== 10) throw new Error("Phone must be 10 digits");
+
+  const raw = await request("/pos/customer/preview", {
+    method: "POST",
+    body: {
+      identityKind: "phone",
+      identityValue: digits,
+      phone: digits,
+    },
+    auth: "jwt",
+  });
+
+  const consumerId = pickFirst(raw, [
+    "customer.consumerId",
+    "customer.consumerID",
+    "customer.consumer_id",
+    "consumerId",
+    "consumerID",
+    "consumer_id",
+    "consumer.consumerId",
+    "consumer.consumerID",
+    "consumer.consumer_id",
+    "consumer.id",
+    "id",
+  ]);
+
+  const displayName = pickFirst(raw, ["customer.displayName", "customer.display_name", "displayName", "display_name"]);
+
+  // Prefer explicit first/last if present; otherwise derive from displayName
+  let firstName = pickFirst(raw, [
+    "firstName",
+    "first_name",
+    "customer.firstName",
+    "customer.first_name",
+    "consumer.firstName",
+    "consumer.first_name",
+    "consumer.profile.firstName",
+    "consumer.profile.first_name",
+  ]);
+
+  let lastName = pickFirst(raw, [
+    "lastName",
+    "last_name",
+    "customer.lastName",
+    "customer.last_name",
+    "consumer.lastName",
+    "consumer.last_name",
+    "consumer.profile.lastName",
+    "consumer.profile.last_name",
+  ]);
+
+  if ((!firstName && !lastName) && displayName) {
+    const parts = splitDisplayNameToParts(displayName);
+    firstName = parts.firstName;
+    lastName = parts.lastName;
+  }
+
+  const found = raw?.found === true || raw?.exists === true || Boolean(consumerId);
+
+  return {
+    found: Boolean(found),
+    consumerId: consumerId != null ? String(consumerId) : null,
+    firstName: firstName ? String(firstName) : null,
+    lastName: lastName ? String(lastName) : null,
+    raw,
+  };
+}
+
+/**
+ * POST /pos/customer/create
+ * firstName required, lastName optional
+ *
+ * Create response may mirror preview (customer object).
+ */
+export async function posCustomerCreate({ phone, firstName, lastName } = {}) {
+  const digits = normalizePhone10(phone);
+  if (digits.length !== 10) throw new Error("Phone must be 10 digits");
+
+  const fn = String(firstName || "").trim();
+  const ln = String(lastName || "").trim();
+  if (!fn) throw new Error("First name is required");
+
+  const raw = await request("/pos/customer/create", {
+    method: "POST",
+    body: {
+      identityKind: "phone",
+      identityValue: digits,
+      phone: digits,
+      firstName: fn,
+      ...(ln ? { lastName: ln } : {}),
+    },
+    auth: "jwt",
+  });
+
+  const consumerId = pickFirst(raw, [
+    "customer.consumerId",
+    "customer.consumerID",
+    "customer.consumer_id",
+    "consumerId",
+    "consumerID",
+    "consumer_id",
+    "consumer.consumerId",
+    "consumer.consumerID",
+    "consumer.consumer_id",
+    "consumer.id",
+    "id",
+  ]);
+
+  return {
+    consumerId: consumerId != null ? String(consumerId) : null,
+    raw,
+  };
 }

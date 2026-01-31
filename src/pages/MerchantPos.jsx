@@ -1,7 +1,13 @@
 // admin/src/pages/MerchantPos.jsx
 import React from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { clearAccessToken, posGetTodayStats, posGetRecentActivity } from "../api/client";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  clearAccessToken,
+  posGetTodayStats,
+  posGetRecentActivity,
+  posCustomerPreview,
+  posCustomerCreate,
+} from "../api/client";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -38,8 +44,10 @@ const LS_POS_AUTHED_STORE_ID = "perkvalet_pos_authed_store_id";
 const LS_POS_AUTHED_TERMINAL_ID = "perkvalet_pos_authed_terminal_id";
 const LS_POS_AUTHED_MERCHANT_ID = "perkvalet_pos_authed_merchant_id";
 
-// Optional cross-page hint (not required): other pages MAY set this to "1" before navigating back
+// Cross-page refresh + last-action signals (Visit/Reward pages write these)
 const SS_POS_DASH_NEEDS_REFRESH = "perkvalet_pos_dash_needs_refresh";
+const LS_POS_NEEDS_REFRESH = "perkvalet_pos_needs_refresh";
+const LS_POS_LAST_ACTION = "perkvalet_pos_last_action";
 
 // Route constant
 const POS_DASH_PATH = "/merchant/pos";
@@ -65,12 +73,10 @@ function formatLocal(ts) {
     const d = new Date(ts);
     if (Number.isNaN(d.getTime())) return "";
     return new Intl.DateTimeFormat(undefined, {
-      year: "numeric",
       month: "short",
       day: "2-digit",
       hour: "numeric",
       minute: "2-digit",
-      second: "2-digit",
     }).format(d);
   } catch {
     return "";
@@ -79,7 +85,9 @@ function formatLocal(ts) {
 
 function readDashNeedsRefresh() {
   try {
-    return String(sessionStorage.getItem(SS_POS_DASH_NEEDS_REFRESH) || "") === "1";
+    const flaggedSS = String(sessionStorage.getItem(SS_POS_DASH_NEEDS_REFRESH) || "") === "1";
+    const flaggedLS = String(localStorage.getItem(LS_POS_NEEDS_REFRESH) || "") === "1";
+    return flaggedSS || flaggedLS;
   } catch {
     return false;
   }
@@ -88,9 +96,71 @@ function readDashNeedsRefresh() {
 function clearDashNeedsRefresh() {
   try {
     sessionStorage.removeItem(SS_POS_DASH_NEEDS_REFRESH);
+  } catch {}
+  try {
+    localStorage.removeItem(LS_POS_NEEDS_REFRESH);
+  } catch {}
+}
+
+function readLastAction() {
+  try {
+    const raw = String(localStorage.getItem(LS_POS_LAST_ACTION) || "");
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return null;
+    return obj;
   } catch {
-    // ignore
+    return null;
   }
+}
+
+function describeLastAction(a) {
+  if (!a) return "";
+  const type = String(a.type || "").toLowerCase();
+  const masked = a.identifierMasked ? String(a.identifierMasked) : "";
+  const at = a.at ? formatLocal(a.at) : "";
+
+  if (type === "visit") return `Last action: Visit registered ${masked ? `(${masked})` : ""}${at ? ` — ${at}` : ""}`;
+  if (type === "reward") return `Last action: Reward granted ${masked ? `(${masked})` : ""}${at ? ` — ${at}` : ""}`;
+  return `Last action recorded${at ? ` — ${at}` : ""}`;
+}
+
+// Phone-only normalization
+function normalizePhoneDigits(raw) {
+  return String(raw || "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
+}
+
+function formatPhonePretty(digits) {
+  const d = String(digits || "").replace(/\D/g, "").slice(0, 10);
+  if (!d) return "";
+  const a = d.slice(0, 3);
+  const b = d.slice(3, 6);
+  const c = d.slice(6, 10);
+
+  if (d.length <= 3) return `(${a}`;
+  if (d.length <= 6) return `(${a}) ${b}`;
+  return `(${a}) ${b}-${c}`;
+}
+
+function maskPhone(digits) {
+  const d = String(digits || "").replace(/\D/g, "");
+  if (d.length < 4) return "***-***-****";
+  const last4 = d.slice(-4);
+  return `***-***-${last4}`;
+}
+
+function normalizeNamePart(v) {
+  return String(v || "").trim().replace(/\s+/g, " ").slice(0, 60);
+}
+
+function prettyName(firstName, lastName) {
+  const fn = String(firstName || "").trim();
+  const ln = String(lastName || "").trim();
+  if (!fn && !ln) return "";
+  if (fn && ln) return `${fn} ${ln}`;
+  return fn || ln;
 }
 
 export default function MerchantPos() {
@@ -105,14 +175,26 @@ export default function MerchantPos() {
   const [today, setToday] = React.useState({
     visits: 0,
     rewards: 0,
-    updatedAt: null, // event time from backend if available
-    fetchedAt: null, // when UI refreshed
+    updatedAt: null,
+    fetchedAt: null,
   });
 
   const [recent, setRecent] = React.useState({
     items: [],
     fetchedAt: null,
   });
+
+  const [lastActionMsg, setLastActionMsg] = React.useState("");
+
+  // UX: Recent Activity collapsed by default
+  const [recentOpen, setRecentOpen] = React.useState(false);
+
+  // POS-11: customer identity flow
+  const [phoneInput, setPhoneInput] = React.useState("");
+  const [confirm, setConfirm] = React.useState(null); // { digits, masked, createdAt }
+  const [identity, setIdentity] = React.useState(null); // { status, found, consumerId, firstName, lastName, displayName, previewedAt }
+  const [createFirstName, setCreateFirstName] = React.useState("");
+  const [createLastName, setCreateLastName] = React.useState("");
 
   // Auto-refresh guards
   const initialLoadDoneRef = React.useRef(false);
@@ -128,8 +210,19 @@ export default function MerchantPos() {
       terminalLabelPresent: Boolean(prov.terminalLabel),
     });
 
+    // On mount: show any last-action message (human confirmation)
+    const la = readLastAction();
+    if (la) {
+      setLastActionMsg(describeLastAction(la));
+      pvUiHook("pos.dashboard.last_action.visible.ui", {
+        tc: "TC-POS-DASH-UI-LA-01",
+        sev: "info",
+        stable: "pos:dash",
+        type: la?.type || null,
+      });
+    }
+
     // Load stats on entry (best-effort)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     refreshAll({ reason: "initial_mount" }).finally(() => {
       initialLoadDoneRef.current = true;
     });
@@ -139,21 +232,21 @@ export default function MerchantPos() {
   // If this page is NOT unmounted when navigating (nested routing), this catches "return to dashboard".
   React.useEffect(() => {
     if (location?.pathname !== POS_DASH_PATH) return;
-
-    // Avoid double-refresh immediately on first mount.
     if (!initialLoadDoneRef.current) return;
 
-    // If other pages opted-in (sessionStorage flag), always refresh once.
     const flagged = readDashNeedsRefresh();
 
-    // Otherwise do a conservative "route return" refresh with cooldown.
     const now = Date.now();
-    const cooldownMs = 2000; // prevent accidental double calls (HMR / double effects / rapid nav)
+    const cooldownMs = 1200;
     const recentlyAutoRefreshed = now - lastAutoRefreshAtRef.current < cooldownMs;
 
     if (flagged || !recentlyAutoRefreshed) {
       if (flagged) clearDashNeedsRefresh();
       lastAutoRefreshAtRef.current = now;
+
+      // refresh provisioning + show last action (if present)
+      const la = readLastAction();
+      if (la) setLastActionMsg(describeLastAction(la));
 
       pvUiHook("pos.dashboard.auto_refresh_on_return.ui", {
         tc: "TC-POS-DASH-UI-05",
@@ -163,30 +256,40 @@ export default function MerchantPos() {
         path: location?.pathname || null,
       });
 
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       refreshAll({ reason: flagged ? "flagged_return" : "route_return" });
     }
   }, [location?.pathname]);
 
-  function refreshTerminalOnly() {
-    const p = readProvisioning();
-    setProv(p);
-    setError("");
-    pvUiHook("pos.dashboard.refresh_terminal_only_clicked.ui", {
-      tc: "TC-POS-DASH-UI-02B",
-      sev: "info",
-      stable: "pos:dash",
-      storeId: p.storeId || null,
-      terminalIdPresent: Boolean(p.terminalId),
-    });
-  }
+  // If user enables refresh flags from another tab or comes back to window, re-check
+  React.useEffect(() => {
+    function onFocus() {
+      if (location?.pathname !== POS_DASH_PATH) return;
+      if (!initialLoadDoneRef.current) return;
+
+      const flagged = readDashNeedsRefresh();
+      if (!flagged) return;
+
+      clearDashNeedsRefresh();
+      const la = readLastAction();
+      if (la) setLastActionMsg(describeLastAction(la));
+
+      pvUiHook("pos.dashboard.auto_refresh_on_focus.ui", {
+        tc: "TC-POS-DASH-UI-06",
+        sev: "info",
+        stable: "pos:dash",
+        reason: "focus_flagged",
+      });
+
+      refreshAll({ reason: "focus_flagged" });
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.pathname]);
 
   function normalizeTodayResponse(t) {
-    // Prefer backend shape: { ok:true, today:{ visitsCount, rewardsCount, lastUpdatedAt } }
     const visitsCount = t?.today?.visitsCount ?? t?.visitsCount ?? t?.visits ?? 0;
-
     const rewardsCount = t?.today?.rewardsCount ?? t?.rewardsCount ?? t?.rewards ?? 0;
-
     const lastUpdatedAt = t?.today?.lastUpdatedAt ?? t?.lastUpdatedAt ?? t?.updatedAt ?? null;
 
     return {
@@ -197,7 +300,6 @@ export default function MerchantPos() {
   }
 
   function normalizeRecentResponse(r) {
-    // Prefer backend shape: { ok:true, activity:{ items:[...] } }
     const items = r?.activity?.items ?? r?.items ?? [];
     return {
       items: Array.isArray(items) ? items : [],
@@ -237,8 +339,8 @@ export default function MerchantPos() {
       setToday({
         visits: t.visits,
         rewards: t.rewards,
-        updatedAt: t.updatedAt, // event time (from backend)
-        fetchedAt: nowIso, // UI refresh time
+        updatedAt: t.updatedAt,
+        fetchedAt: nowIso,
       });
 
       setRecent({
@@ -283,22 +385,17 @@ export default function MerchantPos() {
       terminalIdPresent: Boolean(p.terminalId),
     });
 
-    // OPTION 2: KEEP provisioning keys
-    // Clear only session/auth + authed-context keys.
+    // Keep provisioning keys; clear only session/auth + authed-context keys.
     try {
-      clearAccessToken(); // local UI helper
-    } catch {
-      // ignore
-    }
+      clearAccessToken();
+    } catch {}
 
-    // Session/auth keys
     localStorage.removeItem(LS_ACCESS_TOKEN);
     localStorage.removeItem(LS_SYSTEM_ROLE);
     localStorage.removeItem(LS_SYSTEM_ROLE_RAW);
     localStorage.removeItem(LS_LANDING);
     localStorage.removeItem(LS_IS_POS);
 
-    // Authed-context keys (do NOT use these to determine provisioning)
     localStorage.removeItem(LS_POS_AUTHED_STORE_ID);
     localStorage.removeItem(LS_POS_AUTHED_TERMINAL_ID);
     localStorage.removeItem(LS_POS_AUTHED_MERCHANT_ID);
@@ -312,67 +409,457 @@ export default function MerchantPos() {
       terminalIdPresent: Boolean(p.terminalId),
     });
 
-    // Back to POS login page (terminal should still show as provisioned)
     navigate("/pos/login", {
       replace: true,
       state: { notice: "Shift ended. Please sign in." },
     });
   }
 
-  const storeLine = prov.storeId ? `Store #${prov.storeId}` : "— not provisioned —";
-  const termLine = prov.terminalId
-    ? `${prov.terminalLabel || "Terminal"} (${prov.terminalId})`
-    : "— not provisioned —";
+  function clearIdentityState() {
+    setIdentity(null);
+    setCreateFirstName("");
+    setCreateLastName("");
+  }
+
+  function onClearEntry() {
+    setPhoneInput("");
+    setConfirm(null);
+    clearIdentityState();
+    setError("");
+    pvUiHook("pos.dashboard.flow.clear_clicked.ui", {
+      tc: "TC-POS-11-DASH-CLEAR-01",
+      sev: "info",
+      stable: "pos:dash",
+    });
+  }
+
+  async function onConfirmPhone() {
+    const digits = normalizePhoneDigits(phoneInput);
+    if (digits.length !== 10) {
+      setError("Enter a 10-digit phone number to continue.");
+      pvUiHook("pos.dashboard.flow.confirm_failed.ui", {
+        tc: "TC-POS-11-DASH-CONFIRM-02F",
+        sev: "warn",
+        stable: "pos:dash",
+        reason: "invalid_phone",
+        digitsLen: digits.length,
+      });
+      return;
+    }
+
+    const masked = maskPhone(digits);
+
+    setError("");
+    setConfirm({
+      digits,
+      masked,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Immediately preview customer identity
+    setBusy(true);
+    clearIdentityState();
+
+    pvUiHook("pos.dashboard.customer.preview.started.ui", {
+      tc: "TC-POS-11-PREVIEW-01",
+      sev: "info",
+      stable: "pos:customer",
+      identifierKind: "phone",
+      identifierMasked: masked,
+    });
+
+    try {
+      const r = await posCustomerPreview({ phone: digits });
+      const display = prettyName(r?.firstName, r?.lastName);
+
+      setIdentity({
+        status: "ready",
+        found: Boolean(r?.found),
+        consumerId: r?.consumerId ? String(r.consumerId) : null,
+        firstName: r?.firstName || null,
+        lastName: r?.lastName || null,
+        displayName: display || "",
+        previewedAt: new Date().toISOString(),
+      });
+
+      pvUiHook("pos.dashboard.customer.preview.succeeded.ui", {
+        tc: "TC-POS-11-PREVIEW-01S",
+        sev: "info",
+        stable: "pos:customer",
+        identifierKind: "phone",
+        identifierMasked: masked,
+        found: Boolean(r?.found),
+        consumerIdPresent: Boolean(r?.consumerId),
+        namePresent: Boolean(display),
+      });
+    } catch (e) {
+      const msg = e?.message || String(e) || "Customer preview failed";
+      setError(msg);
+
+      pvUiHook("pos.dashboard.customer.preview.failed.ui", {
+        tc: "TC-POS-11-PREVIEW-01F",
+        sev: "warn",
+        stable: "pos:customer",
+        identifierKind: "phone",
+        identifierMasked: masked,
+        error: msg,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCreateCustomer() {
+    const c = confirm;
+    if (!c?.digits) return;
+
+    const fn = normalizeNamePart(createFirstName);
+    const ln = normalizeNamePart(createLastName);
+
+    if (!fn) {
+      setError("First name is required to create the customer.");
+      pvUiHook("pos.dashboard.customer.create.validation_failed.ui", {
+        tc: "TC-POS-11-CREATE-02F",
+        sev: "warn",
+        stable: "pos:customer",
+        reason: "missing_first_name",
+        identifierMasked: c.masked || null,
+      });
+      return;
+    }
+
+    setError("");
+    setBusy(true);
+
+    pvUiHook("pos.dashboard.customer.create.started.ui", {
+      tc: "TC-POS-11-CREATE-01",
+      sev: "info",
+      stable: "pos:customer",
+      identifierMasked: c.masked || null,
+      firstNamePresent: true,
+      lastNamePresent: Boolean(ln),
+    });
+
+    try {
+      const r = await posCustomerCreate({
+        phone: c.digits,
+        firstName: fn,
+        ...(ln ? { lastName: ln } : {}),
+      });
+
+      const consumerId = r?.consumerId ? String(r.consumerId) : null;
+
+      setIdentity({
+        status: "ready",
+        found: true,
+        consumerId,
+        firstName: fn,
+        lastName: ln || null,
+        displayName: prettyName(fn, ln),
+        previewedAt: new Date().toISOString(),
+      });
+
+      pvUiHook("pos.dashboard.customer.create.succeeded.ui", {
+        tc: "TC-POS-11-CREATE-01S",
+        sev: "info",
+        stable: "pos:customer",
+        identifierMasked: c.masked || null,
+        consumerIdPresent: Boolean(consumerId),
+      });
+    } catch (e) {
+      const msg = e?.message || String(e) || "Customer create failed";
+      setError(msg);
+
+      pvUiHook("pos.dashboard.customer.create.failed.ui", {
+        tc: "TC-POS-11-CREATE-01F",
+        sev: "warn",
+        stable: "pos:customer",
+        identifierMasked: c.masked || null,
+        error: msg,
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onGoVisit() {
+    const c = confirm;
+    const id = identity;
+    if (!c || !id) return;
+
+    pvUiHook("pos.dashboard.go_visit_clicked.ui", {
+      tc: "TC-POS-11-GO-01",
+      sev: "info",
+      stable: "pos:dash",
+      identifierMasked: c.masked || null,
+      consumerIdPresent: Boolean(id.consumerId),
+      namePresent: Boolean(id.displayName),
+    });
+
+    navigate("/merchant/pos/visit", {
+      state: {
+        identifier: c.digits,
+        identifierMasked: c.masked,
+        consumerId: id.consumerId || null,
+        displayName: id.displayName || null, // POS-11: carry forward for Visit UI
+      },
+    });
+  }
+
+  function onGoReward() {
+    const c = confirm;
+    const id = identity;
+    if (!c || !id) return;
+
+    pvUiHook("pos.dashboard.go_reward_clicked.ui", {
+      tc: "TC-POS-11-GO-02",
+      sev: "info",
+      stable: "pos:dash",
+      identifierMasked: c.masked || null,
+      consumerIdPresent: Boolean(id.consumerId),
+      namePresent: Boolean(id.displayName),
+    });
+
+    navigate("/merchant/pos/reward", {
+      state: {
+        identifier: c.digits,
+        identifierMasked: c.masked,
+        consumerId: id.consumerId || null,
+        displayName: id.displayName || null, // POS-11: carry forward for Reward UI
+      },
+    });
+  }
+
+  const isProvisioned = Boolean(prov.storeId && prov.terminalId);
+  const storeLine = prov.storeId ? `Store #${prov.storeId}` : "Store —";
+  const labelLine = prov.terminalLabel ? String(prov.terminalLabel) : "Terminal";
+  const statusText = isProvisioned ? "Ready" : "Terminal not set up — provisioning required";
+
+  const digits = normalizePhoneDigits(phoneInput);
+  const pretty = formatPhonePretty(digits);
+  const canConfirm = digits.length === 10;
+
+  const confirmDisabled = busy || !canConfirm;
+
+  const recentCount = Array.isArray(recent.items) ? recent.items.length : 0;
+  const shownItems = Array.isArray(recent.items) ? recent.items.slice(0, 25) : [];
 
   return (
-    <div style={{ maxWidth: 980 }}>
-      <h2>POS Associate - Dashboard</h2>
-      <div style={{ color: "rgba(0,0,0,0.65)" }}>
-        Use this page to register visits and grant rewards at your store.
-      </div>
-
-      <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-        <button onClick={() => refreshAll({ reason: "manual_click" })} disabled={busy} style={styles.secondaryBtn}>
-          {busy ? "Refreshing..." : "Refresh"}
-        </button>
-
-        <button onClick={onEndShift} style={styles.dangerBtn}>
-          End Shift
-        </button>
-
-        <button onClick={refreshTerminalOnly} disabled={busy} style={styles.ghostBtn}>
-          Refresh Terminal Only
-        </button>
-
-        {error ? <div style={styles.inlineError}>{error}</div> : null}
-      </div>
-
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>Terminal</div>
-        <div style={styles.kvRow}>
-          <div style={styles.k}>Store:</div>
-          <div style={styles.v}>{storeLine}</div>
+    <div style={{ maxWidth: 980, paddingBottom: 24 }}>
+      <div style={styles.topRow}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 950, letterSpacing: -0.2 }}>POS Dashboard</div>
+          <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 700, marginTop: 2 }}>
+            Phone → customer identity → visit/reward.
+          </div>
         </div>
-        <div style={styles.kvRow}>
-          <div style={styles.k}>Terminal:</div>
-          <div style={styles.v}>{termLine}</div>
+
+        <div style={styles.topActions}>
+          <button
+            onClick={() => refreshAll({ reason: "manual_click" })}
+            disabled={busy}
+            style={{ ...styles.secondaryBtn, cursor: busy ? "not-allowed" : "pointer" }}
+          >
+            {busy ? "Refreshing..." : "Refresh"}
+          </button>
+
+          <button onClick={onEndShift} style={styles.dangerBtn}>
+            End Shift
+          </button>
         </div>
       </div>
 
-      <div style={{ marginTop: 16, display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <Link to="/merchant/pos/visit" style={styles.primaryBtn}>
-          Register Visit
-        </Link>
-        <Link to="/merchant/pos/reward" style={styles.primaryBtn}>
-          Grant Reward
-        </Link>
+      {/* Compact terminal status line (ambient info) */}
+      <div style={styles.statusBar}>
+        <div style={styles.statusLeft}>
+          <span style={styles.dot(isProvisioned)} />
+          <span style={styles.statusMain}>
+            {labelLine} · {storeLine} · {isProvisioned ? "Ready" : "Not ready"}
+          </span>
+        </div>
+        <div style={styles.statusRight}>{statusText}</div>
       </div>
 
-      <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+      {error ? <div style={styles.inlineError}>{error}</div> : null}
+
+      {lastActionMsg ? (
+        <div style={styles.lastAction}>
+          <div style={{ fontWeight: 950 }}>✅ {lastActionMsg}</div>
+          <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 700 }}>
+            Tip: If Today/Recent don’t update immediately, press Refresh.
+          </div>
+        </div>
+      ) : null}
+
+      <div style={styles.grid2}>
+        <div style={styles.card}>
+          <div style={styles.cardTitle}>Register / Reward</div>
+          <div style={{ color: "rgba(0,0,0,0.70)", fontWeight: 850 }}>
+            Enter the customer’s phone number. We will preview identity first.
+          </div>
+
+          <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={styles.smallLabel}>Phone number</div>
+              <input
+                className="pvInput"
+                value={pretty || phoneInput}
+                onChange={(e) => {
+                  const nextDigits = normalizePhoneDigits(e.target.value);
+                  setPhoneInput(nextDigits);
+                  if (confirm) setConfirm(null); // typing invalidates confirm
+                  clearIdentityState();
+                }}
+                placeholder=""
+                style={styles.input}
+                inputMode="tel"
+                autoComplete="off"
+                spellCheck={false}
+                disabled={busy}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && canConfirm) onConfirmPhone();
+                }}
+              />
+              <div style={styles.hintLine}>10 digits required.</div>
+              <div style={styles.exampleLine}>Example: (555) 123-4567</div>
+            </div>
+
+            {!confirm ? (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  onClick={onConfirmPhone}
+                  disabled={confirmDisabled}
+                  style={{
+                    ...(confirmDisabled ? styles.primaryDisabledBtn : styles.primaryBtn),
+                    cursor: confirmDisabled ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Confirm
+                </button>
+
+                <button onClick={onClearEntry} disabled={busy} style={styles.ghostBtn}>
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div style={styles.confirmPanel}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                  <div>
+                    <div style={{ fontWeight: 950, fontSize: 14 }}>Phone confirmed</div>
+                    <div style={{ marginTop: 4, fontWeight: 950, fontSize: 16 }}>{confirm.masked || "—"}</div>
+                    <div style={styles.metaLine}>Confirmed: {formatLocal(confirm.createdAt)}</div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setConfirm(null);
+                      clearIdentityState();
+                    }}
+                    disabled={busy}
+                    style={styles.ghostBtn}
+                  >
+                    Edit
+                  </button>
+                </div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  {!identity ? (
+                    <div style={styles.panelText}>Previewing customer…</div>
+                  ) : identity.found ? (
+                    <div style={styles.identityOk}>
+                      <div style={{ fontWeight: 950 }}>✅ Customer found</div>
+                      <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.75)", marginTop: 4 }}>
+                        {identity.displayName || "Name on file"}
+                      </div>
+                      <div style={styles.metaLine}>
+                        {identity.consumerId
+                          ? `consumerId: ${String(identity.consumerId).slice(0, 10)}…`
+                          : "consumerId present"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={styles.identityCreate}>
+                      <div style={{ fontWeight: 950 }}>🆕 New customer</div>
+                      <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800, marginTop: 4 }}>
+                        No customer found for this phone. Create one to proceed.
+                      </div>
+
+                      <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <div style={styles.smallLabel}>First name (required)</div>
+                          <input
+                            className="pvInput"
+                            value={createFirstName}
+                            onChange={(e) => setCreateFirstName(e.target.value)}
+                            placeholder="First name"
+                            style={styles.input}
+                            disabled={busy}
+                            autoComplete="off"
+                          />
+                        </div>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <div style={styles.smallLabel}>Last name (optional)</div>
+                          <input
+                            className="pvInput"
+                            value={createLastName}
+                            onChange={(e) => setCreateLastName(e.target.value)}
+                            placeholder="Last name"
+                            style={styles.input}
+                            disabled={busy}
+                            autoComplete="off"
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                        <button
+                          onClick={onCreateCustomer}
+                          disabled={busy}
+                          style={{ ...styles.secondaryStrongBtn, padding: "12px 14px" }}
+                        >
+                          Create customer
+                        </button>
+                        <button onClick={onClearEntry} disabled={busy} style={styles.ghostBtn}>
+                          Start over
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <button
+                      onClick={onGoVisit}
+                      disabled={busy || !identity || (!identity.found && !identity.consumerId)}
+                      style={{ ...styles.primaryBtn, padding: "14px 14px", opacity: busy || !identity ? 0.6 : 1 }}
+                    >
+                      Register Visit
+                    </button>
+                    <button
+                      onClick={onGoReward}
+                      disabled={busy || !identity || (!identity.found && !identity.consumerId)}
+                      style={{
+                        ...styles.secondaryStrongBtn,
+                        padding: "14px 14px",
+                        opacity: busy || !identity ? 0.6 : 1,
+                      }}
+                    >
+                      Grant Reward
+                    </button>
+                  </div>
+
+                  <div style={styles.metaLine}>
+                    consumerId and displayName are carried forward (visit/reward pages will show name when present).
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div style={styles.panel}>
           <div style={styles.panelTitle}>Today</div>
 
-          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+          <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
             <div style={styles.kvRow2}>
               <div style={styles.k2}>Visits</div>
               <div style={styles.v2}>{Number(today.visits || 0)}</div>
@@ -385,46 +872,63 @@ export default function MerchantPos() {
 
             {today.updatedAt || today.fetchedAt ? (
               <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
-                {today.updatedAt ? (
-                  <div style={styles.metaLine}>Updated (local): {formatLocal(today.updatedAt)}</div>
-                ) : null}
-                {today.fetchedAt ? (
-                  <div style={styles.metaLine}>Refreshed (local): {formatLocal(today.fetchedAt)}</div>
-                ) : null}
+                {today.updatedAt ? <div style={styles.metaLine}>Updated: {formatLocal(today.updatedAt)}</div> : null}
+                {today.fetchedAt ? <div style={styles.metaLine}>Refreshed: {formatLocal(today.fetchedAt)}</div> : null}
               </div>
             ) : (
-              <div style={styles.panelText}>Press Refresh to load today&apos;s stats.</div>
+              <div style={styles.panelText}>Press Refresh to load today’s stats.</div>
             )}
           </div>
         </div>
+      </div>
 
+      <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
         <div style={styles.panel}>
-          <div style={styles.panelTitle}>Recent Activity</div>
+          <div style={styles.panelTitleRow}>
+            <div style={styles.panelTitle}>Recent Activity</div>
 
-          {Array.isArray(recent.items) && recent.items.length ? (
-            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-              {/* Column header */}
+            <button
+              onClick={() => {
+                setRecentOpen((v) => !v);
+                pvUiHook("pos.dashboard.recent.toggle_clicked.ui", {
+                  tc: "TC-POS-DASH-RECENT-TOGGLE-01",
+                  sev: "info",
+                  stable: "pos:dash",
+                  open: !recentOpen,
+                });
+              }}
+              style={styles.disclosureBtn}
+              disabled={busy}
+            >
+              {recentOpen ? "Hide" : "Show"} ({recentCount})
+            </button>
+          </div>
+
+          {!recentOpen ? (
+            <div style={styles.panelText}>Collapsed to keep the dashboard simple.</div>
+          ) : recentCount ? (
+            <div style={{ marginTop: 10 }}>
               <div style={styles.activityHeader}>
-                <div style={{ minWidth: 72 }}>TYPE</div>
+                <div style={{ minWidth: 80 }}>TYPE</div>
                 <div>IDENTIFIER</div>
-                <div style={{ marginLeft: "auto" }}>LOCAL TIME</div>
+                <div style={{ marginLeft: "auto" }}>TIME</div>
               </div>
 
-              {recent.items.slice(0, 10).map((it, idx) => (
-                <div key={`${it.type || "x"}-${it.id || idx}`} style={styles.activityRow}>
-                  <div style={{ fontWeight: 900, minWidth: 72 }}>{String(it.type || "").toUpperCase()}</div>
-                  <div style={{ fontWeight: 800, color: "rgba(0,0,0,0.75)" }}>
-                    {it.identifierMasked || it.identifier || "—"}
+              <div style={styles.activityScroll}>
+                {shownItems.map((it, idx) => (
+                  <div key={`${it.type || "x"}-${it.id || idx}`} style={styles.activityRow}>
+                    <div style={{ fontWeight: 950, minWidth: 80 }}>{String(it.type || "").toUpperCase()}</div>
+                    <div style={{ fontWeight: 850, color: "rgba(0,0,0,0.75)" }}>
+                      {it.identifierMasked || it.identifier || "—"}
+                    </div>
+                    <div style={{ marginLeft: "auto", color: "rgba(0,0,0,0.55)", fontWeight: 850, fontSize: 12 }}>
+                      {formatLocal(it.at || it.ts) || ""}
+                    </div>
                   </div>
-                  <div style={{ marginLeft: "auto", color: "rgba(0,0,0,0.55)", fontWeight: 800, fontSize: 12 }}>
-                    {formatLocal(it.at || it.ts) || ""}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
-              {recent.fetchedAt ? (
-                <div style={styles.metaLine}>Refreshed (local): {formatLocal(recent.fetchedAt)}</div>
-              ) : null}
+              {recent.fetchedAt ? <div style={styles.metaLine}>Refreshed: {formatLocal(recent.fetchedAt)}</div> : null}
             </div>
           ) : (
             <div style={styles.panelText}>No recent activity yet. Press Refresh after a visit/reward.</div>
@@ -433,82 +937,204 @@ export default function MerchantPos() {
       </div>
 
       <div style={styles.footer}>
-        POS associate - limited to visit/reward actions only. This page never shows access tokens or raw server payloads.
+        POS associate: visit/reward only. This page never shows access tokens or raw server payloads.
       </div>
     </div>
   );
 }
 
 const styles = {
-  primaryBtn: {
-    padding: "12px 20px",
+  topRow: {
+    marginTop: 6,
+    display: "flex",
+    gap: 12,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+  },
+  topActions: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
+
+  statusBar: {
+    marginTop: 10,
+    padding: "8px 12px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    textDecoration: "none",
-    fontWeight: 800,
-    color: "black",
-    display: "inline-block",
-    minWidth: 160,
-    textAlign: "center",
-  },
-  secondaryBtn: {
-    padding: "10px 14px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
-  },
-  ghostBtn: {
-    padding: "10px 14px",
-    borderRadius: 999,
-    border: "1px dashed rgba(0,0,0,0.22)",
+    border: "1px solid rgba(0,0,0,0.10)",
     background: "rgba(0,0,0,0.02)",
-    cursor: "pointer",
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+  },
+  statusLeft: { display: "flex", alignItems: "center", gap: 8 },
+  statusMain: { fontWeight: 900, color: "rgba(0,0,0,0.75)" },
+  statusRight: { fontWeight: 850, color: "rgba(0,0,0,0.55)" },
+  dot: (ok) => ({
+    width: 10,
+    height: 10,
+    borderRadius: 999,
+    background: ok ? "rgba(0,160,0,0.85)" : "rgba(255,160,0,0.95)",
+    boxShadow: "0 0 0 2px rgba(0,0,0,0.06)",
+    display: "inline-block",
+  }),
+
+  secondaryBtn: {
+    padding: "12px 16px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
     fontWeight: 900,
   },
   dangerBtn: {
-    padding: "10px 14px",
+    padding: "12px 16px",
     borderRadius: 999,
     border: "1px solid rgba(255,0,0,0.35)",
     background: "rgba(255,0,0,0.06)",
     cursor: "pointer",
-    fontWeight: 900,
+    fontWeight: 950,
   },
+
   inlineError: {
-    marginLeft: 6,
-    padding: "8px 10px",
+    marginTop: 12,
+    padding: "10px 12px",
     borderRadius: 12,
     background: "rgba(255,0,0,0.06)",
     border: "1px solid rgba(255,0,0,0.15)",
-    fontWeight: 800,
+    fontWeight: 850,
     color: "rgba(140,0,0,1)",
-    maxWidth: 520,
     whiteSpace: "pre-wrap",
   },
+
+  lastAction: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 14,
+    border: "1px solid rgba(0,140,0,0.28)",
+    background: "rgba(0,170,0,0.10)",
+    display: "grid",
+    gap: 6,
+  },
+
+  grid2: {
+    marginTop: 12,
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+  },
+
   card: {
-    marginTop: 16,
     border: "1px solid rgba(0,0,0,0.12)",
     borderRadius: 14,
     padding: 14,
     background: "white",
   },
-  cardTitle: { fontWeight: 900, marginBottom: 10 },
-  kvRow: { display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, padding: "4px 0" },
-  k: { color: "rgba(0,0,0,0.65)", fontWeight: 800 },
-  v: { fontWeight: 800 },
-  kvRow2: { display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, alignItems: "center" },
-  k2: { color: "rgba(0,0,0,0.65)", fontWeight: 900 },
-  v2: { fontWeight: 900 },
+  cardTitle: { fontWeight: 950, marginBottom: 10 },
+
   panel: {
     border: "1px solid rgba(0,0,0,0.10)",
     borderRadius: 14,
     padding: 14,
     background: "white",
   },
-  panelTitle: { fontWeight: 900, marginBottom: 6 },
-  panelText: { color: "rgba(0,0,0,0.65)" },
+  panelTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  panelTitle: { fontWeight: 950, marginBottom: 6 },
+  panelText: { color: "rgba(0,0,0,0.65)", fontWeight: 700 },
+
+  disclosureBtn: {
+    padding: "8px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 950,
+    fontSize: 13,
+    whiteSpace: "nowrap",
+  },
+
+  primaryBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "black",
+    color: "white",
+    fontWeight: 950,
+  },
+
+  // When Confirm is disabled: do NOT show a "primary" filled button
+  primaryDisabledBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "rgba(0,0,0,0.05)",
+    color: "rgba(0,0,0,0.55)",
+    fontWeight: 950,
+  },
+
+  secondaryStrongBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    color: "black",
+    fontWeight: 950,
+  },
+
+  ghostBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px dashed rgba(0,0,0,0.22)",
+    background: "rgba(0,0,0,0.02)",
+    cursor: "pointer",
+    fontWeight: 950,
+  },
+
+  input: {
+    width: "100%",
+    padding: "12px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.18)",
+    outline: "none",
+    fontSize: 14,
+    /* NOTE: font-weight/color controlled by .pvInput in App.css */
+    fontWeight: "inherit",
+    color: "inherit",
+  },
+
+  exampleLine: {
+    color: "rgba(0,0,0,0.22)",
+    fontWeight: 650,
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  identityOk: {
+    padding: 12,
+    borderRadius: 14,
+    border: "1px solid rgba(0,140,0,0.20)",
+    background: "rgba(0,170,0,0.08)",
+  },
+
+  identityCreate: {
+    padding: 12,
+    borderRadius: 14,
+    border: "1px solid rgba(255,160,0,0.25)",
+    background: "rgba(255,160,0,0.06)",
+  },
+
+  smallLabel: { color: "rgba(0,0,0,0.60)", fontWeight: 950, fontSize: 12 },
+  hintLine: { color: "rgba(0,0,0,0.55)", fontWeight: 750, fontSize: 12, marginTop: 6 },
+
+  confirmPanel: {
+    padding: 12,
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "rgba(0,0,0,0.02)",
+  },
+
+  kvRow2: { display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, alignItems: "center" },
+  k2: { color: "rgba(0,0,0,0.65)", fontWeight: 950 },
+  v2: { fontWeight: 950, fontSize: 18 },
+
   activityHeader: {
     display: "flex",
     alignItems: "center",
@@ -516,17 +1142,28 @@ const styles = {
     padding: "4px 2px",
     color: "rgba(0,0,0,0.45)",
     fontSize: 12,
-    fontWeight: 900,
+    fontWeight: 950,
   },
+
+  activityScroll: {
+    maxHeight: 260,
+    overflowY: "auto",
+    paddingRight: 4,
+    marginTop: 8,
+    display: "grid",
+    gap: 8,
+  },
+
   activityRow: {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "10px 12px",
+    padding: "12px 12px",
     borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.08)",
     background: "rgba(0,0,0,0.01)",
   },
-  metaLine: { color: "rgba(0,0,0,0.5)", fontSize: 12, fontWeight: 800 },
-  footer: { marginTop: 18, color: "rgba(0, 0, 0, 0.5)", fontSize: 13 },
+
+  metaLine: { color: "rgba(0,0,0,0.5)", fontSize: 12, fontWeight: 850 },
+  footer: { marginTop: 18, color: "rgba(0, 0, 0, 0.5)", fontSize: 13, fontWeight: 700 },
 };

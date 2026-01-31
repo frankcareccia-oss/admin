@@ -1,8 +1,12 @@
 // admin/src/pages/PosRegisterVisit.jsx
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAccessToken } from "../api/client";
 
+/**
+ * pvUiHook: structured UI events for QA/docs/chatbot.
+ * Must never throw.
+ */
 function pvUiHook(event, fields = {}) {
   try {
     console.log(
@@ -10,6 +14,26 @@ function pvUiHook(event, fields = {}) {
         pvUiHook: event,
         ts: new Date().toISOString(),
         ...fields,
+      })
+    );
+  } catch {}
+}
+
+const SS_POS_DASH_NEEDS_REFRESH = "perkvalet_pos_dash_needs_refresh";
+const LS_POS_NEEDS_REFRESH = "perkvalet_pos_needs_refresh";
+const LS_POS_LAST_ACTION = "perkvalet_pos_last_action";
+
+function markDashboardNeedsRefresh(payload) {
+  try {
+    sessionStorage.setItem(SS_POS_DASH_NEEDS_REFRESH, "1");
+  } catch {}
+  try {
+    localStorage.setItem(LS_POS_NEEDS_REFRESH, "1");
+    localStorage.setItem(
+      LS_POS_LAST_ACTION,
+      JSON.stringify({
+        ...payload,
+        at: new Date().toISOString(),
       })
     );
   } catch {}
@@ -64,53 +88,71 @@ function friendlyError(res, data) {
   );
 }
 
-function normalizePhone(raw) {
-  const v = String(raw || "").trim();
-  const hasLetters = /[A-Za-z]/.test(v);
-  const digits = v.replace(/[^\d]/g, "");
-  return { v, digits, hasLetters };
+// Phone helpers (POS: phone-only)
+function normalizePhoneDigits(raw) {
+  return String(raw || "")
+    .replace(/\D/g, "")
+    .slice(0, 10);
 }
 
-function validatePhone(raw) {
-  const { v, digits, hasLetters } = normalizePhone(raw);
-  if (!v) return { ok: false, reason: "" }; // empty is allowed until chosen
-  if (hasLetters) return { ok: false, reason: "Phone cannot contain letters." };
-  if (digits.length < 10 || digits.length > 15) return { ok: false, reason: "Phone should be 10–15 digits." };
-  return { ok: true, normalized: digits, note: `Phone detected (${digits.length} digits).` };
-}
+function formatPhonePretty(digits) {
+  const d = String(digits || "").replace(/\D/g, "").slice(0, 10);
+  if (!d) return "";
+  const a = d.slice(0, 3);
+  const b = d.slice(3, 6);
+  const c = d.slice(6, 10);
 
-function validateEmail(raw) {
-  const v = String(raw || "").trim();
-  if (!v) return { ok: false, reason: "" }; // empty is allowed until chosen
-  const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
-  if (!ok) return { ok: false, reason: "Email format looks invalid." };
-  return { ok: true, normalized: v.toLowerCase(), note: "Email detected." };
+  if (d.length <= 3) return `(${a}`;
+  if (d.length <= 6) return `(${a}) ${b}`;
+  return `(${a}) ${b}-${c}`;
 }
 
 function maskPhoneDigits(digits) {
-  const d = String(digits || "");
+  const d = String(digits || "").replace(/\D/g, "");
   const last4 = d.slice(-4);
   return `***-***-${last4 || "****"}`;
 }
 
-function maskEmail(email) {
-  const v = String(email || "").trim();
-  const [u, d] = v.split("@");
-  const uMasked = u ? `${u.slice(0, 2)}***` : "***";
-  return `${uMasked}@${d || "***"}`;
+function validatePhoneDigits10(rawDigits) {
+  const d = normalizePhoneDigits(rawDigits);
+  if (!d) return { ok: false, reason: "" };
+  if (d.length !== 10) return { ok: false, reason: "Enter a 10-digit phone number." };
+  return { ok: true, normalized: d };
 }
 
 export default function PosRegisterVisit() {
   const debugEnabled = isUiDebugEnabled();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const [phone, setPhone] = React.useState("");
-  const [email, setEmail] = React.useState("");
+  const [phoneDigits, setPhoneDigits] = React.useState("");
+  const [lockedFromDash, setLockedFromDash] = React.useState(false);
 
-  // which input we intend to submit if both are present
-  const [useKind, setUseKind] = React.useState("phone"); // "phone" | "email"
+  // POS-11: dashboard may pass consumerId
+  const consumerIdFromDash = React.useMemo(() => {
+    try {
+      const v = location?.state?.consumerId;
+      if (v == null) return null;
+      const s = String(v).trim();
+      return s ? s : null;
+    } catch {
+      return null;
+    }
+  }, [location?.state?.consumerId]);
 
-  const [touchedPhone, setTouchedPhone] = React.useState(false);
-  const [touchedEmail, setTouchedEmail] = React.useState(false);
+  // POS-11: dashboard may pass displayName
+  const displayNameFromDash = React.useMemo(() => {
+    try {
+      const v = location?.state?.displayName;
+      if (v == null) return null;
+      const s = String(v).trim();
+      return s ? s : null;
+    } catch {
+      return null;
+    }
+  }, [location?.state?.displayName]);
+
+  const [displayName, setDisplayName] = React.useState(null);
 
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -121,81 +163,55 @@ export default function PosRegisterVisit() {
   const inFlightRef = React.useRef(false);
   const phoneInputRef = React.useRef(null);
 
-  const phoneV = React.useMemo(() => validatePhone(phone), [phone]);
-  const emailV = React.useMemo(() => validateEmail(email), [email]);
-
-  const phoneHasValue = String(phone || "").trim().length > 0;
-  const emailHasValue = String(email || "").trim().length > 0;
-  const hasAnyValue = phoneHasValue || emailHasValue;
-
-  const phoneValid = phoneHasValue && phoneV.ok;
-  const emailValid = emailHasValue && emailV.ok;
-
-  const bothPresent = phoneHasValue && emailHasValue;
-  const bothValid = phoneValid && emailValid;
-
-  function resolveSubmission() {
-    // If both valid, honor user selection
-    if (bothValid) {
-      if (useKind === "phone") {
-        return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
-      }
-      return { kind: "email", identifier: emailV.normalized, masked: maskEmail(emailV.normalized) };
-    }
-
-    // If only one valid, submit that
-    if (phoneValid) return { kind: "phone", identifier: phoneV.normalized, masked: maskPhoneDigits(phoneV.normalized) };
-    if (emailValid) return { kind: "email", identifier: emailV.normalized, masked: maskEmail(emailV.normalized) };
-
-    return null;
-  }
-
-  const submission = resolveSubmission();
-  const canSubmit = Boolean(submission) && !busy;
+  const phonePretty = formatPhonePretty(phoneDigits);
+  const phoneV = React.useMemo(() => validatePhoneDigits10(phoneDigits), [phoneDigits]);
+  const canSubmit = phoneV.ok && !busy;
 
   React.useEffect(() => {
     pvUiHook("pos.visit.page_loaded.ui", {
       tc: "TC-POS-VISIT-UI-01",
       sev: "info",
       stable: "pos:visit",
+      cameFromDash: Boolean(location?.state?.identifier),
+      consumerIdPresent: Boolean(location?.state?.consumerId),
+      namePresent: Boolean(location?.state?.displayName),
     });
 
-    // UX: focus phone on initial load for rapid entry
+    // If dashboard passed an identifier, lock it and skip “confirm again”
+    try {
+      const fromDash = location?.state?.identifier;
+      const digits = normalizePhoneDigits(fromDash);
+      if (digits && digits.length === 10) {
+        setPhoneDigits(digits);
+        setLockedFromDash(true);
+
+        // POS-11: show name if dashboard provided it
+        setDisplayName(displayNameFromDash || null);
+
+        pvUiHook("pos.visit.prefilled_from_dashboard.ui", {
+          tc: "TC-POS-VISIT-UI-PREFILL-01",
+          sev: "info",
+          stable: "pos:visit",
+          identifierMasked: location?.state?.identifierMasked || maskPhoneDigits(digits),
+          consumerIdPresent: Boolean(location?.state?.consumerId),
+          namePresent: Boolean(displayNameFromDash),
+        });
+        return;
+      }
+    } catch {}
+
+    // Otherwise focus for manual entry
     try {
       setTimeout(() => phoneInputRef.current?.focus?.(), 0);
     } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function clearInputsAfterSubmit(submittedKind) {
-    // Clear both so operator can quickly move to next customer without leftovers.
-    setPhone("");
-    setEmail("");
-    setUseKind("phone");
-    setTouchedPhone(false);
-    setTouchedEmail(false);
-
-    pvUiHook("pos.visit.inputs_cleared.ui", {
-      tc: "TC-POS-VISIT-UI-05",
-      sev: "info",
-      stable: "pos:visit",
-      submittedKind,
-      clearedPhone: true,
-      clearedEmail: true,
-    });
-
-    // Put focus back to phone for rapid entry
-    try {
-      setTimeout(() => phoneInputRef.current?.focus?.(), 0);
-    } catch {}
-  }
 
   async function onSubmit(e) {
     e.preventDefault();
-    setTouchedPhone(true);
-    setTouchedEmail(true);
 
-    if (!submission) {
-      setError("Enter a valid phone or email.");
+    if (!phoneV.ok) {
+      setError(phoneV.reason || "Enter a 10-digit phone number.");
       return;
     }
     if (inFlightRef.current) return;
@@ -208,20 +224,28 @@ export default function PosRegisterVisit() {
     setSuccessMsg("");
     setDebugOpen(false);
 
+    const digits = phoneV.normalized;
+    const masked = location?.state?.identifierMasked || maskPhoneDigits(digits);
+
     pvUiHook("pos.visit.submit_clicked.ui", {
       tc: "TC-POS-VISIT-UI-02",
       sev: "info",
       stable: "pos:visit",
-      identifierKind: submission.kind,
-      identifierMasked: submission.masked,
-      bothPresent,
-      bothValid,
-      chosenKind: useKind,
+      identifierKind: "phone",
+      identifierMasked: masked,
+      lockedFromDash,
+      consumerIdPresent: Boolean(consumerIdFromDash),
+      namePresent: Boolean(displayName),
     });
 
     try {
       const token = getAccessToken();
       if (!token) throw new Error("Not authenticated");
+
+      const body = {
+        identifier: digits,
+        ...(consumerIdFromDash ? { consumerId: consumerIdFromDash } : {}),
+      };
 
       const res = await fetch(`${apiBase()}/pos/visit`, {
         method: "POST",
@@ -230,7 +254,7 @@ export default function PosRegisterVisit() {
           Authorization: `Bearer ${token}`,
           ...buildPosHeaders(),
         },
-        body: JSON.stringify({ identifier: submission.identifier }),
+        body: JSON.stringify(body),
       });
 
       let data = null;
@@ -241,18 +265,29 @@ export default function PosRegisterVisit() {
       if (!res.ok) throw new Error(friendlyError(res, data));
 
       setResult(data);
-      setSuccessMsg(`OK — Visit registered. (${submission.masked})`);
+      setSuccessMsg(`OK — Visit registered. (${masked})`);
 
       pvUiHook("pos.visit.submit_succeeded.ui", {
         tc: "TC-POS-VISIT-UI-03",
         sev: "info",
         stable: "pos:visit",
-        identifierKind: submission.kind,
-        identifierMasked: submission.masked,
+        identifierKind: "phone",
+        identifierMasked: masked,
         ms: Date.now() - started,
+        consumerIdPresent: Boolean(consumerIdFromDash),
+        namePresent: Boolean(displayName),
       });
 
-      clearInputsAfterSubmit(submission.kind);
+      markDashboardNeedsRefresh({ type: "visit", identifierMasked: masked });
+
+      // UX: clear only if not prefilled from dashboard
+      if (!lockedFromDash) {
+        setPhoneDigits("");
+        setDisplayName(null);
+        try {
+          setTimeout(() => phoneInputRef.current?.focus?.(), 0);
+        } catch {}
+      }
     } catch (err) {
       const msg = err?.message || "Failed to register visit";
       setError(msg);
@@ -261,10 +296,12 @@ export default function PosRegisterVisit() {
         tc: "TC-POS-VISIT-UI-04",
         sev: "warn",
         stable: "pos:visit",
-        identifierKind: submission?.kind,
-        identifierMasked: submission?.masked,
+        identifierKind: "phone",
+        identifierMasked: location?.state?.identifierMasked || maskPhoneDigits(phoneV?.normalized),
         ms: Date.now() - started,
         error: msg,
+        consumerIdPresent: Boolean(consumerIdFromDash),
+        namePresent: Boolean(displayName),
       });
     } finally {
       setBusy(false);
@@ -272,18 +309,7 @@ export default function PosRegisterVisit() {
     }
   }
 
-  // UI helper text/errors
-  const phoneInlineErr = touchedPhone && phoneHasValue && !phoneV.ok ? phoneV.reason : "";
-  const emailInlineErr = touchedEmail && emailHasValue && !emailV.ok ? emailV.reason : "";
-
-  // Detection display:
-  // - If nothing entered: neutral "—" (no red X)
-  // - If something entered but invalid: show "needs attention" (red)
-  // - If valid submission exists: show "valid" (green)
-  const detectedKindLabel = submission ? submission.kind.toUpperCase() : "—";
-  const showNeutral = !hasAnyValue;
-  const showNeedsAttention = hasAnyValue && !submission;
-  const showValid = Boolean(submission);
+  const maskedDisplay = location?.state?.identifierMasked || maskPhoneDigits(phoneV?.normalized || phoneDigits);
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -297,112 +323,92 @@ export default function PosRegisterVisit() {
       </div>
 
       <h2>Register Visit</h2>
-      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>Enter a customer phone or email.</div>
-
-      <div style={styles.hintBox}>
-        <div style={{ fontWeight: 900, marginBottom: 6 }}>Accepted formats</div>
-        <ul style={styles.hintList}>
-          <li>
-            <b>Phone</b>: (408) 205-4684, 4082054684, +1 408 205 4684
-          </li>
-          <li>
-            <b>Email</b>: name@example.com
-          </li>
-        </ul>
+      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>
+        Confirm with the customer, then register the visit.
       </div>
 
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <div style={{ display: "grid", gap: 6 }}>
-          <div style={{ fontWeight: 900 }}>Phone</div>
-          <input
-            ref={phoneInputRef}
-            value={phone}
-            onChange={(e) => {
-              setPhone(e.target.value);
-              setUseKind("phone"); // last edited wins
-              setError("");
-              setSuccessMsg("");
-            }}
-            onBlur={() => setTouchedPhone(true)}
-            placeholder="(408) 205-4684"
-            inputMode="tel"
-            autoComplete="off"
-            style={styles.input}
-          />
-          <div style={styles.smallNote}>Digits only are sent to the server. Letters are rejected.</div>
-          {phoneInlineErr ? <div style={styles.inlineErr}>{phoneInlineErr}</div> : null}
-        </div>
+        {lockedFromDash && phoneV.ok ? (
+          <div style={styles.confirmPanel}>
+            <div style={styles.identityGrid}>
+              <div style={styles.identityLabel}>Phone</div>
+              <div style={styles.identityValue}>{maskedDisplay}</div>
 
-        <div style={{ textAlign: "center", color: "rgba(0,0,0,0.45)", fontWeight: 900, margin: "2px 0" }}>OR</div>
+              <div style={styles.identityLabel}>Name</div>
+              <div style={styles.identityValueMuted}>{displayName ? String(displayName) : "—"}</div>
+            </div>
 
-        <div style={{ display: "grid", gap: 6 }}>
-          <div style={{ fontWeight: 900 }}>Email</div>
-          <input
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              setUseKind("email"); // last edited wins
-              setError("");
-              setSuccessMsg("");
-            }}
-            onBlur={() => setTouchedEmail(true)}
-            placeholder="name@example.com"
-            inputMode="email"
-            autoComplete="off"
-            style={styles.input}
-          />
-          <div style={styles.smallNote}>Email is lowercased before sending.</div>
-          {emailInlineErr ? <div style={styles.inlineErr}>{emailInlineErr}</div> : null}
-        </div>
+            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button disabled={!canSubmit} type="submit" style={styles.primaryBtn}>
+                {busy ? "Working..." : "Confirm Visit"}
+              </button>
 
-        {bothValid ? (
-          <div style={styles.selectorBox}>
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Both are valid — which should we use?</div>
-            <label style={styles.radioRow}>
-              <input type="radio" name="useKind" checked={useKind === "phone"} onChange={() => setUseKind("phone")} />
-              <span style={{ fontWeight: 900 }}>Use phone</span>
-              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
-                ({maskPhoneDigits(phoneV.normalized)})
-              </span>
-            </label>
-            <label style={styles.radioRow}>
-              <input type="radio" name="useKind" checked={useKind === "email"} onChange={() => setUseKind("email")} />
-              <span style={{ fontWeight: 900 }}>Use email</span>
-              <span style={{ color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
-                ({maskEmail(emailV.normalized)})
-              </span>
-            </label>
+              <div style={styles.metaLine}>
+                To change customer, go back to <b>POS Dashboard</b>.
+              </div>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <div style={styles.card}>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontWeight: 950 }}>Phone number</div>
+              <input
+                ref={phoneInputRef}
+                className="pvInput"
+                value={phonePretty || phoneDigits}
+                onChange={(e) => {
+                  const next = normalizePhoneDigits(e.target.value);
+                  setPhoneDigits(next);
+                  setDisplayName(null);
+                  setError("");
+                  setSuccessMsg("");
+                }}
+                placeholder=""
+                inputMode="tel"
+                autoComplete="off"
+                style={{ ...styles.input, fontWeight: "inherit", color: "inherit" }}
+              />
+              <div style={styles.smallNote}>10 digits required.</div>
+              <div style={styles.exampleLine}>Example: (555) 123-4567</div>
 
-        <div style={styles.inlineMetaRow}>
-          <div style={styles.detectPill}>
-            Detected: <span style={{ fontWeight: 900 }}>{detectedKindLabel}</span>
-            {showValid ? (
-              <span style={{ marginLeft: 8, color: "rgba(0,120,0,0.85)", fontWeight: 900 }}>✓ valid</span>
-            ) : showNeedsAttention ? (
-              <span style={{ marginLeft: 8, color: "rgba(150,0,0,0.85)", fontWeight: 900 }}>✕ needs attention</span>
-            ) : (
-              <span style={{ marginLeft: 8, color: "rgba(0,0,0,0.45)", fontWeight: 900 }}>ready</span>
-            )}
+              <div style={styles.helperNote}>
+                Tip: Use <b>POS Dashboard</b> to preview the customer name before confirming.
+              </div>
+
+              {error && !busy ? <div style={styles.inlineErr}>{error}</div> : null}
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
+              <button disabled={!canSubmit} type="submit" style={styles.primaryBtn}>
+                {busy ? "Working..." : "Confirm Visit"}
+              </button>
+            </div>
           </div>
-
-          <div style={styles.metaNote}>
-            {submission
-              ? `${submission.kind === "phone" ? phoneV.note : emailV.note} (masked: ${submission.masked})`
-              : showNeutral
-              ? "Enter a valid phone or email."
-              : "Fix the invalid value (or clear it) to continue."}
-          </div>
-        </div>
-
-        <button disabled={!canSubmit} type="submit" style={styles.primaryBtn}>
-          {busy ? "Working..." : "Register"}
-        </button>
+        )}
       </form>
 
-      {error ? <div style={styles.errorBox}>{error}</div> : null}
-      {successMsg ? <div style={styles.successBox}>{successMsg}</div> : null}
+      {error && (lockedFromDash || phoneV.ok) ? <div style={styles.errorBox}>{error}</div> : null}
+      {successMsg ? (
+        <div style={styles.successBox}>
+          <div style={{ fontWeight: 950 }}>{successMsg}</div>
+          <div style={{ marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => {
+                pvUiHook("pos.visit.back_to_dashboard_clicked.ui", {
+                  tc: "TC-POS-VISIT-UI-BACK-01",
+                  sev: "info",
+                  stable: "pos:visit",
+                });
+                navigate("/merchant/pos");
+              }}
+              style={styles.pillBtn}
+            >
+              Back to POS Dashboard
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {debugEnabled && result ? (
         <div style={styles.debugWrap}>
@@ -434,98 +440,97 @@ const styles = {
     color: "inherit",
     fontWeight: 700,
   },
-  hintBox: {
+  pillBtn: {
+    padding: "10px 12px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 900,
+  },
+  card: {
     padding: 12,
     borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.02)",
-    marginBottom: 12,
-  },
-  hintList: {
-    margin: 0,
-    paddingLeft: 18,
-    color: "rgba(0,0,0,0.70)",
-    fontWeight: 700,
-    lineHeight: 1.35,
+    background: "white",
   },
   input: {
     padding: 12,
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.22)",
+    width: "100%",
   },
   smallNote: {
     fontSize: 12,
     color: "rgba(0,0,0,0.55)",
     fontWeight: 800,
   },
+  exampleLine: {
+    color: "rgba(0,0,0,0.22)",
+    fontWeight: 650,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  helperNote: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "rgba(0,0,0,0.55)",
+    fontWeight: 700,
+    lineHeight: 1.25,
+  },
   inlineErr: {
     fontSize: 12,
     color: "rgba(150,0,0,0.85)",
     fontWeight: 900,
   },
-  selectorBox: {
-    padding: 12,
+  primaryBtn: {
+    padding: "12px 14px",
     borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "black",
+    color: "white",
+    cursor: "pointer",
+    fontWeight: 950,
+    minWidth: 170,
+  },
+  confirmPanel: {
+    padding: 12,
+    borderRadius: 14,
     border: "1px solid rgba(0,0,0,0.10)",
     background: "rgba(0,0,0,0.02)",
   },
-  radioRow: {
-    display: "flex",
-    gap: 10,
-    alignItems: "center",
-    marginTop: 6,
-  },
-  inlineMetaRow: {
+  identityGrid: {
     display: "grid",
-    gridTemplateColumns: "220px 1fr",
+    gridTemplateColumns: "80px 1fr",
     gap: 10,
     alignItems: "center",
   },
-  detectPill: {
-    padding: "8px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    fontWeight: 800,
-  },
-  metaNote: {
-    color: "rgba(0,0,0,0.60)",
-    fontWeight: 800,
-    fontSize: 13,
-    whiteSpace: "pre-wrap",
-  },
-  primaryBtn: {
-    padding: 12,
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
-    width: 180,
-    opacity: 1,
-  },
+  identityLabel: { color: "rgba(0,0,0,0.60)", fontWeight: 950, fontSize: 12 },
+  identityValue: { fontWeight: 950, fontSize: 16 },
+  identityValueMuted: { fontWeight: 900, fontSize: 16, color: "rgba(0,0,0,0.45)" },
+
+  metaLine: { color: "rgba(0,0,0,0.55)", fontSize: 12, fontWeight: 850 },
+
   errorBox: {
     marginTop: 12,
     padding: 12,
     borderRadius: 12,
-    color: "red",
+    color: "rgba(140,0,0,1)",
     border: "1px solid rgba(255,0,0,0.18)",
     background: "rgba(255,0,0,0.04)",
-    fontWeight: 800,
+    fontWeight: 900,
     whiteSpace: "pre-wrap",
   },
-
-  // Stronger green success banner
   successBox: {
-  marginTop: 12,
-  padding: 12,
-  borderRadius: 12,
-  border: "1px solid rgba(0,140,0,0.40)",
-  background: "rgba(0,170,0,0.14)",
-  color: "rgba(0,85,0,0.95)",
-  fontWeight: 900,
-  whiteSpace: "pre-wrap",
-},
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    border: "1px solid rgba(0,140,0,0.40)",
+    background: "rgba(0,170,0,0.14)",
+    color: "rgba(0,85,0,0.95)",
+    fontWeight: 900,
+    whiteSpace: "pre-wrap",
+  },
   debugWrap: {
     marginTop: 12,
     padding: 12,

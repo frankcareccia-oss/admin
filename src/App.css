@@ -40,3 +40,44 @@
 .read-the-docs {
   color: #888;
 }
+
+/* =====================================================
+   PV INPUT STYLING STANDARD — POS SAFE
+   GOAL:
+   - Placeholder must NEVER read as entered data
+   - Empty input visually distinct from filled input
+   - Zero cashier ambiguity, zero support calls
+===================================================== */
+
+.pvInput {
+  font-weight: 400;
+  color: #000000; /* entered text = true black */
+  background: #ffffff;
+}
+
+/* EMPTY FIELD (placeholder showing) */
+.pvInput:placeholder-shown {
+  background: #f7f7f7; /* subtle gray box */
+}
+
+/* PLACEHOLDER TEXT */
+.pvInput::placeholder {
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.16); /* faint ghost text */
+}
+
+/* WHEN USER TYPES */
+.pvInput:not(:placeholder-shown) {
+  background: #ffffff; /* snaps back to white */
+}
+
+/* FOCUS STATE */
+.pvInput:focus {
+  background: #ffffff;
+}
+
+/* DISABLED */
+.pvInput:disabled {
+  color: rgba(0, 0, 0, 0.50);
+  background: rgba(0, 0, 0, 0.05);
+}

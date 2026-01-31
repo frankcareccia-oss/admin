@@ -61,8 +61,7 @@ function onlyDigits(s) {
 
 function looksAlphaNumToken(s) {
   const v = String(s || "").trim();
-  // allow short “codes” that are not just digits (future-proof): letters, digits, '-', '_', '#'
-  // (We keep it conservative; no spaces)
+  // token-style (future): letters/digits/_/- only, no spaces
   return /^[A-Za-z0-9_-]{3,64}$/.test(v);
 }
 
@@ -91,28 +90,27 @@ function normalizePosCode({ provisionedStoreId }, rawInput) {
 
   if (!raw) return { ok: false, error: "PIN / code is required" };
 
-  // If user entered a full code with '#', trust it (but sanitize whitespace).
+  // Full code with '#'
   if (raw.includes("#")) {
     const compact = raw.replace(/\s+/g, "");
-    // basic sanity: no leading/trailing '#'
     if (/^#|#$/.test(compact)) return { ok: false, error: "Invalid code format" };
     if (compact.length < 3 || compact.length > 80) return { ok: false, error: "Code length invalid" };
     return { ok: true, code: compact, mode: "full_code" };
   }
 
-  // Pure digits => treat as PIN
+  // PIN only (digits)
   const digits = onlyDigits(raw);
   if (digits && digits === raw) {
     if (digits.length < 4 || digits.length > 8) {
       return { ok: false, error: "PIN must be 4–8 digits." };
     }
     if (!provisionedStoreId) {
-      return { ok: false, error: 'This terminal is not provisioned. Click "Provision Terminal" first.' };
+      return { ok: false, error: "This terminal is not set up yet. Tap “Provision Terminal” first." };
     }
     return { ok: true, code: `${provisionedStoreId}#${digits}`, mode: "pin" };
   }
 
-  // Token-style code (future-proof)
+  // Token-style (future-proof)
   if (looksAlphaNumToken(raw)) {
     return { ok: true, code: raw, mode: "token" };
   }
@@ -132,6 +130,8 @@ export default function PosLogin() {
   const notice = location.state?.notice || "";
   const fromPath = location.state?.from || "";
 
+  const inputRef = React.useRef(null);
+
   React.useEffect(() => {
     const p = readProvisioning();
     setProv(p);
@@ -145,6 +145,13 @@ export default function PosLogin() {
       terminalIdPresent: Boolean(p.terminalId),
       from: fromPath || null,
     });
+
+    // Fast-register UX: focus PIN on load
+    try {
+      setTimeout(() => inputRef.current?.focus?.(), 0);
+    } catch {
+      // ignore
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -152,6 +159,7 @@ export default function PosLogin() {
     const p = readProvisioning();
     setProv(p);
     setError("");
+
     pvUiHook("pos.login.refresh_clicked.ui", {
       tc: "TC-POS-LOGIN-UI-02",
       sev: "info",
@@ -160,6 +168,10 @@ export default function PosLogin() {
       storeIdPresent: Boolean(p.storeId),
       terminalIdPresent: Boolean(p.terminalId),
     });
+
+    try {
+      setTimeout(() => inputRef.current?.focus?.(), 0);
+    } catch {}
   }
 
   function clearTerminalPairing() {
@@ -192,7 +204,11 @@ export default function PosLogin() {
     const p = readProvisioning();
     setProv(p);
     setCodeInput("");
-    setError("Terminal pairing cleared. Please provision this terminal.");
+    setError("Terminal cleared. Next step: Provision this terminal again.");
+
+    try {
+      setTimeout(() => inputRef.current?.focus?.(), 0);
+    } catch {}
   }
 
   async function onSubmit(e) {
@@ -201,6 +217,17 @@ export default function PosLogin() {
 
     const p = readProvisioning();
     setProv(p);
+
+    if (!p.provisioned) {
+      setError("This terminal is not set up yet. Tap “Provision Terminal” first.");
+      pvUiHook("pos.login.submit_failed.ui", {
+        tc: "TC-POS-LOGIN-UI-04",
+        sev: "warn",
+        stable: "pos:login",
+        error: "Terminal not provisioned",
+      });
+      return;
+    }
 
     const norm = normalizePosCode({ provisionedStoreId: p.storeId }, codeInput);
     if (!norm.ok) {
@@ -211,17 +238,6 @@ export default function PosLogin() {
         stable: "pos:login",
         error: norm.error,
         provisioned: p.provisioned,
-      });
-      return;
-    }
-
-    if (!p.provisioned) {
-      setError('This terminal is not provisioned. Click "Provision Terminal" first.');
-      pvUiHook("pos.login.submit_failed.ui", {
-        tc: "TC-POS-LOGIN-UI-04",
-        sev: "warn",
-        stable: "pos:login",
-        error: "Terminal not provisioned",
       });
       return;
     }
@@ -238,10 +254,9 @@ export default function PosLogin() {
         terminalId: p.terminalId,
         terminalLabel: p.terminalLabel,
         codeMode: norm.mode,
-        codeMasked: maskCodeForLogs(code), // do NOT leak
+        codeMasked: maskCodeForLogs(code),
       });
 
-      // IMPORTANT: send context as an object so backend can validate terminal/store.
       const payload = {
         storeId: p.storeId,
         terminalId: p.terminalId,
@@ -257,7 +272,7 @@ export default function PosLogin() {
       localStorage.setItem(LS_IS_POS, "1");
       localStorage.setItem(LS_LANDING, "/merchant/pos");
 
-      // Persist authed context (optional but useful)
+      // Persist authed context
       if (r?.storeId != null) localStorage.setItem(LS_POS_AUTHED_STORE_ID, String(r.storeId));
       if (r?.merchantId != null) localStorage.setItem(LS_POS_AUTHED_MERCHANT_ID, String(r.merchantId));
       if (p.terminalId) localStorage.setItem(LS_POS_AUTHED_TERMINAL_ID, String(p.terminalId));
@@ -272,7 +287,6 @@ export default function PosLogin() {
         redirectedFrom: fromPath || null,
       });
 
-      // If we were redirected here from a POS route, go back there; otherwise go to dashboard.
       const dest = String(fromPath || "").startsWith("/merchant/pos") ? fromPath : "/merchant/pos";
       navigate(dest, { replace: true });
     } catch (err) {
@@ -290,10 +304,11 @@ export default function PosLogin() {
     }
   }
 
-  const storeLine = prov.storeId != null ? prov.storeId : "— not provisioned —";
-  const termLine = prov.terminalId
-    ? `${prov.terminalLabel || "Terminal"} (${prov.terminalId})`
-    : "— not provisioned —";
+  const storeLine = prov.storeId != null ? prov.storeId : "Not set up";
+  const termLine = prov.terminalId ? `${prov.terminalLabel || "Terminal"} (${prov.terminalId})` : "Not set up";
+
+  const codeHasValue = Boolean(String(codeInput || "").trim());
+  const canSignIn = prov.provisioned && codeHasValue && !busy;
 
   return (
     <PageContainer size="form">
@@ -325,12 +340,20 @@ export default function PosLogin() {
         </div>
 
         <h2 style={{ marginTop: 16, marginBottom: 6 }}>POS Associate Login</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
-          Enter your <b>PIN</b> (e.g., <b>7931</b>) or a full code (e.g., <b>5#7931</b>). This terminal must be
-          provisioned first.
+        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 12 }}>
+          Enter your <b>PIN</b> to start your shift. This terminal must be set up once before use.
         </div>
 
         {notice ? <div style={styles.noticeBox}>{notice}</div> : null}
+
+        {!prov.provisioned ? (
+          <div style={styles.notProvisionedBox}>
+            <div style={{ fontWeight: 950, marginBottom: 6 }}>This terminal isn’t set up yet</div>
+            <div style={{ color: "rgba(0,0,0,0.70)", fontWeight: 750, lineHeight: 1.35 }}>
+              Next step: tap <b>Provision Terminal</b> to connect this device to a store/register.
+            </div>
+          </div>
+        ) : null}
 
         <div style={styles.card}>
           <div style={styles.cardTitle}>Terminal</div>
@@ -348,22 +371,24 @@ export default function PosLogin() {
 
         <form onSubmit={onSubmit} style={styles.form}>
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)", fontWeight: 800 }}>PIN / Code</div>
+            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)", fontWeight: 850 }}>PIN / Code</div>
             <input
+              ref={inputRef}
+              className="pvInput"
               value={codeInput}
               onChange={(e) => setCodeInput(e.target.value)}
-              inputMode="text"
+              inputMode="numeric"
               placeholder="Example: 7931"
               autoComplete="one-time-code"
               disabled={busy}
               style={styles.input}
             />
-            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-              If you type <b>7931</b>, we send <b>storeId#PIN</b> and also include terminal context.
+            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>
+              PIN is typically 4–8 digits.
             </div>
           </label>
 
-          <button disabled={busy} type="submit" style={styles.signInBtn}>
+          <button disabled={!canSignIn} type="submit" style={{ ...styles.signInBtn, opacity: canSignIn ? 1 : 0.6 }}>
             {busy ? "Signing in..." : "Sign in"}
           </button>
 
@@ -375,10 +400,8 @@ export default function PosLogin() {
           <ul style={{ marginTop: 0 }}>
             <li>This page never shows access tokens or raw server payloads.</li>
             <li>PIN-only becomes <b>storeId#PIN</b> behind the scenes.</li>
-            <li>If terminal is not provisioned, go to <b>Provision Terminal</b> first.</li>
-            <li>
-              “Clear Terminal” is for managers/support to unpair a terminal if it was provisioned to the wrong store.
-            </li>
+            <li>If terminal is not set up, go to <b>Provision Terminal</b> first.</li>
+            <li>“Clear Terminal” is for managers/support to unpair a terminal if it was set up to the wrong store.</li>
           </ul>
         </div>
       </div>
@@ -394,7 +417,7 @@ const styles = {
     borderRadius: 999,
     border: "1px solid rgba(0,0,0,0.18)",
     background: "white",
-    fontWeight: 800,
+    fontWeight: 850,
     display: "inline-block",
   },
   pillBtnButton: {
@@ -403,7 +426,7 @@ const styles = {
     border: "1px solid rgba(0,0,0,0.18)",
     background: "white",
     cursor: "pointer",
-    fontWeight: 800,
+    fontWeight: 850,
   },
   dangerPillBtnButton: {
     padding: "8px 12px",
@@ -420,7 +443,14 @@ const styles = {
     borderRadius: 12,
     marginBottom: 12,
     whiteSpace: "pre-wrap",
-    fontWeight: 700,
+    fontWeight: 750,
+  },
+  notProvisionedBox: {
+    background: "rgba(255, 215, 0, 0.18)",
+    border: "1px solid rgba(0,0,0,0.15)",
+    padding: 12,
+    borderRadius: 14,
+    marginBottom: 12,
   },
   card: {
     border: "1px solid rgba(0,0,0,0.12)",
@@ -431,8 +461,8 @@ const styles = {
   },
   cardTitle: { fontWeight: 900, marginBottom: 10 },
   kvRow: { display: "grid", gridTemplateColumns: "110px 1fr", gap: 10, padding: "4px 0" },
-  k: { color: "rgba(0,0,0,0.65)", fontWeight: 800 },
-  v: { fontWeight: 800 },
+  k: { color: "rgba(0,0,0,0.65)", fontWeight: 850 },
+  v: { fontWeight: 850 },
   form: {
     display: "grid",
     gap: 12,
@@ -442,17 +472,22 @@ const styles = {
     background: "white",
   },
   input: {
-    padding: 10,
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.22)",
-  },
-  signInBtn: {
     padding: 12,
     borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.22)",
+    fontSize: 16,
+    /* NOTE: font-weight/color controlled by .pvInput in App.css */
+    fontWeight: "inherit",
+    color: "inherit",
+  },
+  signInBtn: {
+    padding: 14,
+    borderRadius: 14,
     border: "1px solid rgba(0,0,0,0.18)",
     background: "white",
     cursor: "pointer",
-    fontWeight: 900,
+    fontWeight: 950,
+    fontSize: 16,
   },
   errorBox: {
     background: "rgba(255,0,0,0.06)",
@@ -460,7 +495,7 @@ const styles = {
     padding: 10,
     borderRadius: 12,
     whiteSpace: "pre-wrap",
-    fontWeight: 800,
+    fontWeight: 850,
     color: "rgba(140,0,0,1)",
   },
 };
