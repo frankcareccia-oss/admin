@@ -1,4 +1,10 @@
 // admin/src/pages/MerchantPos.jsx
+// POS-13.5 (admin-only) — UI tweaks based on review:
+// 1) Fix phone input overflow: enforce boxSizing + maxWidth to prevent spill.
+// 2) Combine helper text lines: show sample + requirement on one line.
+// 3) Remove consumerId display from UI (keep consumerId gating + hooks; do not display it).
+// NOTE: Full module replacement. Builds on POS-13.4 all-in-one.
+
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
@@ -200,6 +206,62 @@ export default function MerchantPos() {
   const initialLoadDoneRef = React.useRef(false);
   const lastAutoRefreshAtRef = React.useRef(0);
 
+  // POS-13.1: CTA gating (consumerId must be present)
+  const ctaGatePrevRef = React.useRef(null); // null | true | false
+  const ctaBlockedLastAtRef = React.useRef(0);
+
+  // POS-13.2: focus reliability for phone input
+  const phoneInputRef = React.useRef(null);
+  const lastFocusAtRef = React.useRef(0);
+
+  // POS-13.3: active customer banner impression guard
+  const bannerShownRef = React.useRef(false);
+
+  function focusPhoneInput(reason, opts = {}) {
+    try {
+      const now = Date.now();
+      const cooldownMs = 120;
+      if (!opts?.force && now - lastFocusAtRef.current < cooldownMs) return;
+      lastFocusAtRef.current = now;
+
+      const doFocus = () => {
+        try {
+          const el = phoneInputRef.current;
+          if (!el) return;
+          el.focus();
+          if (opts?.selectAll) el.select();
+          pvUiHook("pos.dashboard.phone.focused.ui", {
+            tc: "TC-POS-13-FOCUS-01",
+            sev: "info",
+            stable: "pos:dash",
+            reason: reason || "unknown",
+            selectAll: Boolean(opts?.selectAll),
+          });
+        } catch {}
+      };
+
+      requestAnimationFrame(() => requestAnimationFrame(doFocus));
+    } catch {}
+  }
+
+  function resetCustomerFlow(reason, extra = {}) {
+    setError("");
+    setCreateFirstName("");
+    setCreateLastName("");
+    setIdentity(null);
+    setConfirm(null);
+
+    pvUiHook("pos.dashboard.customer.reset.ui", {
+      tc: "TC-POS-13-BANNER-RESET-01",
+      sev: "info",
+      stable: "pos:dash",
+      reason: reason || "unknown",
+      ...extra,
+    });
+
+    focusPhoneInput(`reset_${reason || "unknown"}`, { force: true, selectAll: true });
+  }
+
   React.useEffect(() => {
     pvUiHook("pos.dashboard.page_loaded.ui", {
       tc: "TC-POS-DASH-UI-01",
@@ -210,7 +272,6 @@ export default function MerchantPos() {
       terminalLabelPresent: Boolean(prov.terminalLabel),
     });
 
-    // On mount: show any last-action message (human confirmation)
     const la = readLastAction();
     if (la) {
       setLastActionMsg(describeLastAction(la));
@@ -222,14 +283,74 @@ export default function MerchantPos() {
       });
     }
 
-    // Load stats on entry (best-effort)
+    focusPhoneInput("mount", { force: true });
+
     refreshAll({ reason: "initial_mount" }).finally(() => {
       initialLoadDoneRef.current = true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // If this page is NOT unmounted when navigating (nested routing), this catches "return to dashboard".
+  React.useEffect(() => {
+    if (!confirm) {
+      focusPhoneInput("confirm_cleared", { selectAll: Boolean(phoneInput), force: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirm]);
+
+  React.useEffect(() => {
+    const isReady = Boolean(identity?.consumerId);
+    const prev = ctaGatePrevRef.current;
+
+    if (prev === null) {
+      ctaGatePrevRef.current = isReady;
+      return;
+    }
+
+    if (prev !== isReady) {
+      ctaGatePrevRef.current = isReady;
+
+      if (isReady) {
+        pvUiHook("pos.dashboard.cta.enabled.ui", {
+          tc: "TC-POS-13-CTA-ENABLED-01",
+          sev: "info",
+          stable: "pos:dash",
+          consumerIdPresent: true,
+          found: identity?.found ?? null,
+          namePresent: Boolean(identity?.displayName),
+        });
+      } else {
+        pvUiHook("pos.dashboard.cta.gated.ui", {
+          tc: "TC-POS-13-CTA-GATED-01",
+          sev: "info",
+          stable: "pos:dash",
+          consumerIdPresent: false,
+          hasIdentity: Boolean(identity),
+          found: identity?.found ?? null,
+        });
+      }
+    }
+  }, [identity?.consumerId, identity?.found, identity?.displayName, identity]);
+
+  React.useEffect(() => {
+    const ready = Boolean(confirm?.masked && identity?.consumerId);
+    if (!ready) {
+      bannerShownRef.current = false;
+      return;
+    }
+    if (bannerShownRef.current) return;
+    bannerShownRef.current = true;
+
+    pvUiHook("pos.dashboard.active_customer.banner_shown.ui", {
+      tc: "TC-POS-13-BANNER-01",
+      sev: "info",
+      stable: "pos:dash",
+      identifierMasked: confirm?.masked || null,
+      consumerIdPresent: Boolean(identity?.consumerId),
+      namePresent: Boolean(identity?.displayName),
+    });
+  }, [confirm?.masked, identity?.consumerId, identity?.displayName]);
+
   React.useEffect(() => {
     if (location?.pathname !== POS_DASH_PATH) return;
     if (!initialLoadDoneRef.current) return;
@@ -244,7 +365,6 @@ export default function MerchantPos() {
       if (flagged) clearDashNeedsRefresh();
       lastAutoRefreshAtRef.current = now;
 
-      // refresh provisioning + show last action (if present)
       const la = readLastAction();
       if (la) setLastActionMsg(describeLastAction(la));
 
@@ -260,7 +380,6 @@ export default function MerchantPos() {
     }
   }, [location?.pathname]);
 
-  // If user enables refresh flags from another tab or comes back to window, re-check
   React.useEffect(() => {
     function onFocus() {
       if (location?.pathname !== POS_DASH_PATH) return;
@@ -385,7 +504,6 @@ export default function MerchantPos() {
       terminalIdPresent: Boolean(p.terminalId),
     });
 
-    // Keep provisioning keys; clear only session/auth + authed-context keys.
     try {
       clearAccessToken();
     } catch {}
@@ -423,9 +541,7 @@ export default function MerchantPos() {
 
   function onClearEntry() {
     setPhoneInput("");
-    setConfirm(null);
-    clearIdentityState();
-    setError("");
+    resetCustomerFlow("clear_clicked");
     pvUiHook("pos.dashboard.flow.clear_clicked.ui", {
       tc: "TC-POS-11-DASH-CLEAR-01",
       sev: "info",
@@ -444,6 +560,7 @@ export default function MerchantPos() {
         reason: "invalid_phone",
         digitsLen: digits.length,
       });
+      focusPhoneInput("confirm_failed_invalid_phone", { force: true, selectAll: Boolean(digits) });
       return;
     }
 
@@ -456,7 +573,6 @@ export default function MerchantPos() {
       createdAt: new Date().toISOString(),
     });
 
-    // Immediately preview customer identity
     setBusy(true);
     clearIdentityState();
 
@@ -504,6 +620,9 @@ export default function MerchantPos() {
         identifierMasked: masked,
         error: msg,
       });
+
+      setConfirm(null);
+      focusPhoneInput("preview_failed", { force: true, selectAll: true });
     } finally {
       setBusy(false);
     }
@@ -582,17 +701,41 @@ export default function MerchantPos() {
     }
   }
 
+  function emitCtaBlocked(kind, reason, extra = {}) {
+    const now = Date.now();
+    const cooldownMs = 650;
+    if (now - ctaBlockedLastAtRef.current < cooldownMs) return;
+    ctaBlockedLastAtRef.current = now;
+
+    pvUiHook("pos.dashboard.cta.blocked.ui", {
+      tc: "TC-POS-13-CTA-BLOCKED-01",
+      sev: "info",
+      stable: "pos:dash",
+      kind,
+      reason,
+      consumerIdPresent: Boolean(identity?.consumerId),
+      hasIdentity: Boolean(identity),
+      found: identity?.found ?? null,
+      ...extra,
+    });
+  }
+
   function onGoVisit() {
     const c = confirm;
     const id = identity;
-    if (!c || !id) return;
+
+    const canGo = Boolean(c?.digits && id?.consumerId);
+    if (!canGo) {
+      emitCtaBlocked("visit", "identity_not_resolved", { identifierMasked: c?.masked || null });
+      return;
+    }
 
     pvUiHook("pos.dashboard.go_visit_clicked.ui", {
       tc: "TC-POS-11-GO-01",
       sev: "info",
       stable: "pos:dash",
       identifierMasked: c.masked || null,
-      consumerIdPresent: Boolean(id.consumerId),
+      consumerIdPresent: true,
       namePresent: Boolean(id.displayName),
     });
 
@@ -600,8 +743,8 @@ export default function MerchantPos() {
       state: {
         identifier: c.digits,
         identifierMasked: c.masked,
-        consumerId: id.consumerId || null,
-        displayName: id.displayName || null, // POS-11: carry forward for Visit UI
+        consumerId: id.consumerId,
+        displayName: id.displayName || null,
       },
     });
   }
@@ -609,14 +752,19 @@ export default function MerchantPos() {
   function onGoReward() {
     const c = confirm;
     const id = identity;
-    if (!c || !id) return;
+
+    const canGo = Boolean(c?.digits && id?.consumerId);
+    if (!canGo) {
+      emitCtaBlocked("reward", "identity_not_resolved", { identifierMasked: c?.masked || null });
+      return;
+    }
 
     pvUiHook("pos.dashboard.go_reward_clicked.ui", {
       tc: "TC-POS-11-GO-02",
       sev: "info",
       stable: "pos:dash",
       identifierMasked: c.masked || null,
-      consumerIdPresent: Boolean(id.consumerId),
+      consumerIdPresent: true,
       namePresent: Boolean(id.displayName),
     });
 
@@ -624,10 +772,45 @@ export default function MerchantPos() {
       state: {
         identifier: c.digits,
         identifierMasked: c.masked,
-        consumerId: id.consumerId || null,
-        displayName: id.displayName || null, // POS-11: carry forward for Reward UI
+        consumerId: id.consumerId,
+        displayName: id.displayName || null,
       },
     });
+  }
+
+  function onEditConfirmedPhone() {
+    const c = confirm;
+    const masked = c?.masked || null;
+
+    pvUiHook("pos.dashboard.flow.edit_clicked.ui", {
+      tc: "TC-POS-11-DASH-EDIT-01",
+      sev: "info",
+      stable: "pos:dash",
+      fromConfirmed: true,
+      identifierMasked: masked,
+    });
+
+    if (c?.digits) setPhoneInput(String(c.digits));
+    setError("");
+    setCreateFirstName("");
+    setCreateLastName("");
+    setIdentity(null);
+    setConfirm(null);
+
+    focusPhoneInput("edit_clicked", { force: true, selectAll: true });
+  }
+
+  function onChangeCustomer() {
+    pvUiHook("pos.dashboard.active_customer.change_clicked.ui", {
+      tc: "TC-POS-13-BANNER-CHANGE-01",
+      sev: "info",
+      stable: "pos:dash",
+      identifierMasked: confirm?.masked || null,
+      consumerIdPresent: Boolean(identity?.consumerId),
+    });
+
+    setPhoneInput("");
+    resetCustomerFlow("change_customer");
   }
 
   const isProvisioned = Boolean(prov.storeId && prov.terminalId);
@@ -643,6 +826,22 @@ export default function MerchantPos() {
 
   const recentCount = Array.isArray(recent.items) ? recent.items.length : 0;
   const shownItems = Array.isArray(recent.items) ? recent.items.slice(0, 25) : [];
+
+  const hasConfirmedPhone = Boolean(confirm?.digits);
+  const hasIdentity = Boolean(identity);
+  const hasConsumerId = Boolean(identity?.consumerId);
+  const ctaGated = busy || !hasConfirmedPhone || !hasConsumerId;
+  const ctaGateReason = busy
+    ? "busy"
+    : !hasConfirmedPhone
+      ? "phone_not_confirmed"
+      : !hasIdentity
+        ? "identity_not_loaded"
+        : "consumer_id_missing";
+
+  const activeReady = Boolean(hasConfirmedPhone && hasConsumerId);
+  const activeMasked = confirm?.masked || null;
+  const activeName = identity?.displayName ? String(identity.displayName) : "";
 
   return (
     <div style={{ maxWidth: 980, paddingBottom: 24 }}>
@@ -669,7 +868,6 @@ export default function MerchantPos() {
         </div>
       </div>
 
-      {/* Compact terminal status line (ambient info) */}
       <div style={styles.statusBar}>
         <div style={styles.statusLeft}>
           <span style={styles.dot(isProvisioned)} />
@@ -679,6 +877,28 @@ export default function MerchantPos() {
         </div>
         <div style={styles.statusRight}>{statusText}</div>
       </div>
+
+      {activeReady ? (
+        <div style={styles.activeBanner}>
+          <div style={styles.activeBannerLeft}>
+            <div style={{ fontWeight: 950 }}>Active customer</div>
+            <div style={{ marginTop: 4, display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 950, fontSize: 16 }}>{activeMasked || "—"}</div>
+              {activeName ? (
+                <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.75)" }}>{activeName}</div>
+              ) : (
+                <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.55)" }}>Name on file</div>
+              )}
+            </div>
+          </div>
+
+          <div style={styles.activeBannerRight}>
+            <button onClick={onChangeCustomer} disabled={busy} style={styles.activeBannerBtn}>
+              Change customer
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div style={styles.inlineError}>{error}</div> : null}
 
@@ -702,12 +922,22 @@ export default function MerchantPos() {
             <div style={{ display: "grid", gap: 6 }}>
               <div style={styles.smallLabel}>Phone number</div>
               <input
+                ref={phoneInputRef}
                 className="pvInput"
                 value={pretty || phoneInput}
                 onChange={(e) => {
                   const nextDigits = normalizePhoneDigits(e.target.value);
                   setPhoneInput(nextDigits);
-                  if (confirm) setConfirm(null); // typing invalidates confirm
+
+                  if (confirm) {
+                    setConfirm(null);
+                    pvUiHook("pos.dashboard.flow.confirm_invalidated.ui", {
+                      tc: "TC-POS-13-EDIT-02",
+                      sev: "info",
+                      stable: "pos:dash",
+                      reason: "typing",
+                    });
+                  }
                   clearIdentityState();
                 }}
                 placeholder=""
@@ -720,8 +950,9 @@ export default function MerchantPos() {
                   if (e.key === "Enter" && canConfirm) onConfirmPhone();
                 }}
               />
-              <div style={styles.hintLine}>10 digits required.</div>
-              <div style={styles.exampleLine}>Example: (555) 123-4567</div>
+
+              {/* Combined helper line */}
+              <div style={styles.helperLine}>Example: (555) 123-4567 • 10 digits required</div>
             </div>
 
             {!confirm ? (
@@ -745,111 +976,125 @@ export default function MerchantPos() {
               <div style={styles.confirmPanel}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                   <div>
-                    <div style={{ fontWeight: 950, fontSize: 14 }}>Phone confirmed</div>
+                    <div style={{ fontWeight: 950, fontSize: 14 }}>
+                      {activeReady ? "Customer confirmed" : "Phone confirmed"}
+                    </div>
                     <div style={{ marginTop: 4, fontWeight: 950, fontSize: 16 }}>{confirm.masked || "—"}</div>
                     <div style={styles.metaLine}>Confirmed: {formatLocal(confirm.createdAt)}</div>
+                    {activeReady ? (
+                      <div style={{ marginTop: 6, color: "rgba(0,0,0,0.65)", fontWeight: 850 }}>
+                        Use Register Visit / Grant Reward below.
+                      </div>
+                    ) : null}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setConfirm(null);
-                      clearIdentityState();
-                    }}
-                    disabled={busy}
-                    style={styles.ghostBtn}
-                  >
+                  <button onClick={onEditConfirmedPhone} disabled={busy} style={styles.ghostBtn}>
                     Edit
                   </button>
                 </div>
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                  {!identity ? (
-                    <div style={styles.panelText}>Previewing customer…</div>
-                  ) : identity.found ? (
-                    <div style={styles.identityOk}>
-                      <div style={{ fontWeight: 950 }}>✅ Customer found</div>
-                      <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.75)", marginTop: 4 }}>
-                        {identity.displayName || "Name on file"}
-                      </div>
-                      <div style={styles.metaLine}>
-                        {identity.consumerId
-                          ? `consumerId: ${String(identity.consumerId).slice(0, 10)}…`
-                          : "consumerId present"}
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={styles.identityCreate}>
-                      <div style={{ fontWeight: 950 }}>🆕 New customer</div>
-                      <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800, marginTop: 4 }}>
-                        No customer found for this phone. Create one to proceed.
-                      </div>
-
-                      <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <div style={styles.smallLabel}>First name (required)</div>
-                          <input
-                            className="pvInput"
-                            value={createFirstName}
-                            onChange={(e) => setCreateFirstName(e.target.value)}
-                            placeholder="First name"
-                            style={styles.input}
-                            disabled={busy}
-                            autoComplete="off"
-                          />
-                        </div>
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <div style={styles.smallLabel}>Last name (optional)</div>
-                          <input
-                            className="pvInput"
-                            value={createLastName}
-                            onChange={(e) => setCreateLastName(e.target.value)}
-                            placeholder="Last name"
-                            style={styles.input}
-                            disabled={busy}
-                            autoComplete="off"
-                          />
+                {!activeReady ? (
+                  <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                    {!identity ? (
+                      <div style={styles.panelText}>Previewing customer…</div>
+                    ) : identity.found ? (
+                      <div style={styles.identityOk}>
+                        <div style={{ fontWeight: 950 }}>✅ Customer found</div>
+                        <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.75)", marginTop: 4 }}>
+                          {identity.displayName || "Name on file"}
                         </div>
                       </div>
+                    ) : (
+                      <div style={styles.identityCreate}>
+                        <div style={{ fontWeight: 950 }}>🆕 New customer</div>
+                        <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800, marginTop: 4 }}>
+                          No customer found for this phone. Create one to proceed.
+                        </div>
 
-                      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-                        <button
-                          onClick={onCreateCustomer}
-                          disabled={busy}
-                          style={{ ...styles.secondaryStrongBtn, padding: "12px 14px" }}
-                        >
-                          Create customer
-                        </button>
-                        <button onClick={onClearEntry} disabled={busy} style={styles.ghostBtn}>
-                          Start over
-                        </button>
+                        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <div style={styles.smallLabel}>First name (required)</div>
+                            <input
+                              className="pvInput"
+                              value={createFirstName}
+                              onChange={(e) => setCreateFirstName(e.target.value)}
+                              placeholder="First name"
+                              style={styles.input}
+                              disabled={busy}
+                              autoComplete="off"
+                            />
+                          </div>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <div style={styles.smallLabel}>Last name (optional)</div>
+                            <input
+                              className="pvInput"
+                              value={createLastName}
+                              onChange={(e) => setCreateLastName(e.target.value)}
+                              placeholder="Last name"
+                              style={styles.input}
+                              disabled={busy}
+                              autoComplete="off"
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                          <button
+                            onClick={onCreateCustomer}
+                            disabled={busy}
+                            style={{ ...styles.secondaryStrongBtn, padding: "12px 14px" }}
+                          >
+                            Create customer
+                          </button>
+                          <button onClick={onClearEntry} disabled={busy} style={styles.ghostBtn}>
+                            Start over
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  )}
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                    <button
-                      onClick={onGoVisit}
-                      disabled={busy || !identity || (!identity.found && !identity.consumerId)}
-                      style={{ ...styles.primaryBtn, padding: "14px 14px", opacity: busy || !identity ? 0.6 : 1 }}
-                    >
-                      Register Visit
-                    </button>
-                    <button
-                      onClick={onGoReward}
-                      disabled={busy || !identity || (!identity.found && !identity.consumerId)}
-                      style={{
-                        ...styles.secondaryStrongBtn,
-                        padding: "14px 14px",
-                        opacity: busy || !identity ? 0.6 : 1,
-                      }}
-                    >
-                      Grant Reward
-                    </button>
+                    )}
                   </div>
+                ) : null}
 
-                  <div style={styles.metaLine}>
-                    consumerId and displayName are carried forward (visit/reward pages will show name when present).
-                  </div>
+                <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <button
+                    onClick={onGoVisit}
+                    aria-disabled={ctaGated ? "true" : "false"}
+                    style={{
+                      ...(ctaGated ? styles.primaryDisabledBtn : styles.primaryBtn),
+                      padding: "14px 14px",
+                      cursor: ctaGated ? "not-allowed" : "pointer",
+                    }}
+                    title={
+                      ctaGated
+                        ? "Confirm a customer first (phone + identity must resolve)."
+                        : "Register a visit for the active customer."
+                    }
+                  >
+                    Register Visit
+                  </button>
+
+                  <button
+                    onClick={onGoReward}
+                    aria-disabled={ctaGated ? "true" : "false"}
+                    style={{
+                      ...(ctaGated ? styles.secondaryDisabledBtn : styles.secondaryStrongBtn),
+                      padding: "14px 14px",
+                      cursor: ctaGated ? "not-allowed" : "pointer",
+                    }}
+                    title={
+                      ctaGated
+                        ? "Confirm a customer first (phone + identity must resolve)."
+                        : "Grant a reward for the active customer."
+                    }
+                  >
+                    Grant Reward
+                  </button>
+                </div>
+
+                <div style={styles.metaLine}>
+                  {ctaGated
+                    ? `Visit/Reward are disabled until identity is resolved (reason: ${ctaGateReason}).`
+                    : "Customer identity is carried forward (visit/reward pages will show name when present)."}
                 </div>
               </div>
             )}
@@ -978,6 +1223,29 @@ const styles = {
     display: "inline-block",
   }),
 
+  activeBanner: {
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "rgba(0,0,0,0.03)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  activeBannerLeft: { display: "grid", gap: 4 },
+  activeBannerRight: { display: "flex", alignItems: "center", gap: 10 },
+  activeBannerBtn: {
+    padding: "10px 14px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 950,
+  },
+
   secondaryBtn: {
     padding: "12px 16px",
     borderRadius: 999,
@@ -1060,7 +1328,6 @@ const styles = {
     fontWeight: 950,
   },
 
-  // When Confirm is disabled: do NOT show a "primary" filled button
   primaryDisabledBtn: {
     padding: "12px 14px",
     borderRadius: 14,
@@ -1079,10 +1346,19 @@ const styles = {
     fontWeight: 950,
   },
 
+  secondaryDisabledBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "rgba(0,0,0,0.02)",
+    color: "rgba(0,0,0,0.55)",
+    fontWeight: 950,
+  },
+
   ghostBtn: {
     padding: "12px 14px",
     borderRadius: 14,
-    border: "1px dashed rgba(0,0,0,0.22)",
+    border: "1px solid rgba(0,0,0,0.14)",
     background: "rgba(0,0,0,0.02)",
     cursor: "pointer",
     fontWeight: 950,
@@ -1090,21 +1366,22 @@ const styles = {
 
   input: {
     width: "100%",
+    maxWidth: "100%",
+    boxSizing: "border-box",
     padding: "12px 12px",
     borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.18)",
     outline: "none",
     fontSize: 14,
-    /* NOTE: font-weight/color controlled by .pvInput in App.css */
     fontWeight: "inherit",
     color: "inherit",
   },
 
-  exampleLine: {
-    color: "rgba(0,0,0,0.22)",
-    fontWeight: 650,
+  helperLine: {
+    color: "rgba(0,0,0,0.55)",
+    fontWeight: 750,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: 6,
   },
 
   identityOk: {
@@ -1122,7 +1399,6 @@ const styles = {
   },
 
   smallLabel: { color: "rgba(0,0,0,0.60)", fontWeight: 950, fontSize: 12 },
-  hintLine: { color: "rgba(0,0,0,0.55)", fontWeight: 750, fontSize: 12, marginTop: 6 },
 
   confirmPanel: {
     padding: 12,

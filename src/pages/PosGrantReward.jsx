@@ -1,4 +1,10 @@
 // admin/src/pages/PosGrantReward.jsx
+// POS-13.9 (admin-only) — Close fraud hole + prevent double-submit:
+// - No Reward <-> Visit loop.
+// - Enforce Option A: must enter from POS Dashboard with consumerId, else redirect.
+// - Disable Confirm after success to prevent multiple increments.
+// NOTE: Full module replacement.
+
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAccessToken } from "../api/client";
@@ -88,36 +94,16 @@ function friendlyError(res, data) {
   );
 }
 
-// Phone helpers (POS: phone-only)
 function normalizePhoneDigits(raw) {
   return String(raw || "")
     .replace(/\D/g, "")
     .slice(0, 10);
 }
 
-function formatPhonePretty(digits) {
-  const d = String(digits || "").replace(/\D/g, "").slice(0, 10);
-  if (!d) return "";
-  const a = d.slice(0, 3);
-  const b = d.slice(3, 6);
-  const c = d.slice(6, 10);
-
-  if (d.length <= 3) return `(${a}`;
-  if (d.length <= 6) return `(${a}) ${b}`;
-  return `(${a}) ${b}-${c}`;
-}
-
 function maskPhoneDigits(digits) {
   const d = String(digits || "").replace(/\D/g, "");
   const last4 = d.slice(-4);
   return `***-***-${last4 || "****"}`;
-}
-
-function validatePhoneDigits10(rawDigits) {
-  const d = normalizePhoneDigits(rawDigits);
-  if (!d) return { ok: false, reason: "" };
-  if (d.length !== 10) return { ok: false, reason: "Enter a 10-digit phone number." };
-  return { ok: true, normalized: d };
 }
 
 export default function PosGrantReward() {
@@ -128,7 +114,6 @@ export default function PosGrantReward() {
   const [phoneDigits, setPhoneDigits] = React.useState("");
   const [lockedFromDash, setLockedFromDash] = React.useState(false);
 
-  // POS-11: dashboard may pass consumerId
   const consumerIdFromDash = React.useMemo(() => {
     try {
       const v = location?.state?.consumerId;
@@ -140,7 +125,6 @@ export default function PosGrantReward() {
     }
   }, [location?.state?.consumerId]);
 
-  // POS-11: dashboard may pass displayName
   const displayNameFromDash = React.useMemo(() => {
     try {
       const v = location?.state?.displayName;
@@ -160,12 +144,10 @@ export default function PosGrantReward() {
   const [result, setResult] = React.useState(null);
   const [debugOpen, setDebugOpen] = React.useState(false);
 
-  const inFlightRef = React.useRef(false);
-  const phoneInputRef = React.useRef(null);
+  const [entryBlockedMsg, setEntryBlockedMsg] = React.useState("");
+  const [completed, setCompleted] = React.useState(false);
 
-  const phonePretty = formatPhonePretty(phoneDigits);
-  const phoneV = React.useMemo(() => validatePhoneDigits10(phoneDigits), [phoneDigits]);
-  const canSubmit = phoneV.ok && !busy;
+  const inFlightRef = React.useRef(false);
 
   React.useEffect(() => {
     pvUiHook("pos.reward.page_loaded.ui", {
@@ -177,43 +159,67 @@ export default function PosGrantReward() {
       namePresent: Boolean(location?.state?.displayName),
     });
 
-    // If dashboard passed an identifier, lock it and skip “confirm again”
-    try {
-      const fromDash = location?.state?.identifier;
-      const digits = normalizePhoneDigits(fromDash);
-      if (digits && digits.length === 10) {
-        setPhoneDigits(digits);
-        setLockedFromDash(true);
+    const fromDashIdentifierRaw = location?.state?.identifier;
+    const fromDashDigits = normalizePhoneDigits(fromDashIdentifierRaw);
 
-        // POS-11: show name if dashboard provided it
-        setDisplayName(displayNameFromDash || null);
+    const hasValidFromDash = Boolean(fromDashDigits && fromDashDigits.length === 10 && consumerIdFromDash);
 
-        pvUiHook("pos.reward.prefilled_from_dashboard.ui", {
-          tc: "TC-POS-REWARD-UI-PREFILL-01",
-          sev: "info",
-          stable: "pos:reward",
-          identifierMasked: location?.state?.identifierMasked || maskPhoneDigits(digits),
-          consumerIdPresent: Boolean(location?.state?.consumerId),
-          namePresent: Boolean(displayNameFromDash),
-        });
-        return;
-      }
-    } catch {}
+    if (!hasValidFromDash) {
+      const msg = "Start from POS Dashboard: confirm customer identity before granting a reward.";
+      setEntryBlockedMsg(msg);
 
-    // Otherwise focus for manual entry
-    try {
-      setTimeout(() => phoneInputRef.current?.focus?.(), 0);
-    } catch {}
+      pvUiHook("pos.reward.entry_blocked.ui", {
+        tc: "TC-POS-13-FRAUD-11",
+        sev: "warn",
+        stable: "pos:reward",
+        reason: !fromDashDigits ? "missing_identifier" : !consumerIdFromDash ? "missing_consumerId" : "invalid_identifier",
+      });
+
+      try {
+        setTimeout(() => navigate("/merchant/pos", { replace: true }), 50);
+      } catch {}
+      return;
+    }
+
+    setPhoneDigits(fromDashDigits);
+    setLockedFromDash(true);
+    setDisplayName(displayNameFromDash || null);
+
+    pvUiHook("pos.reward.prefilled_from_dashboard.ui", {
+      tc: "TC-POS-REWARD-UI-PREFILL-01",
+      sev: "info",
+      stable: "pos:reward",
+      identifierMasked: location?.state?.identifierMasked || maskPhoneDigits(fromDashDigits),
+      consumerIdPresent: true,
+      namePresent: Boolean(displayNameFromDash),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function onSubmit(e) {
     e.preventDefault();
 
-    if (!phoneV.ok) {
-      setError(phoneV.reason || "Enter a 10-digit phone number.");
+    if (completed) {
+      pvUiHook("pos.reward.submit_blocked.ui", {
+        tc: "TC-POS-13-DOUBLE-11",
+        sev: "warn",
+        stable: "pos:reward",
+        reason: "already_completed",
+      });
       return;
     }
+
+    if (!lockedFromDash || !consumerIdFromDash) {
+      setError("Start from POS Dashboard to confirm the customer first.");
+      pvUiHook("pos.reward.submit_blocked.ui", {
+        tc: "TC-POS-13-FRAUD-12",
+        sev: "warn",
+        stable: "pos:reward",
+        reason: "not_from_dashboard",
+      });
+      return;
+    }
+
     if (inFlightRef.current) return;
     inFlightRef.current = true;
 
@@ -224,7 +230,7 @@ export default function PosGrantReward() {
     setSuccessMsg("");
     setDebugOpen(false);
 
-    const digits = phoneV.normalized;
+    const digits = phoneDigits;
     const masked = location?.state?.identifierMasked || maskPhoneDigits(digits);
 
     pvUiHook("pos.reward.submit_clicked.ui", {
@@ -233,8 +239,8 @@ export default function PosGrantReward() {
       stable: "pos:reward",
       identifierKind: "phone",
       identifierMasked: masked,
-      lockedFromDash,
-      consumerIdPresent: Boolean(consumerIdFromDash),
+      lockedFromDash: true,
+      consumerIdPresent: true,
       namePresent: Boolean(displayName),
     });
 
@@ -244,7 +250,7 @@ export default function PosGrantReward() {
 
       const body = {
         identifier: digits,
-        ...(consumerIdFromDash ? { consumerId: consumerIdFromDash } : {}),
+        consumerId: consumerIdFromDash,
       };
 
       const res = await fetch(`${apiBase()}/pos/reward`, {
@@ -266,6 +272,7 @@ export default function PosGrantReward() {
 
       setResult(data);
       setSuccessMsg(`OK — Reward granted. (${masked})`);
+      setCompleted(true);
 
       pvUiHook("pos.reward.submit_succeeded.ui", {
         tc: "TC-POS-REWARD-UI-03",
@@ -274,20 +281,11 @@ export default function PosGrantReward() {
         identifierKind: "phone",
         identifierMasked: masked,
         ms: Date.now() - started,
-        consumerIdPresent: Boolean(consumerIdFromDash),
+        consumerIdPresent: true,
         namePresent: Boolean(displayName),
       });
 
       markDashboardNeedsRefresh({ type: "reward", identifierMasked: masked });
-
-      // UX: clear only if not prefilled from dashboard
-      if (!lockedFromDash) {
-        setPhoneDigits("");
-        setDisplayName(null);
-        try {
-          setTimeout(() => phoneInputRef.current?.focus?.(), 0);
-        } catch {}
-      }
     } catch (err) {
       const msg = err?.message || "Failed to grant reward";
       setError(msg);
@@ -297,7 +295,7 @@ export default function PosGrantReward() {
         sev: "warn",
         stable: "pos:reward",
         identifierKind: "phone",
-        identifierMasked: location?.state?.identifierMasked || maskPhoneDigits(phoneV?.normalized),
+        identifierMasked: location?.state?.identifierMasked || maskPhoneDigits(phoneDigits),
         ms: Date.now() - started,
         error: msg,
         consumerIdPresent: Boolean(consumerIdFromDash),
@@ -309,16 +307,13 @@ export default function PosGrantReward() {
     }
   }
 
-  const maskedDisplay = location?.state?.identifierMasked || maskPhoneDigits(phoneV?.normalized || phoneDigits);
+  const maskedDisplay = location?.state?.identifierMasked || maskPhoneDigits(phoneDigits);
 
   return (
     <div style={{ maxWidth: 720 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
         <Link to="/merchant/pos" style={styles.pill}>
           {"< POS Dashboard"}
-        </Link>
-        <Link to="/merchant/pos/visit" style={styles.pill}>
-          Register Visit
         </Link>
       </div>
 
@@ -327,67 +322,36 @@ export default function PosGrantReward() {
         Confirm with the customer, then grant the reward.
       </div>
 
+      {entryBlockedMsg ? <div style={styles.errorBox}>{entryBlockedMsg}</div> : null}
+
       <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        {lockedFromDash && phoneV.ok ? (
-          <div style={styles.confirmPanel}>
-            <div style={styles.identityGrid}>
-              <div style={styles.identityLabel}>Phone</div>
-              <div style={styles.identityValue}>{maskedDisplay}</div>
+        <div style={styles.confirmPanel}>
+          <div style={styles.identityGrid}>
+            <div style={styles.identityLabel}>Phone</div>
+            <div style={styles.identityValue}>{maskedDisplay}</div>
 
-              <div style={styles.identityLabel}>Name</div>
-              <div style={styles.identityValueMuted}>{displayName ? String(displayName) : "—"}</div>
-            </div>
+            <div style={styles.identityLabel}>Name</div>
+            <div style={styles.identityValueMuted}>{displayName ? String(displayName) : "—"}</div>
+          </div>
 
-            <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <button disabled={!canSubmit} type="submit" style={styles.primaryBtn}>
-                {busy ? "Working..." : "Confirm Reward"}
-              </button>
+          <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <button disabled={busy || !!entryBlockedMsg || completed} type="submit" style={styles.primaryBtn}>
+              {completed ? "Reward confirmed" : busy ? "Working..." : "Confirm Reward"}
+            </button>
 
-              <div style={styles.metaLine}>
-                To change customer, go back to <b>POS Dashboard</b>.
-              </div>
+            <div style={styles.metaLine}>
+              To change customer, go back to <b>POS Dashboard</b>.
             </div>
           </div>
-        ) : (
-          <div style={styles.card}>
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontWeight: 950 }}>Phone number</div>
-              <input
-                ref={phoneInputRef}
-                className="pvInput"
-                value={phonePretty || phoneDigits}
-                onChange={(e) => {
-                  const next = normalizePhoneDigits(e.target.value);
-                  setPhoneDigits(next);
-                  setDisplayName(null);
-                  setError("");
-                  setSuccessMsg("");
-                }}
-                placeholder=""
-                inputMode="tel"
-                autoComplete="off"
-                style={{ ...styles.input, fontWeight: "inherit", color: "inherit" }}
-              />
-              <div style={styles.smallNote}>10 digits required.</div>
-              <div style={styles.exampleLine}>Example: (555) 123-4567</div>
 
-              <div style={styles.helperNote}>
-                Tip: Use <b>POS Dashboard</b> to preview the customer name before confirming.
-              </div>
-
-              {error && !busy ? <div style={styles.inlineErr}>{error}</div> : null}
-            </div>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-              <button disabled={!canSubmit} type="submit" style={styles.primaryBtn}>
-                {busy ? "Working..." : "Confirm Reward"}
-              </button>
-            </div>
+          <div style={{ marginTop: 10, ...styles.helperLine }}>
+            Example: (555) 123-4567 • 10 digits required
           </div>
-        )}
+
+          {error && !busy ? <div style={styles.inlineErr}>{error}</div> : null}
+        </div>
       </form>
 
-      {error && (lockedFromDash || phoneV.ok) ? <div style={styles.errorBox}>{error}</div> : null}
       {successMsg ? (
         <div style={styles.successBox}>
           <div style={{ fontWeight: 950 }}>{successMsg}</div>
@@ -448,41 +412,6 @@ const styles = {
     cursor: "pointer",
     fontWeight: 900,
   },
-  card: {
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "white",
-  },
-  input: {
-    padding: 12,
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.22)",
-    width: "100%",
-  },
-  smallNote: {
-    fontSize: 12,
-    color: "rgba(0,0,0,0.55)",
-    fontWeight: 800,
-  },
-  exampleLine: {
-    color: "rgba(0,0,0,0.22)",
-    fontWeight: 650,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  helperNote: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "rgba(0,0,0,0.55)",
-    fontWeight: 700,
-    lineHeight: 1.25,
-  },
-  inlineErr: {
-    fontSize: 12,
-    color: "rgba(150,0,0,0.85)",
-    fontWeight: 900,
-  },
   primaryBtn: {
     padding: "12px 14px",
     borderRadius: 12,
@@ -492,6 +421,7 @@ const styles = {
     cursor: "pointer",
     fontWeight: 950,
     minWidth: 170,
+    opacity: 1,
   },
   confirmPanel: {
     padding: 12,
@@ -508,8 +438,9 @@ const styles = {
   identityLabel: { color: "rgba(0,0,0,0.60)", fontWeight: 950, fontSize: 12 },
   identityValue: { fontWeight: 950, fontSize: 16 },
   identityValueMuted: { fontWeight: 900, fontSize: 16, color: "rgba(0,0,0,0.45)" },
-
   metaLine: { color: "rgba(0,0,0,0.55)", fontSize: 12, fontWeight: 850 },
+  helperLine: { color: "rgba(0,0,0,0.55)", fontWeight: 750, fontSize: 12 },
+  inlineErr: { marginTop: 8, fontSize: 12, color: "rgba(150,0,0,0.85)", fontWeight: 900 },
 
   errorBox: {
     marginTop: 12,
@@ -546,12 +477,7 @@ const styles = {
     cursor: "pointer",
     fontWeight: 800,
   },
-  debugHint: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "rgba(0,0,0,0.55)",
-    lineHeight: 1.35,
-  },
+  debugHint: { marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)", lineHeight: 1.35 },
   pre: {
     marginTop: 12,
     padding: 12,
