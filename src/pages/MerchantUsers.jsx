@@ -21,12 +21,13 @@ function pvUiHook(event, fields = {}) {
   }
 }
 
+// NOTE (locked to schema.prisma enum MerchantRole):
+// owner | merchant_admin | store_admin | store_subadmin
 const ROLE_OPTIONS = [
-  { value: "merchant_admin", label: "merchant_admin (Tenant Admin)" },
-  { value: "ap_clerk", label: "ap_clerk (Billing/AP)" },
+  { value: "owner", label: "owner (Merchant Owner)" },
+  { value: "merchant_admin", label: "merchant_admin (Merchant Admin)" },
   { value: "store_admin", label: "store_admin (Store Admin)" },
   { value: "store_subadmin", label: "store_subadmin (Store Sub-admin)" },
-  { value: "pos", label: "pos (POS Associate)" },
 ];
 
 function resolveMerchantContextFromMe(meRes) {
@@ -42,10 +43,7 @@ function resolveMerchantContextFromMe(meRes) {
   const merchantId = merchantIdRaw != null ? Number(merchantIdRaw) : null;
 
   const merchantName =
-    membership?.merchant?.name ||
-    meRes?.merchant?.name ||
-    meRes?.merchantName ||
-    "";
+    membership?.merchant?.name || meRes?.merchant?.name || meRes?.merchantName || "";
 
   const tenantRole = membership?.role || membership?.tenantRole || "";
 
@@ -59,7 +57,7 @@ export default function MerchantUsers() {
   const [profile, setProfile] = React.useState(null);
 
   const [email, setEmail] = React.useState("");
-  const [role, setRole] = React.useState("ap_clerk");
+  const [role, setRole] = React.useState("store_subadmin");
   const [busy, setBusy] = React.useState(false);
   const [result, setResult] = React.useState(null);
 
@@ -193,26 +191,13 @@ export default function MerchantUsers() {
           </div>
         </div>
 
-        <button
-          onClick={load}
-          disabled={loading || busy}
-          style={{ padding: "10px 12px", borderRadius: 10 }}
-        >
+        <button onClick={load} disabled={loading || busy} style={styles.refreshBtn}>
           {loading ? "Loading..." : "Refresh"}
         </button>
       </div>
 
       {err && (
-        <div
-          style={{
-            marginTop: 14,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
-            padding: 10,
-            borderRadius: 12,
-            whiteSpace: "pre-wrap",
-          }}
-        >
+        <div style={styles.errBox}>
           {err}
         </div>
       )}
@@ -224,10 +209,7 @@ export default function MerchantUsers() {
           If you have multiple merchant memberships, the API may require <code>merchantId</code>.
         </div>
 
-        <form
-          onSubmit={onCreate}
-          style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "end" }}
-        >
+        <form onSubmit={onCreate} style={styles.formRow}>
           <div style={{ minWidth: 280, flex: "1 1 280px" }}>
             <label style={styles.label}>Email</label>
             <input
@@ -241,12 +223,7 @@ export default function MerchantUsers() {
 
           <div style={{ minWidth: 260 }}>
             <label style={styles.label}>Role</label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              disabled={busy}
-              style={styles.select}
-            >
+            <select value={role} onChange={(e) => setRole(e.target.value)} disabled={busy} style={styles.select}>
               {ROLE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
@@ -298,25 +275,12 @@ export default function MerchantUsers() {
               </thead>
               <tbody>
                 {items.map((mu, idx) => {
-                  // Prefer a stable backend-provided key.
                   const rowKey =
-                    mu?.merchantUserId ??
-                    mu?.userId ??
-                    mu?.user?.id ??
-                    mu?.user?.email ??
-                    mu?.email ??
-                    `${idx}`;
+                    mu?.id ?? mu?.user?.id ?? mu?.user?.email ?? mu?.email ?? `${idx}`;
 
-                  const emailLabel =
-                    mu?.user?.email || mu?.email || mu?.userEmail || "—";
+                  const emailLabel = mu?.user?.email || mu?.email || mu?.userEmail || "—";
 
-                  const userStatus = mu?.userStatus || mu?.user?.status || "";
-
-                  // Backend returns membership as a nested object (role/status/reason/etc.)
-                  const membershipRole =
-                    mu?.membership?.role ?? mu?.role ?? "—";
-                  const membershipStatus =
-                    mu?.membership?.status ?? mu?.status ?? "—";
+                  const userStatus = mu?.user?.status || "";
 
                   return (
                     <tr key={String(rowKey)}>
@@ -329,10 +293,10 @@ export default function MerchantUsers() {
                         ) : null}
                       </td>
                       <td style={td}>
-                        <code>{membershipRole || "—"}</code>
+                        <code>{mu?.role || "—"}</code>
                       </td>
                       <td style={td}>
-                        <code>{membershipStatus || "—"}</code>
+                        <code>{mu?.status || "—"}</code>
                       </td>
                     </tr>
                   );
@@ -352,9 +316,8 @@ export default function MerchantUsers() {
 
         {profile ? (
           <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-            Screen <code>MerchantUsers</code> · User <code>{profile?.user?.email}</code> ·
-            Resolved Role <code>{resolvedRoleLabel}</code> · Merchant{" "}
-            <code>{merchantLabel}</code>
+            Screen <code>MerchantUsers</code> · User <code>{profile?.user?.email}</code> · Resolved Role{" "}
+            <code>{resolvedRoleLabel}</code> · Merchant <code>{merchantLabel}</code>
           </div>
         ) : null}
       </div>
@@ -395,6 +358,28 @@ const styles = {
     background: "white",
     cursor: "pointer",
     fontWeight: 900,
+  },
+  refreshBtn: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 800,
+  },
+  errBox: {
+    marginTop: 14,
+    background: "rgba(255,0,0,0.06)",
+    border: "1px solid rgba(255,0,0,0.15)",
+    padding: 10,
+    borderRadius: 12,
+    whiteSpace: "pre-wrap",
+  },
+  formRow: {
+    display: "flex",
+    gap: 12,
+    flexWrap: "wrap",
+    alignItems: "end",
   },
   resultBox: {
     marginTop: 10,

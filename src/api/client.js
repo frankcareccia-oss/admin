@@ -326,6 +326,14 @@ export function getStoreQrPngUrl(storeId) {
    Merchant portal (JWT protected)
 -------------------------------- */
 
+export const MERCHANT_ROLE_VALUES = ["owner", "merchant_admin", "store_admin", "store_subadmin"];
+
+export function normalizeMerchantRole(role) {
+  const r = String(role || "").trim();
+  return MERCHANT_ROLE_VALUES.includes(r) ? r : null;
+}
+
+
 export async function listMerchantStores() {
   assertNotPvAdminForMerchantCall("/merchant/stores");
   return request("/merchant/stores", { auth: "jwt" });
@@ -362,10 +370,57 @@ export async function merchantListUsers({ merchantId } = {}) {
 
 export async function merchantCreateUser({ merchantId, email, role } = {}) {
   assertNotPvAdminForMerchantCall("/merchant/users");
+
+  const emailNorm = String(email || "").trim().toLowerCase();
+  if (!emailNorm) throw new Error("Email is required");
+
+  const roleNorm = normalizeMerchantRole(role);
+  if (!roleNorm) {
+    throw new Error(`Invalid role. Allowed: ${MERCHANT_ROLE_VALUES.join("|")}`);
+  }
+
   return request("/merchant/users", {
     method: "POST",
     auth: "jwt",
-    body: { merchantId, email, role },
+    body: { merchantId, email: emailNorm, role: roleNorm },
+  });
+}
+
+/**
+ * Merchant HR (Thread: Merchant HR Model)
+ * - Membership lifecycle: MerchantUser.status (active/suspended/archived)
+ * - Store assignment lifecycle: StoreUser.status
+ */
+export async function merchantUpdateUserMembership(userId, { merchantId, role, status, reason } = {}) {
+  assertNotPvAdminForMerchantCall(`/merchant/users/${userId}/membership`);
+  if (userId == null) throw new Error("userId is required");
+  if (merchantId == null) throw new Error("merchantId is required");
+
+  return request(`/merchant/users/${encodeURIComponent(String(userId))}/membership`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: {
+      merchantId,
+      ...(role !== undefined ? { role } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(reason !== undefined ? { reason } : {}),
+    },
+  });
+}
+
+export async function merchantUpsertUserStoreAssignments(
+  userId,
+  { merchantId, assignments, reason } = {}
+) {
+  assertNotPvAdminForMerchantCall(`/merchant/users/${userId}/stores`);
+  if (userId == null) throw new Error("userId is required");
+  if (merchantId == null) throw new Error("merchantId is required");
+  if (!Array.isArray(assignments)) throw new Error("assignments must be an array");
+
+  return request(`/merchant/users/${encodeURIComponent(String(userId))}/stores`, {
+    method: "PUT",
+    auth: "jwt",
+    body: { merchantId, assignments, ...(reason !== undefined ? { reason } : {}) },
   });
 }
 

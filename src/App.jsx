@@ -45,6 +45,8 @@ import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 import ChangePassword from "./pages/Auth/ChangePassword";
 
+import MerchantUsers from "./pages/MerchantUsers";
+
 import { getAccessToken, logout, AUTH_BC_NAME } from "./api/client";
 
 /**
@@ -248,10 +250,7 @@ function Layout({ children }) {
           zIndex: 10,
         }}
       >
-        <Link
-          to={homePath}
-          style={{ fontWeight: 800, textDecoration: "none", color: "inherit" }}
-        >
+        <Link to={homePath} style={{ fontWeight: 800, textDecoration: "none", color: "inherit" }}>
           {role === "pv_admin" ? "PerkValet Admin" : "PerkValet Merchant"}
         </Link>
 
@@ -308,6 +307,9 @@ function Layout({ children }) {
                   <>
                     <NavLink to="/merchant" style={navPill}>
                       My Stores
+                    </NavLink>
+                    <NavLink to="/merchant/users" style={navPill}>
+                      Team
                     </NavLink>
                     <NavLink to="/merchant/invoices" style={navPill}>
                       Invoices
@@ -487,6 +489,14 @@ export default function App() {
             element={
               <RequireAuth requiredRole="merchant">
                 <MerchantHomeGate />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/merchant/users"
+            element={
+              <RequireAuth requiredRole="merchant">
+                <MerchantUsers />
               </RequireAuth>
             }
           />
