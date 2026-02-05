@@ -331,9 +331,59 @@ export async function listMerchantStores() {
   return request("/merchant/stores", { auth: "jwt" });
 }
 
+export async function authMe() {
+  // Alias for UI identity checks (preferred endpoint name in newer threads)
+  return request("/auth/me", { auth: "jwt" });
+}
+
+export async function merchantCreateStore({ merchantId, name, address1, city, state } = {}) {
+  assertNotPvAdminForMerchantCall("/merchant/stores");
+  return request("/merchant/stores", {
+    method: "POST",
+    auth: "jwt",
+    body: { merchantId, name, address1, city, state },
+  });
+}
+
+export async function merchantUpdateStoreStatus(storeId, { status } = {}) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}`);
+  return request(`/merchant/stores/${storeId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: { status },
+  });
+}
+
+export async function merchantListUsers({ merchantId } = {}) {
+  assertNotPvAdminForMerchantCall("/merchant/users");
+  const qs = merchantId != null ? `?merchantId=${encodeURIComponent(String(merchantId))}` : "";
+  return request(`/merchant/users${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreateUser({ merchantId, email, role } = {}) {
+  assertNotPvAdminForMerchantCall("/merchant/users");
+  return request("/merchant/users", {
+    method: "POST",
+    auth: "jwt",
+    body: { merchantId, email, role },
+  });
+}
+
 /* -----------------------------
    Billing (v2.02.1)
 -------------------------------- */
+
+export async function adminListMerchantUsers(merchantId) {
+  return request(`/admin/merchants/${merchantId}/users`, { auth: "auto" });
+}
+
+export async function adminCreateMerchantUser(merchantId, { email } = {}) {
+  return request(`/admin/merchants/${merchantId}/users`, {
+    method: "POST",
+    auth: "auto",
+    body: { email },
+  });
+}
 
 export async function adminGetMerchantBillingPolicy(merchantId) {
   return request(`/admin/merchants/${merchantId}/billing-policy`, { auth: "auto" });
