@@ -46,6 +46,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 import ChangePassword from "./pages/Auth/ChangePassword";
 
 import MerchantUsers from "./pages/MerchantUsers";
+import AdminMerchantUsers from "./pages/AdminMerchantUsers";
 
 import { getAccessToken, logout, AUTH_BC_NAME } from "./api/client";
 
@@ -455,6 +456,14 @@ export default function App() {
             element={
               <RequireAuth requiredRole="pv_admin">
                 <MerchantDetail />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/merchants/:merchantId/users"
+            element={
+              <RequireAuth requiredRole="pv_admin">
+                <AdminMerchantUsers />
               </RequireAuth>
             }
           />

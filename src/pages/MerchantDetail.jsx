@@ -69,7 +69,7 @@ export default function MerchantDetail() {
   if (loading) {
     return (
       <PageContainer size="page">
-        <div style={{ padding: 16 }}>Loading…</div>
+        <div style={{ padding: 16 }}>Loadingâ€¦</div>
       </PageContainer>
     );
   }
@@ -105,17 +105,19 @@ export default function MerchantDetail() {
   // Tab actives based on current path
   const path = location.pathname || "";
   const overviewPath = `/merchants/${merchant.id}`;
+  const teamPath = `/merchants/${merchant.id}/users`;
   const invoicesPath = `/merchants/${merchant.id}/invoices`;
   const billingPolicyPath = `/admin/merchants/${merchant.id}/billing-policy`;
 
   const overviewActive = path === overviewPath;
+  const teamActive = path === teamPath;
   const invoicesActive = path === invoicesPath;
 
   return (
     <PageContainer size="page">
       <div style={{ marginBottom: 10 }}>
         <Link to="/merchants" style={{ textDecoration: "none" }}>
-          ← Back to Merchants
+          â† Back to Merchants
         </Link>
       </div>
 
@@ -123,7 +125,7 @@ export default function MerchantDetail() {
         title={merchant.name}
         subtitle={
           <span>
-            Merchant ID: <code>{merchant.id}</code> • Status: <code>{merchant.status}</code>
+            Merchant ID: <code>{merchant.id}</code> â€¢ Status: <code>{merchant.status}</code>
           </span>
         }
         right={
@@ -140,6 +142,12 @@ export default function MerchantDetail() {
               label: "Overview",
               to: overviewPath,
               active: overviewActive,
+            },
+            {
+              key: "team",
+              label: "Team",
+              to: teamPath,
+              active: teamActive,
             },
             {
               key: "invoices",
@@ -195,7 +203,7 @@ export default function MerchantDetail() {
           </div>
 
           <button type="submit" disabled={busy} style={styles.saveBtn}>
-            {busy ? "Saving…" : "Save"}
+            {busy ? "Savingâ€¦" : "Save"}
           </button>
         </form>
 

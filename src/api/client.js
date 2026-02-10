@@ -341,7 +341,7 @@ export async function listMerchantStores() {
 
 export async function authMe() {
   // Alias for UI identity checks (preferred endpoint name in newer threads)
-  return request("/auth/me", { auth: "jwt" });
+  return me();
 }
 
 export async function merchantCreateStore({ merchantId, name, address1, city, state } = {}) {
