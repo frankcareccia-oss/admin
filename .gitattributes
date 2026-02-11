@@ -1,0 +1,4 @@
+
+# Treat Word docs as binary
+*.docx binary
+
