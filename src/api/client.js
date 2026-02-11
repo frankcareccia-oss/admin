@@ -333,7 +333,6 @@ export function normalizeMerchantRole(role) {
   return MERCHANT_ROLE_VALUES.includes(r) ? r : null;
 }
 
-
 export async function listMerchantStores() {
   assertNotPvAdminForMerchantCall("/merchant/stores");
   return request("/merchant/stores", { auth: "jwt" });
@@ -359,6 +358,43 @@ export async function merchantUpdateStoreStatus(storeId, { status } = {}) {
     method: "PATCH",
     auth: "jwt",
     body: { status },
+  });
+}
+
+export async function merchantUpdateStoreProfile(
+  storeId,
+  { name, address1, city, state, postal } = {}
+) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/profile`);
+  if (storeId == null) throw new Error("storeId is required");
+
+  function normOpt(v, { upper = false } = {}) {
+    if (v === undefined) return undefined; // not provided
+    if (v === null) return null;
+    const s0 = String(v || "").trim();
+    if (!s0) return null;
+    return upper ? s0.toUpperCase() : s0;
+  }
+
+  const nameNorm = normOpt(name);
+  if (name !== undefined && !nameNorm) throw new Error("name cannot be empty");
+
+  const body = {
+    ...(name !== undefined ? { name: nameNorm } : {}),
+    ...(address1 !== undefined ? { address1: normOpt(address1) } : {}),
+    ...(city !== undefined ? { city: normOpt(city) } : {}),
+    ...(state !== undefined ? { state: normOpt(state, { upper: true }) } : {}),
+    ...(postal !== undefined ? { postal: normOpt(postal) } : {}),
+  };
+
+  if (!Object.keys(body).length) {
+    throw new Error("Provide at least one store profile field to update");
+  }
+
+  return request(`/merchant/stores/${encodeURIComponent(String(storeId))}/profile`, {
+    method: "PATCH",
+    auth: "jwt",
+    body,
   });
 }
 
@@ -430,6 +466,11 @@ export async function merchantUpsertUserStoreAssignments(
 
 export async function adminListMerchantUsers(merchantId) {
   return request(`/admin/merchants/${merchantId}/users`, { auth: "auto" });
+}
+
+export async function adminGetMerchantUser(merchantUserId) {
+  if (merchantUserId == null) throw new Error("merchantUserId is required");
+  return request(`/admin/merchant-users/${encodeURIComponent(String(merchantUserId))}`, { auth: "auto" });
 }
 
 export async function adminCreateMerchantUser(merchantId, { email } = {}) {

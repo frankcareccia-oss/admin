@@ -1,0 +1,582 @@
+// admin/src/pages/MerchantStoreEdit.jsx
+import React from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { listMerchantStores, merchantUpdateStoreProfile, me } from "../api/client";
+
+/**
+ * pvUiHook: structured UI events for QA/docs/chatbot.
+ * Must never throw.
+ */
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(
+      JSON.stringify({
+        pvUiHook: event,
+        ts: new Date().toISOString(),
+        ...fields,
+      })
+    );
+  } catch {
+    // never break UI for logging
+  }
+}
+
+/* ---------------- UI palette ---------------- */
+
+const COLORS = {
+  primary: "#2563EB",
+  neutral: "rgba(0,0,0,0.55)",
+  dangerBg: "rgba(254, 226, 226, 0.85)",
+  dangerBorder: "rgba(252, 165, 165, 0.9)",
+  dangerText: "#991B1B",
+  okBg: "rgba(22, 163, 74, 0.10)",
+  okBorder: "rgba(22, 163, 74, 0.25)",
+  okText: "rgba(0,0,0,0.80)",
+};
+
+const breadcrumbLink = {
+  textDecoration: "underline",
+  color: COLORS.primary,
+  fontWeight: 700,
+};
+
+const sep = { color: "rgba(0,0,0,0.35)" };
+
+/* Neutral pill styling (no surprise-blue) */
+const pill = (disabled = false) => ({
+  padding: "10px 16px",
+  borderRadius: 999,
+  border: "1px solid rgba(0,0,0,0.18)",
+  background: disabled ? "rgba(0,0,0,0.03)" : "white",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontWeight: 800,
+  color: "rgba(0,0,0,0.85)",
+  opacity: disabled ? 0.55 : 1,
+});
+
+/* ---------------- helpers ---------------- */
+
+function norm(v) {
+  if (v == null) return "";
+  return String(v);
+}
+
+function trimOrNull(s) {
+  const t = String(s ?? "").trim();
+  return t ? t : null;
+}
+
+function pickDeep(obj, paths) {
+  try {
+    for (const p of paths) {
+      const parts = p.split(".");
+      let cur = obj;
+      let ok = true;
+      for (const part of parts) {
+        if (!cur || typeof cur !== "object") {
+          ok = false;
+          break;
+        }
+        cur = cur[part];
+      }
+      if (ok && cur != null && String(cur).trim() !== "") return cur;
+    }
+  } catch {}
+  return null;
+}
+
+export default function MerchantStoreEdit() {
+  const { storeId } = useParams();
+  const navigate = useNavigate();
+
+  const sid = Number(storeId) || null;
+
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [okMsg, setOkMsg] = React.useState("");
+
+  const [store, setStore] = React.useState(null);
+  const [merchantRole, setMerchantRole] = React.useState(null);
+
+  // Form fields
+  const [name, setName] = React.useState("");
+  const [address1, setAddress1] = React.useState("");
+  const [city, setCity] = React.useState("");
+  const [state, setState] = React.useState("");
+  const [postal, setPostal] = React.useState("");
+
+  // Snapshot for “dirty” detection
+  const initialRef = React.useRef(null);
+
+  const canManage = merchantRole === "merchant_admin" || merchantRole === "owner";
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setSaving(false);
+      setErr("");
+      setOkMsg("");
+
+      if (!sid) {
+        setErr("Invalid storeId");
+        setLoading(false);
+        return;
+      }
+
+      pvUiHook("merchant.store.edit.load_started.ui", {
+        stable: "merchant:store:edit",
+        storeId: sid,
+      });
+
+      try {
+        // Resolve merchant role from /me (membership role, not systemRole)
+        const prof = await me();
+        const mr =
+          pickDeep(prof, ["user.merchantUsers.0.role", "merchantUser.role", "membership.role", "role"]) || null;
+
+        if (!cancelled) setMerchantRole(mr ? String(mr) : null);
+
+        pvUiHook("merchant.store.edit.role_resolved.ui", {
+          stable: "merchant:store:edit:role",
+          storeId: sid,
+          merchantRole: mr ? String(mr) : null,
+          merchantRolePath: mr ? "user.merchantUsers[0].role" : null,
+        });
+
+        if (!(mr === "merchant_admin" || mr === "owner")) {
+          if (!cancelled) {
+            setStore(null);
+            setErr("Store profile editing is available only to merchant_admin (or owner).");
+          }
+
+          pvUiHook("merchant.store.edit.forbidden.ui", {
+            stable: "merchant:store:edit:forbidden",
+            storeId: sid,
+            merchantRole: mr ? String(mr) : "unknown",
+          });
+
+          return;
+        }
+
+        const data = await listMerchantStores();
+        const found = (data?.items || []).find((s) => s.id === sid);
+
+        if (!found) throw new Error("Store not found (not in your merchant scope).");
+
+        if (cancelled) return;
+
+        setStore(found);
+
+        const next = {
+          name: norm(found.name),
+          address1: norm(found.address1),
+          city: norm(found.city),
+          state: norm(found.state),
+          postal: norm(found.postal),
+        };
+
+        setName(next.name);
+        setAddress1(next.address1);
+        setCity(next.city);
+        setState(next.state);
+        setPostal(next.postal);
+
+        initialRef.current = next;
+
+        pvUiHook("merchant.store.edit.load_succeeded.ui", {
+          stable: "merchant:store:edit",
+          storeId: sid,
+        });
+      } catch (e) {
+        const msg = e?.message || "Failed to load store";
+        if (!cancelled) setErr(msg);
+
+        pvUiHook("merchant.store.edit.load_failed.ui", {
+          stable: "merchant:store:edit",
+          storeId: sid,
+          error: msg,
+        });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [sid]);
+
+  const initial = initialRef.current || {
+    name: "",
+    address1: "",
+    city: "",
+    state: "",
+    postal: "",
+  };
+
+  const dirty =
+    name !== initial.name ||
+    address1 !== initial.address1 ||
+    city !== initial.city ||
+    state !== initial.state ||
+    postal !== initial.postal;
+
+  function validate() {
+    const nm = String(name || "").trim();
+    if (!nm) return "Store name is required.";
+    if (nm.length > 200) return "Store name is too long.";
+    if (String(state || "").trim().length > 8) return "State is too long.";
+    if (String(postal || "").trim().length > 20) return "Postal is too long.";
+    return "";
+  }
+
+  async function onSave() {
+    setErr("");
+    setOkMsg("");
+
+    const v = validate();
+    if (v) {
+      setErr(v);
+      return;
+    }
+
+    if (!sid) {
+      setErr("Invalid storeId");
+      return;
+    }
+
+    if (!dirty) {
+      setOkMsg("No changes to save.");
+      return;
+    }
+
+    // Only send fields in scope right now.
+    // NOTE: Store phone + contactName are NOT in Store schema yet (we'll add with schema update step).
+    const payload = {
+      name: trimOrNull(name),
+      address1: trimOrNull(address1),
+      city: trimOrNull(city),
+      state: trimOrNull(state),
+      postal: trimOrNull(postal),
+    };
+
+    setSaving(true);
+    try {
+      pvUiHook("merchant.store.edit.save_started.ui", {
+        stable: "merchant:store:edit",
+        storeId: sid,
+      });
+
+      const updated = await merchantUpdateStoreProfile(sid, payload);
+
+      const next = {
+        name: norm(updated?.name),
+        address1: norm(updated?.address1),
+        city: norm(updated?.city),
+        state: norm(updated?.state),
+        postal: norm(updated?.postal),
+      };
+
+      setStore(updated || store);
+      setName(next.name);
+      setAddress1(next.address1);
+      setCity(next.city);
+      setState(next.state);
+      setPostal(next.postal);
+      initialRef.current = next;
+
+      setOkMsg("Saved.");
+
+      pvUiHook("merchant.store.edit.save_succeeded.ui", {
+        stable: "merchant:store:edit",
+        storeId: sid,
+      });
+    } catch (e) {
+      const msg = e?.message || "Save failed";
+      setErr(msg);
+
+      pvUiHook("merchant.store.edit.save_failed.ui", {
+        stable: "merchant:store:edit",
+        storeId: sid,
+        error: msg,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function onRevert() {
+    setErr("");
+    setOkMsg("");
+    pvUiHook("merchant.store.edit.revert_click.ui", {
+      stable: "merchant:store:edit:revert",
+      storeId: sid,
+      dirty: Boolean(dirty),
+    });
+
+    const base = initialRef.current;
+    if (base) {
+      setName(base.name);
+      setAddress1(base.address1);
+      setCity(base.city);
+      setState(base.state);
+      setPostal(base.postal);
+      setOkMsg("Reverted.");
+      return;
+    }
+    navigate(`/merchant/stores/${sid}`, { replace: false });
+  }
+
+  if (loading) return <div style={{ padding: 20 }}>Loading…</div>;
+
+  // Forbidden block (role gate)
+  if (!canManage) {
+    return (
+      <div style={{ maxWidth: 900 }}>
+        <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <Link to={`/merchant/stores/${sid}`} style={breadcrumbLink}>
+            ← Back to Store
+          </Link>
+          <span style={sep}>·</span>
+          <Link to="/merchant/stores" style={breadcrumbLink}>
+            My Stores
+          </Link>
+        </div>
+
+        <div
+          style={{
+            padding: 14,
+            borderRadius: 14,
+            background: COLORS.dangerBg,
+            border: `1px solid ${COLORS.dangerBorder}`,
+            color: COLORS.dangerText,
+          }}
+        >
+          <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Forbidden</div>
+          <div style={{ marginBottom: 10 }}>
+            Store profile editing is available only to <code>merchant_admin</code> (or <code>owner</code>).
+          </div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>
+            Merchant role: <code>{merchantRole || "unknown"}</code>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: 900 }}>
+      {/* Breadcrumbs */}
+      <div style={{ marginBottom: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        <Link to={`/merchant/stores/${sid}`} style={breadcrumbLink}>
+          ← Back to Store
+        </Link>
+        <span style={sep}>·</span>
+        <Link to="/merchant/stores" style={breadcrumbLink}>
+          My Stores
+        </Link>
+      </div>
+
+      {/* Title row */}
+      <div style={{ display: "flex", gap: 12, alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ marginTop: 0, marginBottom: 6 }}>Edit Store Profile</h2>
+          <div style={{ color: COLORS.neutral, marginBottom: 4 }}>
+            StoreId <code>{sid}</code>
+            {store?.name ? (
+              <>
+                {" "}
+                · Current <code>{store.name}</code>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      {err ? (
+        <div style={alertError}>
+          {err}
+        </div>
+      ) : null}
+
+      {okMsg ? (
+        <div style={alertOk}>
+          {okMsg}
+        </div>
+      ) : null}
+
+      {/* Card */}
+      <div style={card}>
+        <div style={{ fontWeight: 900, marginBottom: 10 }}>Profile</div>
+
+        <div style={row}>
+          <div style={label}>Store name</div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Main Store"
+            style={input}
+            autoComplete="off"
+          />
+        </div>
+
+        <div style={row}>
+          <div style={label}>Address1</div>
+          <input
+            value={address1}
+            onChange={(e) => setAddress1(e.target.value)}
+            placeholder="Street address"
+            style={input}
+            autoComplete="off"
+          />
+        </div>
+
+        <div style={grid2}>
+          <div style={cell}>
+            <div style={label}>City</div>
+            <input
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="City"
+              style={input}
+              autoComplete="off"
+            />
+          </div>
+
+          <div style={cell}>
+            <div style={label}>State</div>
+            <input
+              value={state}
+              onChange={(e) => setState(e.target.value)}
+              placeholder="CA"
+              style={input}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div style={row}>
+          <div style={label}>Postal</div>
+          <input
+            value={postal}
+            onChange={(e) => setPostal(e.target.value)}
+            placeholder="Postal / ZIP"
+            style={input}
+            autoComplete="off"
+          />
+        </div>
+
+        {/* Footer actions */}
+        <div style={footerRow}>
+          <div style={{ fontSize: 12, color: COLORS.neutral }}>
+            {dirty ? "Unsaved changes" : "No changes"}
+            {saving ? " · Saving…" : ""}
+          </div>
+
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={onRevert}
+              disabled={saving || !dirty}
+              style={pill(saving || !dirty)}
+            >
+              Revert
+            </button>
+
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving || !dirty}
+              style={pill(saving || !dirty)}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 10, fontSize: 12, color: COLORS.neutral }}>
+        Screen <code>MerchantStoreEdit</code> · StoreId <code>{sid}</code>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- styles ---------------- */
+
+const alertError = {
+  marginTop: 10,
+  background: COLORS.dangerBg,
+  border: `1px solid ${COLORS.dangerBorder}`,
+  padding: 10,
+  borderRadius: 12,
+  whiteSpace: "pre-wrap",
+  color: COLORS.dangerText,
+};
+
+const alertOk = {
+  marginTop: 10,
+  background: COLORS.okBg,
+  border: `1px solid ${COLORS.okBorder}`,
+  padding: 10,
+  borderRadius: 12,
+  whiteSpace: "pre-wrap",
+  color: COLORS.okText,
+};
+
+const card = {
+  marginTop: 12,
+  width: "100%",
+  border: "1px solid rgba(0,0,0,0.12)",
+  borderRadius: 14,
+  padding: 14,
+  background: "white",
+  boxSizing: "border-box",
+  overflow: "hidden",
+};
+
+const row = { marginBottom: 10, minWidth: 0 };
+
+const label = {
+  fontSize: 12,
+  fontWeight: 900,
+  color: "rgba(0,0,0,0.65)",
+  marginBottom: 6,
+};
+
+const input = {
+  width: "100%",
+  maxWidth: "100%",
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(0,0,0,0.18)",
+  background: "white",
+  outline: "none",
+  boxSizing: "border-box",
+  minWidth: 0,
+  display: "block",
+};
+
+const grid2 = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+  gap: 12,
+  marginBottom: 10,
+  minWidth: 0,
+};
+
+const cell = { minWidth: 0 };
+
+const footerRow = {
+  marginTop: 14,
+  display: "flex",
+  gap: 10,
+  alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
+};

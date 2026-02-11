@@ -6,6 +6,7 @@ import {
   merchantCreateUser,
   me,
   getSystemRole,
+  adminGetMerchantUser,
 } from "../api/client";
 
 /**
@@ -60,6 +61,14 @@ function resolveMerchantContextFromMe(meRes) {
   return { merchantId, merchantName, tenantRole, membership };
 }
 
+function safeStringify(value) {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return "—";
+  }
+}
+
 /**
  * MerchantUsers
  *
@@ -68,6 +77,10 @@ function resolveMerchantContextFromMe(meRes) {
  *   When true:
  *   - hides Create / Save / mutation actions
  *   - prevents any mutation calls
+ *
+ * Row expand (Option A):
+ * - Enabled ONLY when readOnly === true (admin view)
+ * - Lazy fetches /admin/merchant-users/:merchantUserId on first expand
  */
 export default function MerchantUsers({ readOnly = false }) {
   const [loading, setLoading] = React.useState(true);
@@ -80,10 +93,22 @@ export default function MerchantUsers({ readOnly = false }) {
   const [busy, setBusy] = React.useState(false);
   const [result, setResult] = React.useState(null);
 
+  // Row expand state (admin/readOnly only)
+  const [expandedId, setExpandedId] = React.useState(null);
+  const [detailById, setDetailById] = React.useState({});
+  const [detailBusyById, setDetailBusyById] = React.useState({});
+  const [detailErrById, setDetailErrById] = React.useState({});
+
   async function load() {
     setLoading(true);
     setErr("");
     setResult(null);
+
+    // Reset expansions on reload to avoid showing stale IDs
+    setExpandedId(null);
+    setDetailById({});
+    setDetailBusyById({});
+    setDetailErrById({});
 
     const sysRole = getSystemRole();
 
@@ -188,6 +213,59 @@ export default function MerchantUsers({ readOnly = false }) {
       });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function toggleExpand(mu) {
+    // Expand only supported in admin readOnly view (Option A scope)
+    if (!readOnly) return;
+
+    const merchantUserIdRaw = mu?.id ?? null;
+    const merchantUserId = merchantUserIdRaw != null ? String(merchantUserIdRaw) : "";
+    if (!merchantUserId) return;
+
+    // Toggle collapse if already open
+    if (expandedId === merchantUserId) {
+      setExpandedId(null);
+      pvUiHook("merchant.users.row_collapsed.ui", {
+        stable: "merchant:users:detail",
+        merchantUserId,
+      });
+      return;
+    }
+
+    setExpandedId(merchantUserId);
+    pvUiHook("merchant.users.row_expanded.ui", {
+      stable: "merchant:users:detail",
+      merchantUserId,
+    });
+
+    // Lazy fetch on first open
+    if (detailById[merchantUserId]) return;
+    if (detailBusyById[merchantUserId]) return;
+
+    setDetailBusyById((prev) => ({ ...prev, [merchantUserId]: true }));
+    setDetailErrById((prev) => ({ ...prev, [merchantUserId]: "" }));
+
+    try {
+      const detail = await adminGetMerchantUser(merchantUserId);
+      setDetailById((prev) => ({ ...prev, [merchantUserId]: detail }));
+
+      pvUiHook("merchant.users.detail_load_succeeded.ui", {
+        stable: "merchant:users:detail",
+        merchantUserId,
+      });
+    } catch (e) {
+      const msg = e?.message || "Failed to load user detail";
+      setDetailErrById((prev) => ({ ...prev, [merchantUserId]: msg }));
+
+      pvUiHook("merchant.users.detail_load_failed.ui", {
+        stable: "merchant:users:detail",
+        merchantUserId,
+        error: msg,
+      });
+    } finally {
+      setDetailBusyById((prev) => ({ ...prev, [merchantUserId]: false }));
     }
   }
 
@@ -301,6 +379,11 @@ export default function MerchantUsers({ readOnly = false }) {
             <div style={{ color: "rgba(0,0,0,0.6)" }}>
               ({items.length} user{items.length === 1 ? "" : "s"})
             </div>
+            {readOnly ? (
+              <div style={{ marginLeft: "auto", fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                Click a row to expand details
+              </div>
+            ) : null}
           </div>
 
           <div style={{ marginTop: 10, overflowX: "auto" }}>
@@ -321,6 +404,12 @@ export default function MerchantUsers({ readOnly = false }) {
                     mu?.email ??
                     `${idx}`;
 
+                  const merchantUserIdRaw = mu?.id ?? null;
+                  const merchantUserId = merchantUserIdRaw != null ? String(merchantUserIdRaw) : "";
+
+                  const isExpandable = readOnly && Boolean(merchantUserId);
+                  const isExpanded = isExpandable && expandedId === merchantUserId;
+
                   const emailLabel =
                     mu?.user?.email ||
                     mu?.email ||
@@ -329,28 +418,63 @@ export default function MerchantUsers({ readOnly = false }) {
 
                   const userStatus = mu?.user?.status || "";
 
+                  const detail = merchantUserId ? detailById[merchantUserId] : null;
+                  const detailBusy = merchantUserId ? Boolean(detailBusyById[merchantUserId]) : false;
+                  const detailErr = merchantUserId ? String(detailErrById[merchantUserId] || "") : "";
+
                   return (
-                    <tr key={String(rowKey)}>
-                      <td style={td}>
-                        <div style={{ fontWeight: 700 }}>{emailLabel}</div>
-                        {userStatus ? (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: "rgba(0,0,0,0.55)",
-                            }}
-                          >
-                            userStatus: <code>{userStatus}</code>
+                    <React.Fragment key={String(rowKey)}>
+                      <tr
+                        onClick={isExpandable ? () => toggleExpand(mu) : undefined}
+                        style={isExpandable ? styles.expandableRow : undefined}
+                        title={isExpandable ? "Click to expand details" : undefined}
+                      >
+                        <td style={td}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            {isExpandable ? (
+                              <span style={styles.caret}>{isExpanded ? "▼" : "▶"}</span>
+                            ) : null}
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{emailLabel}</div>
+                              {userStatus ? (
+                                <div
+                                  style={{
+                                    fontSize: 12,
+                                    color: "rgba(0,0,0,0.55)",
+                                  }}
+                                >
+                                  userStatus: <code>{userStatus}</code>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
-                        ) : null}
-                      </td>
-                      <td style={td}>
-                        <code>{mu?.role || "—"}</code>
-                      </td>
-                      <td style={td}>
-                        <code>{mu?.status || "—"}</code>
-                      </td>
-                    </tr>
+                        </td>
+                        <td style={td}>
+                          <code>{mu?.role || "—"}</code>
+                        </td>
+                        <td style={td}>
+                          <code>{mu?.status || "—"}</code>
+                        </td>
+                      </tr>
+
+                      {isExpanded ? (
+                        <tr>
+                          <td colSpan={3} style={styles.detailCell}>
+                            {detailBusy ? (
+                              <div style={{ color: "rgba(0,0,0,0.65)" }}>Loading details…</div>
+                            ) : detailErr ? (
+                              <div style={styles.detailErrBox}>{detailErr}</div>
+                            ) : detail ? (
+                              <pre style={styles.detailPre}>{safeStringify(detail)}</pre>
+                            ) : (
+                              <div style={{ color: "rgba(0,0,0,0.65)" }}>
+                                No detail loaded.
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ) : null}
+                    </React.Fragment>
                   );
                 })}
 
@@ -452,6 +576,41 @@ const styles = {
     borderRadius: 12,
     whiteSpace: "pre-wrap",
     fontSize: 13,
+  },
+  expandableRow: {
+    cursor: "pointer",
+  },
+  caret: {
+    width: 16,
+    display: "inline-block",
+    textAlign: "center",
+    color: "rgba(0,0,0,0.55)",
+    fontSize: 12,
+  },
+  detailCell: {
+    padding: 12,
+    borderBottom: "1px solid rgba(0,0,0,0.06)",
+    background: "rgba(0,0,0,0.02)",
+  },
+  detailPre: {
+    margin: 0,
+    fontSize: 12,
+    lineHeight: 1.35,
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    maxHeight: 280,
+    overflow: "auto",
+    padding: 10,
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "white",
+  },
+  detailErrBox: {
+    background: "rgba(255,0,0,0.06)",
+    border: "1px solid rgba(255,0,0,0.15)",
+    padding: 10,
+    borderRadius: 12,
+    whiteSpace: "pre-wrap",
   },
 };
 
