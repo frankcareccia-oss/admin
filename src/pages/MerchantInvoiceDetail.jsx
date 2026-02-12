@@ -1,4 +1,4 @@
-// src/pages/MerchantInvoiceDetail.jsx
+// admin/src/pages/MerchantInvoiceDetail.jsx
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
@@ -66,6 +66,36 @@ const card = {
   background: "white",
 };
 
+const buttonBase = {
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid rgba(0,0,0,0.18)",
+  background: "white",
+  cursor: "pointer",
+  fontWeight: 900,
+};
+
+const buttonPrimaryGreen = {
+  padding: "10px 14px",
+  borderRadius: 999,
+  border: "1px solid rgba(0,0,0,0.10)",
+  background: "#1f7a3a",
+  color: "white",
+  cursor: "pointer",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
+function calcAmountDueCents(inv) {
+  const total = typeof inv?.totalCents === "number" ? inv.totalCents : 0;
+  const paid = typeof inv?.amountPaidCents === "number" ? inv.amountPaidCents : 0;
+  return Math.max(0, total - paid);
+}
+
+function getPayCode(inv) {
+  return inv?.payCode || inv?.shortPayCode || inv?.code || inv?.payLinkCode || "";
+}
+
 export default function MerchantInvoiceDetail() {
   const { invoiceId } = useParams();
 
@@ -123,15 +153,57 @@ export default function MerchantInvoiceDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceId]);
 
-  const inv = detail?.invoice;
+  const inv = detail?.invoice || null;
+
+  // Normalize status for comparisons (prevents "Paid"/"PAID"/etc from slipping through)
+  const statusNorm = String(inv?.status || "").trim().toLowerCase();
+
+  // Amount due (source of truth for "payable" gating)
+  const amountDueCents = calcAmountDueCents(inv);
+
+  // Keep original status string for hooks/UI, but gate using normalized
+  const status = inv?.status || "";
+
+  const isDraft = statusNorm === "draft";
+
+  // Paid-like should be true if:
+  // - status says paid, OR
+  // - computed due is 0, OR
+  // - paid >= total (defensive)
+  const totalCents = typeof inv?.totalCents === "number" ? inv.totalCents : 0;
+  const paidCents = typeof inv?.amountPaidCents === "number" ? inv.amountPaidCents : 0;
+  const isPaidLike = statusNorm === "paid" || amountDueCents <= 0 || (totalCents > 0 && paidCents >= totalCents);
+
+  // Payable statuses (normalized)
+  const isPayableStatus = statusNorm === "issued" || statusNorm === "past_due";
+
+  // Final gating for Pay Now
+  const canPayNow = Boolean(inv) && !isDraft && !isPaidLike && isPayableStatus && amountDueCents > 0;
+
+  const payCode = getPayCode(inv);
+  const payLinkAvailable = Boolean(payCode);
+
+  function openPublicPay(code) {
+    const url = `${window.location.origin}/p/${encodeURIComponent(String(code))}`;
+
+    pvUiHook("billing.merchant_invoice.pay_now.open_public_pay.ui", {
+      tc: "TC-MID-UI-30",
+      sev: "info",
+      stable: `merchantInvoice:${String(invoiceId)}`,
+      invoiceId: Number(invoiceId),
+      payCodePresent: Boolean(code),
+    });
+
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <PageContainer size="page">
-      {/* Q0: Back link top-left above PageHeader */}
+      {/* Back link (navigation only) */}
       <div style={{ marginBottom: 10 }}>
         <Link
           to="/merchant/invoices"
-          style={{ textDecoration: "none" }}
+          style={{ textDecoration: "none", fontWeight: 900 }}
           onClick={() => {
             pvUiHook("billing.merchant_invoice.back.click.ui", {
               tc: "TC-MID-UI-10",
@@ -149,28 +221,52 @@ export default function MerchantInvoiceDetail() {
         title={`Invoice #${invoiceId}`}
         subtitle={inv?.status ? <Pill>{inv.status}</Pill> : " "}
         right={
-          <button
-            onClick={() => {
-              pvUiHook("billing.merchant_invoice.reload.click.ui", {
-                tc: "TC-MID-UI-20",
-                sev: "info",
-                stable: `merchantInvoice:${String(invoiceId)}`,
-                invoiceId: Number(invoiceId),
-              });
-              load("manual_reload");
-            }}
-            disabled={loading}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 10,
-              border: "1px solid rgba(0,0,0,0.18)",
-              background: "white",
-              cursor: loading ? "not-allowed" : "pointer",
-              fontWeight: 900,
-            }}
-          >
-            {loading ? "Loading…" : "Reload"}
-          </button>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            {/* Actions only on the right: Pay Now (if available) + Reload */}
+            {inv && canPayNow && payLinkAvailable ? (
+              <button
+                type="button"
+                style={buttonPrimaryGreen}
+                onClick={() => {
+                  pvUiHook("billing.merchant_invoice.pay_now.click.ui", {
+                    tc: "TC-MID-UI-31",
+                    sev: "info",
+                    stable: `merchantInvoice:${String(invoiceId)}`,
+                    invoiceId: Number(invoiceId),
+                    status,
+                    statusNorm,
+                    amountDueCents,
+                    totalCents,
+                    paidCents,
+                    payCodePresent: true,
+                  });
+                  openPublicPay(payCode);
+                }}
+                title="Opens the public pay page in a new tab"
+              >
+                Pay Now
+              </button>
+            ) : null}
+
+            <button
+              onClick={() => {
+                pvUiHook("billing.merchant_invoice.reload.click.ui", {
+                  tc: "TC-MID-UI-20",
+                  sev: "info",
+                  stable: `merchantInvoice:${String(invoiceId)}`,
+                  invoiceId: Number(invoiceId),
+                });
+                load("manual_reload");
+              }}
+              disabled={loading}
+              style={{
+                ...buttonBase,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              {loading ? "Loading…" : "Reload"}
+            </button>
+          </div>
         }
       />
 
@@ -192,6 +288,63 @@ export default function MerchantInvoiceDetail() {
 
       {!loading && !error && inv ? (
         <>
+          {/* “Billing feel” hero: Amount Due */}
+          <div style={{ ...card, marginBottom: 12 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-end",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 900, fontSize: 12 }}>
+                  Amount Due
+                </div>
+                <div style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-0.02em" }}>
+                  {usd(amountDueCents)}
+                </div>
+              </div>
+
+              <div style={{ textAlign: "right" }}>
+                <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 900, fontSize: 12 }}>
+                  Due Date
+                </div>
+                <div style={{ fontWeight: 900 }}>{fmtDate(inv.dueAt)}</div>
+              </div>
+            </div>
+
+            {/* If payable but missing pay link, make it explicit here (not in header actions). */}
+            {canPayNow && !payLinkAvailable ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  color: "rgba(0,0,0,0.60)",
+                }}
+              >
+                Payment link not available yet. Pay links appear when an invoice is ready for payment.
+              </div>
+            ) : null}
+
+            {/* If invoice is paid-like, help explain why Pay Now is not shown */}
+            {!canPayNow && isPaidLike ? (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  color: "rgba(0,0,0,0.55)",
+                }}
+              >
+                Payment already received. This invoice is no longer payable.
+              </div>
+            ) : null}
+          </div>
+
           {/* Summary */}
           <div style={{ ...card, marginBottom: 12 }}>
             <div style={{ fontWeight: 900, marginBottom: 10 }}>Summary</div>
@@ -202,14 +355,14 @@ export default function MerchantInvoiceDetail() {
               <div style={styles.k}>Issued</div>
               <div>{fmtDate(inv.issuedAt)}</div>
 
-              <div style={styles.k}>Due</div>
-              <div>{fmtDate(inv.dueAt)}</div>
-
               <div style={styles.k}>Total</div>
               <div>{usd(inv.totalCents)}</div>
 
               <div style={styles.k}>Paid</div>
               <div>{usd(inv.amountPaidCents)}</div>
+
+              <div style={styles.k}>Amount due</div>
+              <div style={{ fontWeight: 900 }}>{usd(amountDueCents)}</div>
 
               {inv.relatedToInvoiceId ? (
                 <>

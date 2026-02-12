@@ -169,8 +169,29 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
     }
 
     // If token is revoked/expired: clear session consistently.
+    // BUT: do not nuke the whole session for every 401, because some endpoints may
+    // temporarily return 401 due to wiring/role gates (ex: invoices) while the token
+    // is still valid for the rest of the app.
     if (res.status === 401) {
-      pvClearSession({ reason: "http_401", broadcast: true });
+      const lower = String(msg || "").toLowerCase();
+
+      const jwtSent = auth !== "none" && (auth === "jwt" || auth === "auto") && Boolean(getAccessToken());
+
+      // Strong signals the JWT is actually invalid/expired.
+      const looksLikeTokenProblem =
+        lower.includes("expired") ||
+        lower.includes("invalid token") ||
+        lower.includes("jwt") ||
+        lower.includes("token") ||
+        path === "/me";
+
+      if (jwtSent && looksLikeTokenProblem) {
+        pvClearSession({ reason: "http_401_token_invalid", broadcast: true });
+      } else {
+        // Soft 401: keep session; let the calling page show the error.
+        // (Useful during rollout when some routes are gated/miswired.)
+        pvBroadcast("auth_401_soft", { path, auth, msg });
+      }
     }
 
     throw new Error(msg);
@@ -361,10 +382,7 @@ export async function merchantUpdateStoreStatus(storeId, { status } = {}) {
   });
 }
 
-export async function merchantUpdateStoreProfile(
-  storeId,
-  { name, address1, city, state, postal } = {}
-) {
+export async function merchantUpdateStoreProfile(storeId, { name, address1, city, state, postal } = {}) {
   assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/profile`);
   if (storeId == null) throw new Error("storeId is required");
 
@@ -444,10 +462,7 @@ export async function merchantUpdateUserMembership(userId, { merchantId, role, s
   });
 }
 
-export async function merchantUpsertUserStoreAssignments(
-  userId,
-  { merchantId, assignments, reason } = {}
-) {
+export async function merchantUpsertUserStoreAssignments(userId, { merchantId, assignments, reason } = {}) {
   assertNotPvAdminForMerchantCall(`/merchant/users/${userId}/stores`);
   if (userId == null) throw new Error("userId is required");
   if (merchantId == null) throw new Error("merchantId is required");

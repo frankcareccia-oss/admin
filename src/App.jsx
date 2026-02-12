@@ -26,7 +26,6 @@ import MerchantStoreDetail from "./pages/MerchantStoreDetail";
 import MerchantStoreEdit from "./pages/MerchantStoreEdit";
 import MerchantStoreCreate from "./pages/MerchantStoreCreate";
 
-import MerchantInvoices from "./pages/MerchantInvoices";
 import MerchantInvoiceDetail from "./pages/MerchantInvoiceDetail";
 import MerchantPortalInvoices from "./pages/MerchantPortalInvoices";
 
@@ -691,7 +690,7 @@ export default function App() {
             path="/merchant/invoices"
             element={
               <RequireAuth>
-                <MerchantInvoices />
+                <MerchantPortalInvoices />
               </RequireAuth>
             }
           />
@@ -708,7 +707,7 @@ export default function App() {
             path="/merchant/portal/invoices"
             element={
               <RequireAuth>
-                <MerchantPortalInvoices />
+                <Navigate to="/merchant/invoices" replace />
               </RequireAuth>
             }
           />

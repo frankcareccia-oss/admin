@@ -4,21 +4,16 @@
  * PerkValet — Merchant Invoice List (Merchant Portal)
  * Route: /merchant/invoices
  *
- * Thread N (UI scaffolding, Master Spec v2.02.1 locked)
- * ----------------------------------------------------
  * Purpose:
  * - Merchant user can view invoices for their own merchant account
  * - Merchant user can open invoice detail at /merchant/invoices/:invoiceId
  *
- * Thread Q (Admin UX Consistency & Operability)
- * ---------------------------------------------
- * - Replace "Open" with "View" for detail pages
- * - Add Pay Now behavior (opens public pay page /p/:code in new tab)
- * - State gating:
- *   - paid -> Pay Now disabled/grey (never clickable)
- *   - draft -> no Pay Now
- *   - issued/past_due with balance -> Pay Now enabled
- * - Add pvUiHook events for QA/Docs/Support/Chatbot
+ * UX (polish pass):
+ * - Single nav affordance per row (caret + invoice #). Remove redundant "View" link.
+ * - Blue is navigation only.
+ * - Payment column is a state/action column (not generic actions).
+ * - If payable but pay link missing: show "Awaiting pay link" (no dead disabled button).
+ * - Keep pvUiHook events for QA/Docs/Support/Chatbot.
  */
 
 import React from "react";
@@ -78,6 +73,17 @@ const buttonBase = {
   fontWeight: 900,
 };
 
+const buttonPrimaryGreen = {
+  padding: "10px 14px",
+  borderRadius: 999,
+  border: "1px solid rgba(0,0,0,0.10)",
+  background: "#1f7a3a",
+  color: "white",
+  cursor: "pointer",
+  fontWeight: 900,
+  whiteSpace: "nowrap",
+};
+
 const card = {
   border: "1px solid rgba(0,0,0,0.12)",
   borderRadius: 14,
@@ -88,6 +94,10 @@ function calcAmountDueCents(inv) {
   const total = typeof inv?.totalCents === "number" ? inv.totalCents : 0;
   const paid = typeof inv?.amountPaidCents === "number" ? inv.amountPaidCents : 0;
   return Math.max(0, total - paid);
+}
+
+function getPayCode(inv) {
+  return inv?.payCode || inv?.shortPayCode || inv?.code || inv?.payLinkCode || "";
 }
 
 export default function MerchantPortalInvoices() {
@@ -154,6 +164,17 @@ export default function MerchantPortalInvoices() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  // Any invoice in the table that is payable but missing a pay code triggers the footer helper.
+  const hasAwaitingPayLink = items.some((inv) => {
+    const amountDueCents = calcAmountDueCents(inv);
+    const status = inv?.status || "";
+    const isDraft = status === "draft";
+    const isPaid = status === "paid" || amountDueCents <= 0;
+    const isPayableStatus = status === "issued" || status === "past_due";
+    const canPayNow = !isDraft && !isPaid && isPayableStatus && amountDueCents > 0;
+    return canPayNow && !Boolean(getPayCode(inv));
+  });
+
   return (
     <PageContainer size="page">
       <PageHeader
@@ -215,7 +236,7 @@ export default function MerchantPortalInvoices() {
                 <th style={th}>Status</th>
                 <th style={th}>Total</th>
                 <th style={th}>Due</th>
-                <th style={{ ...th, textAlign: "right" }}>Actions</th>
+                <th style={{ ...th, textAlign: "right", width: 180 }}>Payment</th>
               </tr>
             </thead>
             <tbody>
@@ -235,104 +256,121 @@ export default function MerchantPortalInvoices() {
                 items.map((inv) => {
                   const amountDueCents = calcAmountDueCents(inv);
                   const status = inv?.status || "";
-                  const isPaid = status === "paid" || amountDueCents <= 0;
-                  const canPayNow = (status === "issued" || status === "past_due") && amountDueCents > 0;
 
-                  // Canonical pay link code is expected to be present on invoice list rows
-                  // (or included as inv.payCode / inv.shortPayCode / inv.code depending on backend).
-                  // If not present, we block and emit a hook so QA can catch contract mismatch.
-                  const payCode =
-                    inv?.payCode || inv?.shortPayCode || inv?.code || inv?.payLinkCode || "";
+                  const isDraft = status === "draft";
+                  const isPaid = status === "paid" || amountDueCents <= 0;
+                  const isPayableStatus = status === "issued" || status === "past_due";
+                  const canPayNow = !isDraft && !isPaid && isPayableStatus && amountDueCents > 0;
+
+                  const payCode = getPayCode(inv);
+                  const payLinkAvailable = Boolean(payCode);
+                  const showAwaitingPayLink = canPayNow && !payLinkAvailable;
+
+                  if (showAwaitingPayLink) {
+                    pvUiHook("billing.merchant_invoices.pay_link_missing.ui", {
+                      tc: "TC-MIL-UI-23",
+                      sev: "warn",
+                      stable: `invoice:${String(inv.id)}`,
+                      invoiceId: Number(inv.id),
+                      status,
+                      amountDueCents,
+                    });
+                  }
 
                   return (
                     <tr key={inv.id}>
                       <td style={td}>
                         <Link
                           to={`/merchant/invoices/${inv.id}`}
-                          style={{ textDecoration: "none" }}
+                          style={{
+                            textDecoration: "none",
+                            fontWeight: 900,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 10,
+                          }}
                           onClick={() => {
-                            pvUiHook("billing.merchant_invoices.row_action.view.ui", {
+                            pvUiHook("billing.merchant_invoices.row_nav.click.ui", {
                               tc: "TC-MIL-UI-30",
                               sev: "info",
                               stable: `invoice:${String(inv.id)}`,
                               invoiceId: Number(inv.id),
                             });
                           }}
+                          title="View invoice details"
                         >
-                          #{inv.id}
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              display: "inline-flex",
+                              width: 20,
+                              height: 20,
+                              borderRadius: 999,
+                              alignItems: "center",
+                              justifyContent: "center",
+                              border: "1px solid rgba(0,0,0,0.14)",
+                              background: "white",
+                              color: "rgba(0,0,0,0.85)",
+                              fontWeight: 900,
+                              lineHeight: 1,
+                              fontSize: 12,
+                            }}
+                          >
+                            ▶
+                          </span>
+                          <span>#{inv.id}</span>
                         </Link>
                       </td>
+
                       <td style={td}>
-                        <Pill>{status}</Pill>
+                        <Pill>{status || "—"}</Pill>
                       </td>
+
                       <td style={td}>{usd(inv.totalCents)}</td>
-                      <td style={td}>{inv.dueAt ? new Date(inv.dueAt).toLocaleDateString() : "—"}</td>
+
+                      <td style={td}>
+                        {inv.dueAt ? new Date(inv.dueAt).toLocaleDateString() : "—"}
+                      </td>
+
                       <td style={{ ...td, textAlign: "right" }}>
-                        {/* Paid label */}
                         {isPaid ? (
                           <span style={{ fontWeight: 900, color: "rgba(0,0,0,0.35)" }}>Paid</span>
-                        ) : null}
-
-                        {/* Draft invoices: no Pay Now */}
-                        {status === "draft" ? null : null}
-
-                        {/* Pay Now for issued/past_due with balance */}
-                        {canPayNow ? (
-                          <button
-                            type="button"
-                            style={{
-                              ...actionLinkBtn,
-                              ...(payCode ? null : actionLinkBtnDisabled),
-                            }}
-                            onClick={() => {
-                              pvUiHook("billing.merchant_invoices.pay_now.click.ui", {
-                                tc: "TC-MIL-UI-21",
-                                sev: "info",
-                                stable: `invoice:${String(inv.id)}`,
-                                invoiceId: Number(inv.id),
-                                status,
-                                amountDueCents,
-                                payCodePresent: Boolean(payCode),
-                              });
-
-                              if (!payCode) {
-                                pvUiHook("billing.merchant_invoices.pay_now.blocked.ui", {
-                                  tc: "TC-MIL-UI-22",
-                                  sev: "warn",
+                        ) : isDraft ? (
+                          <span style={{ fontWeight: 900, color: "rgba(0,0,0,0.45)" }}>—</span>
+                        ) : canPayNow ? (
+                          payLinkAvailable ? (
+                            <button
+                              type="button"
+                              style={buttonPrimaryGreen}
+                              onClick={() => {
+                                pvUiHook("billing.merchant_invoices.pay_now.click.ui", {
+                                  tc: "TC-MIL-UI-21",
+                                  sev: "info",
                                   stable: `invoice:${String(inv.id)}`,
                                   invoiceId: Number(inv.id),
-                                  blockedReason: "missing_pay_code",
                                   status,
                                   amountDueCents,
+                                  payCodePresent: true,
                                 });
-                                return;
-                              }
-
-                              openPublicPay(payCode, inv.id);
-                            }}
-                            disabled={!payCode}
-                            title={!payCode ? "Pay link not available yet" : "Opens the public pay page in a new tab"}
-                          >
-                            Pay Now
-                          </button>
+                                openPublicPay(payCode, inv.id);
+                              }}
+                              title="Opens the public pay page in a new tab"
+                            >
+                              Pay Now
+                            </button>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: 12,
+                                fontWeight: 900,
+                                color: "rgba(0,0,0,0.45)",
+                              }}
+                              title="Pay link not available yet"
+                            >
+                              Awaiting pay link
+                            </span>
+                          )
                         ) : null}
-
-                        {/* Always allow merchant to view detail */}
-                        <span style={{ marginLeft: 10 }} />
-                        <Link
-                          to={`/merchant/invoices/${inv.id}`}
-                          style={{ textDecoration: "none", fontWeight: 900 }}
-                          onClick={() => {
-                            pvUiHook("billing.merchant_invoices.row_action.view.ui", {
-                              tc: "TC-MIL-UI-31",
-                              sev: "info",
-                              stable: `invoice:${String(inv.id)}`,
-                              invoiceId: Number(inv.id),
-                            });
-                          }}
-                        >
-                          View
-                        </Link>
                       </td>
                     </tr>
                   );
@@ -343,9 +381,11 @@ export default function MerchantPortalInvoices() {
         </div>
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
-        Read-only view. Payments are handled via the public pay page when a pay link is available.
-      </div>
+      {items.length > 0 && hasAwaitingPayLink ? (
+        <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+          Pay links appear when an invoice is ready for payment.
+        </div>
+      ) : null}
     </PageContainer>
   );
 }
@@ -358,19 +398,4 @@ const th = {
 const td = {
   padding: 12,
   borderBottom: "1px solid rgba(0,0,0,0.06)",
-};
-
-const actionLinkBtn = {
-  border: "none",
-  background: "transparent",
-  padding: 0,
-  margin: 0,
-  fontWeight: 900,
-  cursor: "pointer",
-  textDecoration: "none",
-};
-
-const actionLinkBtnDisabled = {
-  cursor: "not-allowed",
-  color: "rgba(0,0,0,0.35)",
 };

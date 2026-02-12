@@ -81,21 +81,27 @@ export default function GuestPayPage() {
 
       if (mode === "shortpay") {
         const inv = json?.invoice || {};
+        const totalCents = inv.totalCents ?? inv.amountCents ?? null;
+        const paidCents = inv.amountPaidCents ?? 0;
+
         normalized = {
           mode: "shortpay",
           merchantName: inv.merchantName || "Merchant",
           invoiceId: inv.id ?? null,
           status: inv.status || null,
-          totalCents: inv.totalCents ?? inv.amountCents ?? null,
-          amountPaidCents: inv.amountPaidCents ?? 0,
+          totalCents,
+          amountPaidCents: paidCents,
           amountDueCents:
-            Number.isInteger(inv.totalCents) || Number.isInteger(inv.amountPaidCents)
-              ? Math.max(0, Number(inv.totalCents || 0) - Number(inv.amountPaidCents || 0))
+            Number.isInteger(totalCents) || Number.isInteger(paidCents)
+              ? Math.max(0, Number(totalCents || 0) - Number(paidCents || 0))
               : null,
           paid: Boolean(inv.paid),
           raw: json,
         };
       } else {
+        const statusLower = String(json?.status || "").toLowerCase();
+        const due = json?.amountDueCents ?? null;
+
         normalized = {
           mode: "legacy",
           merchantName: json?.merchantName || "Merchant",
@@ -103,8 +109,8 @@ export default function GuestPayPage() {
           status: json?.status || null,
           totalCents: json?.totalCents ?? null,
           amountPaidCents: json?.amountPaidCents ?? 0,
-          amountDueCents: json?.amountDueCents ?? null,
-          paid: String(json?.status || "").toLowerCase() === "paid" || Number(json?.amountDueCents || 0) <= 0,
+          amountDueCents: due,
+          paid: statusLower === "paid" || Number(due || 0) <= 0,
           raw: json,
         };
       }
@@ -158,6 +164,24 @@ export default function GuestPayPage() {
     }
   }
 
+  const amountDueCents = Number(summary?.amountDueCents || 0);
+  const isPaidOrZero = Boolean(summary?.paid) || amountDueCents <= 0;
+
+  React.useEffect(() => {
+    if (!loading && !error && summary && isPaidOrZero) {
+      pvUiHook("billing.guest_pay_not_payable.ui", {
+        tc: "TC-GP-UI-04",
+        sev: "info",
+        stable: `invoice:${String(summary?.invoiceId || "unknown")}`,
+        mode,
+        invoiceId: summary?.invoiceId || null,
+        amountDueCents,
+        status: summary?.status || null,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, error, summary, isPaidOrZero]);
+
   return (
     <div style={{ padding: 24, maxWidth: 760 }}>
       {/* Back/Close affordance (works for email, admin, merchant, new-tab) */}
@@ -210,15 +234,43 @@ export default function GuestPayPage() {
             Cards only (Stripe Elements). Card data never touches PerkValet servers.
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <Elements stripe={stripePromise}>
-              <GuestPayCheckout
-                token={token}
-                code={code}
-                amountDueCents={Number(summary.amountDueCents || 0)}
-              />
-            </Elements>
-          </div>
+          {isPaidOrZero ? (
+            <>
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 14,
+                  borderRadius: 14,
+                  border: "1px solid rgba(255,0,0,0.18)",
+                  background: "rgba(255,0,0,0.06)",
+                  color: "rgba(160,0,0,0.95)",
+                  fontWeight: 800,
+                }}
+              >
+                Invoice is already paid.
+              </div>
+
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  borderRadius: 14,
+                  border: "1px solid rgba(0,0,0,0.08)",
+                  background: "rgba(0,0,0,0.03)",
+                  color: "rgba(0,0,0,0.72)",
+                  fontWeight: 700,
+                }}
+              >
+                You can safely close this tab. If you have another invoice to pay, open its payment link.
+              </div>
+            </>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <Elements stripe={stripePromise}>
+                <GuestPayCheckout token={token} code={code} amountDueCents={amountDueCents} />
+              </Elements>
+            </div>
+          )}
 
           <div style={{ marginTop: 16, fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
             Backend: {BACKEND_BASE} • Mode: {summary.mode}
