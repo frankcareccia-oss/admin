@@ -65,7 +65,9 @@ export default function Login() {
 
   function normalizeUiRole(apiRole) {
     const r = String(apiRole || "");
-    return r === "pv_admin" ? "pv_admin" : "merchant";
+    if (r === "pv_admin") return "pv_admin";
+    if (r === "pv_ar_clerk") return "pv_ar_clerk";
+    return "merchant";
   }
 
   function readReturnTo({ peekOnly = false } = {}) {
@@ -83,7 +85,7 @@ export default function Login() {
   }
 
   function buildDefaultDest({ uiRole, landing }) {
-    return landing || (uiRole === "pv_admin" ? "/merchants" : "/merchant");
+    return landing || ((uiRole === "pv_admin" || uiRole === "pv_ar_clerk") ? "/merchants" : "/merchant");
   }
 
   function getIncomingFrom() {
@@ -102,7 +104,7 @@ export default function Login() {
   function goHome() {
     const role = String(localStorage.getItem(SYSTEM_ROLE_STORAGE) || "").trim();
     const landing = String(localStorage.getItem(LANDING_STORAGE) || "").trim();
-    const dest = landing || (role === "pv_admin" ? "/merchants" : "/merchant");
+    const dest = landing || ((role === "pv_admin" || role === "pv_ar_clerk") ? "/merchants" : "/merchant");
 
     pvUiHook("auth.login.go_home.click.ui", {
       tc: "TC-LOGIN-UI-20",
@@ -265,7 +267,7 @@ export default function Login() {
       if (landing) localStorage.setItem(LANDING_STORAGE, landing);
       else localStorage.removeItem(LANDING_STORAGE);
 
-      const safeDefault = landing || (uiRole === "pv_admin" ? "/merchants" : "/merchant");
+      const safeDefault = landing || ((uiRole === "pv_admin" || uiRole === "pv_ar_clerk") ? "/merchants" : "/merchant");
       const rt = readReturnTo();
       const dest = rt || safeDefault;
 

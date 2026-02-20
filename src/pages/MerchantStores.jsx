@@ -183,12 +183,12 @@ export default function MerchantStores() {
     });
 
     // Hard guard: pv_admin should never call merchant portal APIs
-    if (systemRole === "pv_admin") {
+    if (systemRole === "pv_admin" || systemRole === "pv_ar_clerk") {
       setItems([]);
       setProfile(null);
       setExpandedId(null);
       setEditById({});
-      setErr("pv_admin session: merchant portal is not available.");
+      setErr(`${systemRole} session: merchant portal is not available.`);
       setLoading(false);
 
       pvUiHook("merchant.stores.list.load_blocked_pv_admin.ui", {
