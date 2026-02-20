@@ -1,4 +1,15 @@
-// admin/src/components/RequireAuth.jsx
+﻿/**
+ * admin/src/components/RequireAuth.jsx
+ *
+ * Hard authorization gate.
+ * Blocks BEFORE render. No flash.
+ *
+ * Supported requiredRole:
+ *   "pv_admin"
+ *   "merchant"
+ *   "pv_ar_clerk"
+ */
+
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { getAccessToken, pvClearSession } from "../api/client";
@@ -7,13 +18,24 @@ function readRole() {
   const role = String(localStorage.getItem("perkvalet_system_role") || "").trim();
   const raw = String(localStorage.getItem("perkvalet_system_role_raw") || "").trim();
 
-  if (role === "pv_admin" || role === "merchant") return role;
+  // Normalized roles
+  if (role === "pv_admin" || role === "pv_ar_clerk" || role === "merchant") {
+    return role;
+  }
+
+  // Legacy collapse
   if (role === "user") return "merchant";
 
+  // Raw fallback
   if (raw === "pv_admin") return "pv_admin";
+  if (raw === "pv_ar_clerk") return "pv_ar_clerk";
   if (raw) return "merchant";
 
   return "";
+}
+
+function isPvStaff(role) {
+  return role === "pv_admin" || role === "pv_ar_clerk";
 }
 
 function isPosUser() {
@@ -22,7 +44,6 @@ function isPosUser() {
 
 function shouldRememberReturnTo(path) {
   const p = String(path || "");
-  // Remember deep links into protected areas.
   return (
     p.startsWith("/admin/") ||
     p.startsWith("/merchants") ||
@@ -45,29 +66,25 @@ export default function RequireAuth({ children, requiredRole }) {
 
   // Not logged in
   if (!token) {
-    // Let /pos/login render without loops
     if (isPosLogin) return children;
 
-    // Save deep-link return-to (one time)
     if (shouldRememberReturnTo(path)) {
       try {
         const full = `${location.pathname || ""}${location.search || ""}`;
         sessionStorage.setItem("perkvalet_return_to", full);
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
     return <Navigate to="/login" replace state={{ notice: "Please sign in." }} />;
   }
 
-  // Token exists but no role => invalid session
+  // Invalid session (no role)
   if (!role) {
     pvClearSession({ reason: "missing_role", broadcast: true });
     return <Navigate to="/login" replace state={{ notice: "Session invalid. Please sign in again." }} />;
   }
 
-  // POS enforcement (leave as-is if you still use perkvalet_is_pos)
+  // POS enforcement
   if (pos && !isPosPath && !isAccount && !isPosLogin) {
     return <Navigate to="/merchant/pos" replace />;
   }
@@ -76,13 +93,24 @@ export default function RequireAuth({ children, requiredRole }) {
     return <Navigate to="/merchant" replace state={{ notice: "POS associate required." }} />;
   }
 
-  // Role gating
-  if (requiredRole === "pv_admin" && role !== "pv_admin") {
-    return <Navigate to="/merchant" replace state={{ notice: "Admin access required." }} />;
+  // ---- Role gating
+
+  if (requiredRole === "pv_admin") {
+    if (!isPvStaff(role)) {
+      return <Navigate to="/merchant" replace state={{ notice: "Admin access required." }} />;
+    }
   }
 
-  if (requiredRole === "merchant" && role !== "merchant") {
-    return <Navigate to="/merchants" replace state={{ notice: "Merchant access required." }} />;
+  if (requiredRole === "pv_ar_clerk") {
+    if (!isPvStaff(role)) {
+      return <Navigate to="/merchant" replace state={{ notice: "PV staff access required." }} />;
+    }
+  }
+
+  if (requiredRole === "merchant") {
+    if (role !== "merchant") {
+      return <Navigate to="/merchants" replace state={{ notice: "Merchant access required." }} />;
+    }
   }
 
   return children;
