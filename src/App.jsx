@@ -16,6 +16,8 @@ import RequireAuth from "./components/RequireAuth";
 import GuestPayPage from "./pages/pay/GuestPayPage";
 
 import Login from "./pages/Login";
+import VerifyDevice from "./pages/VerifyDevice";
+import VerifyDeviceDone from "./pages/VerifyDeviceDone";
 import Merchants from "./pages/Merchants";
 import MerchantDetail from "./pages/MerchantDetail";
 import StoreDetail from "./pages/StoreDetail";
@@ -48,7 +50,7 @@ import ChangePassword from "./pages/Auth/ChangePassword";
 import MerchantUsers from "./pages/MerchantUsers";
 import AdminMerchantUsers from "./pages/AdminMerchantUsers";
 
-import { getAccessToken, logout, AUTH_BC_NAME, me } from "./api/client";
+import { getAccessToken, logout, AUTH_BC_NAME, me, authDeviceStatus } from "./api/client";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -261,14 +263,19 @@ function Layout({ children }) {
   const onLoginPage = location.pathname.startsWith("/login");
   const onForgotPage = location.pathname.startsWith("/forgot-password");
   const onResetPage = location.pathname.startsWith("/reset-password");
+  const onVerifyDevice = location.pathname.startsWith("/verify-device");
 
-  const onAuthPage = onLoginPage || onForgotPage || onResetPage;
+  const onAuthPage = onLoginPage || onForgotPage || onResetPage || onVerifyDevice;
   const onPublicPay = isPublicPayPath(location.pathname);
 
   // Merchant membership role (from /me)
   const [merchantRole, setMerchantRole] = React.useState(null);
   const [merchantRolePath, setMerchantRolePath] = React.useState(null);
   const [merchantRoleLoading, setMerchantRoleLoading] = React.useState(false);
+
+  // Security-V1: device trust (pv_admin and privileged merchant roles)
+  const [deviceTrusted, setDeviceTrusted] = React.useState(true);
+  const [deviceTrustedLoading, setDeviceTrustedLoading] = React.useState(false);
 
   React.useEffect(() => {
     pvUiHook("app.layout.route_changed.ui", {
@@ -344,6 +351,45 @@ function Layout({ children }) {
     };
   }, [authed, sysRole, pos]);
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadDeviceTrust() {
+      if (!authed || sysRole !== "pv_admin" || onAuthPage || onPublicPay) {
+        setDeviceTrusted(true);
+        setDeviceTrustedLoading(false);
+        return;
+      }
+
+      setDeviceTrustedLoading(true);
+      try {
+        const r = await authDeviceStatus();
+        const trusted = Boolean(r?.trusted);
+        if (!cancelled) setDeviceTrusted(trusted);
+
+        pvUiHook("security.device.trust.loaded.ui", {
+          stable: "security:device:trust",
+          trusted,
+        });
+      } catch (e) {
+        // If status endpoint fails, don't hard-block nav; page-level calls will surface the gate.
+        if (!cancelled) setDeviceTrusted(true);
+
+        pvUiHook("security.device.trust.failed.ui", {
+          stable: "security:device:trust",
+          error: e?.message || "status_failed",
+        });
+      } finally {
+        if (!cancelled) setDeviceTrustedLoading(false);
+      }
+    }
+
+    loadDeviceTrust();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, sysRole, onAuthPage, onPublicPay]);
+
   // Cross-tab auth sync: BroadcastChannel + storage event
   React.useEffect(() => {
     function handleLogoutRedirect(reason) {
@@ -365,6 +411,8 @@ function Layout({ children }) {
         if (type === "session_cleared") {
           handleLogoutRedirect(String(ev?.data?.reason || "session_cleared"));
         } else if (type === "login") {
+          bump();
+        } else if (type === "login_requires_device_verification") {
           bump();
         }
       };
@@ -503,18 +551,23 @@ function Layout({ children }) {
                   <>
                     {sysRole === "pv_admin" ? (
                       <>
-                        <NavLink to="/merchants" style={navPill}>
-                          Merchants
-                        </NavLink>
-                        <NavLink to="/admin/billing-policy" style={navPill}>
-                          Billing Policy
-                        </NavLink>
-                        <NavLink to="/admin/invoices" style={navPill}>
-                          Invoices (All)
-                        </NavLink>
-                        <NavLink to="/settings/admin-key" style={navPill}>
-                          Admin Key
-                        </NavLink>
+                        {!deviceTrustedLoading && deviceTrusted === false ? (
+                          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
+                            Device verification required
+                          </div>
+                        ) : (
+                          <>
+                            <NavLink to="/merchants" style={navPill}>
+                              Merchants
+                            </NavLink>
+                            <NavLink to="/admin/billing-policy" style={navPill}>
+                              Billing Policy
+                            </NavLink>
+                            <NavLink to="/admin/invoices" style={navPill}>
+                              Invoices (All)
+                            </NavLink>
+                          </>
+                        )}
                       </>
                     ) : pos ? (
                       <NavLink to="/merchant/pos" style={navPill}>
@@ -579,6 +632,8 @@ export default function App() {
       <Layout>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/verify-device" element={<VerifyDevice />} />
+          <Route path="/verify-device/done" element={<VerifyDeviceDone />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 

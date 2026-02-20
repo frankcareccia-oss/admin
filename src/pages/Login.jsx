@@ -68,10 +68,35 @@ export default function Login() {
     return r === "pv_admin" ? "pv_admin" : "merchant";
   }
 
-  function readReturnTo() {
+  function readReturnTo({ peekOnly = false } = {}) {
     const rt = String(sessionStorage.getItem(RETURN_TO_STORAGE) || "").trim();
-    if (rt) sessionStorage.removeItem(RETURN_TO_STORAGE);
+    if (!peekOnly && rt) sessionStorage.removeItem(RETURN_TO_STORAGE);
     return rt.startsWith("/") ? rt : "";
+  }
+
+  function writeReturnTo(path) {
+    const s = String(path || "").trim();
+    if (!s || !s.startsWith("/")) return;
+    try {
+      sessionStorage.setItem(RETURN_TO_STORAGE, s);
+    } catch {}
+  }
+
+  function buildDefaultDest({ uiRole, landing }) {
+    return landing || (uiRole === "pv_admin" ? "/merchants" : "/merchant");
+  }
+
+  function getIncomingFrom() {
+    // Common patterns in other pages:
+    // - navigate("/login", { state: { from: "/deep/link" } })
+    // - navigate("/login", { state: { returnTo: "/deep/link" } })
+    try {
+      const s = location?.state || {};
+      const from = String(s?.from || s?.returnTo || "").trim();
+      return from.startsWith("/") ? from : "";
+    } catch {
+      return "";
+    }
   }
 
   function goHome() {
@@ -184,6 +209,44 @@ export default function Login() {
       const passRaw = String(password || "");
 
       const r = await login(emailNorm, passRaw);
+
+      // Security-V1: if privileged + untrusted device, backend returns
+      // requiresDeviceVerification=true (token may or may not be issued depending on backend policy).
+      if (r?.requiresDeviceVerification) {
+        // Determine the best destination to return to after verification:
+        // 1) incoming "from" (deep-link)
+        // 2) existing returnTo stored (peek only)
+        // 3) safe default (after we normalize role/landing if available)
+        const incomingFrom = getIncomingFrom();
+        const existingRt = readReturnTo({ peekOnly: true });
+
+        const apiRoleHint = String(r?.systemRole || r?.user?.systemRole || "").trim();
+        const uiRoleHint = normalizeUiRole(apiRoleHint);
+
+        const landingHint = normalizeLanding(r?.landing);
+        const safeDefault = buildDefaultDest({ uiRole: uiRoleHint, landing: landingHint });
+
+        const dest = incomingFrom || existingRt || safeDefault;
+
+        // Persist so VerifyDevice page can read without relying on location.state
+        writeReturnTo(dest);
+
+        pvUiHook("auth.login.requires_device_verification.ui", {
+          tc: "TC-LOGIN-UI-15",
+          sev: "warn",
+          stable: "auth:login:device",
+          dest,
+          incomingFrom: Boolean(incomingFrom),
+          existingRt: Boolean(existingRt),
+          uiRoleHint,
+        });
+
+        navigate(`/verify-device?returnTo=${encodeURIComponent(dest)}`, {
+          replace: true,
+          state: { returnTo: dest, email: emailNorm },
+        });
+        return;
+      }
 
       let landing = normalizeLanding(r?.landing);
       let apiRole = String(r?.systemRole || "");

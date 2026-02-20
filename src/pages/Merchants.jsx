@@ -1,7 +1,7 @@
 // src/pages/Merchants.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { listMerchants, createMerchant, getAdminKey } from "../api/client";
+import { listMerchants, createMerchant, authDeviceStatus, authDeviceStart } from "../api/client";
 import Toast from "../components/Toast";
 
 import PageContainer from "../components/layout/PageContainer";
@@ -34,7 +34,7 @@ function Badge({ children }) {
         padding: "2px 10px",
         borderRadius: 999,
         fontSize: 12,
-        fontWeight: 600,
+        fontWeight: 700,
         background: "rgba(0,0,0,0.06)",
       }}
     >
@@ -45,44 +45,86 @@ function Badge({ children }) {
 
 const buttonBase = {
   padding: "10px 12px",
-  borderRadius: 10,
+  borderRadius: 12,
   border: "1px solid rgba(0,0,0,0.18)",
   background: "white",
   cursor: "pointer",
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const card = {
   border: "1px solid rgba(0,0,0,0.12)",
   borderRadius: 14,
-  overflow: "hidden",
+  padding: 14,
   background: "white",
 };
+
+function isDeviceGateError(err) {
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    msg.includes("device") &&
+    (msg.includes("not enabled") || msg.includes("not trusted") || msg.includes("verify this device"))
+  );
+}
 
 export default function Merchants() {
   const navigate = useNavigate();
 
+  const [merchants, setMerchants] = React.useState([]);
   const [status, setStatus] = React.useState("active");
-  const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState("");
 
-  const [newName, setNewName] = React.useState("");
   const [creating, setCreating] = React.useState(false);
+  const [newName, setNewName] = React.useState("");
 
   const [toast, setToast] = React.useState(null);
 
-  // This page never mentions the secret. It only checks whether this browser is enabled.
-  const [isBrowserEnabled, setIsBrowserEnabled] = React.useState(() => Boolean(getAdminKey() || ""));
+  // Security-V1 device gate (admin actions only)
+  const [device, setDevice] = React.useState({
+    loading: true,
+    trusted: true,
+    expiresAt: null,
+  });
+  const [verifying, setVerifying] = React.useState(false);
+  const [verifySent, setVerifySent] = React.useState(false);
+
+  async function loadDeviceStatus(reason = "auto") {
+    setDevice((d) => ({ ...d, loading: true }));
+    try {
+      const r = await authDeviceStatus();
+      const trusted = Boolean(r?.trusted);
+      setDevice({ loading: false, trusted, expiresAt: r?.expiresAt || null });
+
+      pvUiHook("security.device.status.loaded.ui", {
+        tc: "TC-SEC-DEV-UI-01",
+        sev: "info",
+        stable: "security:device:status",
+        trusted,
+        reason,
+      });
+    } catch (e) {
+      // If this fails, we don't hard-block; listMerchants call will surface gate if needed.
+      setDevice((d) => ({ ...d, loading: false }));
+
+      pvUiHook("security.device.status.failed.ui", {
+        tc: "TC-SEC-DEV-UI-02",
+        sev: "warn",
+        stable: "security:device:status",
+        error: e?.message || String(e),
+      });
+    }
+  }
 
   React.useEffect(() => {
-    // If user enabled the browser in another tab/page, reflect it on focus.
+    loadDeviceStatus("mount");
+
     function onFocus() {
-      const ok = Boolean(getAdminKey() || "");
-      setIsBrowserEnabled(ok);
+      loadDeviceStatus("focus");
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function refresh(reason = "auto") {
@@ -95,32 +137,33 @@ export default function Merchants() {
       stable: "merchants:list",
       status: status || null,
       reason,
-      isBrowserEnabled,
     });
 
     try {
-      const data = await listMerchants({ status });
-      const list = Array.isArray(data) ? data : [];
-      setItems(list);
+      const rows = await listMerchants({ status });
+      setMerchants(Array.isArray(rows) ? rows : []);
 
       pvUiHook("admin.merchants.list_load_succeeded.ui", {
         tc: "TC-MER-UI-02",
         sev: "info",
         stable: "merchants:list",
+        count: Array.isArray(rows) ? rows.length : 0,
         status: status || null,
-        count: list.length,
       });
     } catch (e) {
       const msg = e?.message || "Failed to load merchants";
       setErr(msg);
-      setToast({ type: "error", message: msg });
+
+      // If backend says device isn't trusted, show the device gate.
+      if (isDeviceGateError(e)) {
+        setDevice((d) => ({ ...d, trusted: false }));
+      }
 
       pvUiHook("admin.merchants.list_load_failed.ui", {
         tc: "TC-MER-UI-03",
         sev: "error",
         stable: "merchants:list",
-        status: status || null,
-        error: e?.message || String(e),
+        error: msg,
       });
     } finally {
       setLoading(false);
@@ -128,360 +171,272 @@ export default function Merchants() {
   }
 
   React.useEffect(() => {
-    pvUiHook("admin.merchants.page_loaded.ui", {
-      tc: "TC-MER-UI-00",
-      sev: "info",
-      stable: "merchants:page",
-      status: status || null,
-      isBrowserEnabled,
-    });
-
-    if (!isBrowserEnabled) {
-      pvUiHook("admin.merchants.browser_enablement.banner_shown.ui", {
-        tc: "TC-MER-UI-30",
-        sev: "info",
-        stable: "merchants:enablementBanner",
-      });
-    }
-
-    refresh("status_change");
+    refresh("mount_or_status_change");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
   async function onCreate(e) {
     e.preventDefault();
-    const name = newName.trim();
+    setErr("");
 
-    pvUiHook("admin.merchants.create.click.ui", {
-      tc: "TC-MER-UI-10",
-      sev: "info",
-      stable: "merchants:create",
-      nameLength: name.length,
-      isBrowserEnabled,
-    });
-
-    if (!isBrowserEnabled) {
-      setToast({
-        type: "error",
-        message: "This browser isn’t enabled for admin setup yet. Use Admin Key in the top menu.",
-      });
-
-      pvUiHook("admin.merchants.create.blocked.ui", {
-        tc: "TC-MER-UI-10B",
-        sev: "warn",
-        stable: "merchants:create",
-        blockedReason: "browser_not_enabled",
-      });
-      return;
-    }
-
+    const name = String(newName || "").trim();
     if (!name) {
-      pvUiHook("admin.merchants.create.blocked.ui", {
-        tc: "TC-MER-UI-11",
-        sev: "warn",
-        stable: "merchants:create",
-        blockedReason: "name_missing",
-      });
+      setErr("Merchant name is required");
       return;
     }
 
     setCreating(true);
-    setErr("");
-
     try {
-      await createMerchant({ name });
+      const created = await createMerchant({ name });
+      setToast({ kind: "success", message: "Merchant created" });
       setNewName("");
 
-      pvUiHook("admin.merchants.create.success.ui", {
-        tc: "TC-MER-UI-12",
+      pvUiHook("admin.merchants.create_succeeded.ui", {
+        tc: "TC-MER-UI-10",
         sev: "info",
         stable: "merchants:create",
+        merchantId: created?.id || null,
       });
 
-      await refresh("post_create");
-      setToast({ type: "success", message: "Merchant created" });
+      await refresh("create");
     } catch (e2) {
-      const msg = e2?.message || "Failed to create merchant";
+      const msg = e2?.message || "Create merchant failed";
       setErr(msg);
-      setToast({ type: "error", message: msg });
 
-      pvUiHook("admin.merchants.create.failure.ui", {
-        tc: "TC-MER-UI-13",
+      if (isDeviceGateError(e2)) {
+        setDevice((d) => ({ ...d, trusted: false }));
+      }
+
+      pvUiHook("admin.merchants.create_failed.ui", {
+        tc: "TC-MER-UI-11",
         sev: "error",
         stable: "merchants:create",
-        error: e2?.message || String(e2),
+        error: msg,
       });
     } finally {
       setCreating(false);
     }
   }
 
-  return (
-    <PageContainer size="page">
-      {toast ? <Toast type={toast.type} message={toast.message} onClose={() => setToast(null)} /> : null}
+  async function sendVerifyLink() {
+    setErr("");
+    setVerifying(true);
+    setVerifySent(false);
 
-      <PageHeader
-        title="Merchants"
-        subtitle="Manage merchants and drill into stores + QR printing."
-        right={
-          <button
-            onClick={() => {
-              pvUiHook("admin.merchants.reload.click.ui", {
-                tc: "TC-MER-UI-20",
-                sev: "info",
-                stable: "merchants:reload",
-                status: status || null,
-              });
-              refresh("manual_refresh");
-            }}
-            disabled={loading}
-            style={{
-              ...buttonBase,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            {loading ? "Loading..." : "Refresh"}
-          </button>
-        }
-      />
+    const returnTo = "/merchants";
 
-      <div style={{ marginTop: 18, display: "grid", gap: 16 }}>
-        {!isBrowserEnabled ? (
-          <div
-            style={{
-              padding: 14,
-              border: "1px solid rgba(0,0,0,0.15)",
-              borderRadius: 14,
-              background: "rgba(255, 215, 0, 0.18)",
-              display: "grid",
-              gap: 10,
-            }}
-          >
-            <div style={{ fontWeight: 900, fontSize: 16 }}>You’re almost there</div>
+    pvUiHook("security.device.verify.send_clicked.ui", {
+      tc: "TC-SEC-DEV-UI-10",
+      sev: "info",
+      stable: "security:device:verify",
+      returnTo,
+    });
 
-            <div style={{ opacity: 0.92, lineHeight: 1.4 }}>
-              You’re signed in, but <b>this browser</b> isn’t yet enabled for admin setup tasks like creating merchants
-              or issuing invoices.
+    try {
+      await authDeviceStart({ returnTo });
+      setVerifySent(true);
+
+      setToast({
+        kind: "success",
+        message: "Verification email sent. Open it on this computer and click the link.",
+      });
+
+      pvUiHook("security.device.verify.sent.ui", {
+        tc: "TC-SEC-DEV-UI-11",
+        sev: "info",
+        stable: "security:device:verify",
+      });
+    } catch (e) {
+      const msg = e?.message || "Failed to send verification email";
+      setErr(msg);
+
+      pvUiHook("security.device.verify.send_failed.ui", {
+        tc: "TC-SEC-DEV-UI-12",
+        sev: "error",
+        stable: "security:device:verify",
+        error: msg,
+      });
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  // Device gate UI (human wording, merged — no “secret” language)
+  if (device && device.loading === false && device.trusted === false) {
+    return (
+      <PageContainer>
+        <PageHeader
+          title="Enable this browser for admin actions"
+          subtitle="For safety, PerkValet requires a quick email verification before you can manage merchants and billing."
+        />
+
+        <div style={{ maxWidth: 760 }}>
+          <div style={{ ...card, background: "rgba(0,120,255,0.05)", borderColor: "rgba(0,120,255,0.18)" }}>
+            <div style={{ fontWeight: 900, marginBottom: 6 }}>One-time email link</div>
+            <div style={{ color: "rgba(0,0,0,0.75)", lineHeight: 1.45 }}>
+              Click the button below and we’ll email you a verification link. Open the email on <b>this computer</b>
+              and click the link to finish.
             </div>
 
-            <div style={{ opacity: 0.9, lineHeight: 1.4 }}>
-              For security, admin setup is only enabled on trusted computers.
-            </div>
-
-            <div
-              style={{
-                marginTop: 4,
-                padding: 12,
-                borderRadius: 12,
-                background: "rgba(255,255,255,0.65)",
-                border: "1px solid rgba(0,0,0,0.12)",
-                fontWeight: 900,
-              }}
-            >
-              Next step: Use the top menu → <span style={{ fontWeight: 900 }}>Admin Key</span> to enable this browser.
-            </div>
-          </div>
-        ) : null}
-
-        <form
-          onSubmit={onCreate}
-          style={{
-            border: "1px solid rgba(0,0,0,0.12)",
-            borderRadius: 14,
-            padding: 14,
-            display: "grid",
-            gap: 10,
-            background: "white",
-            opacity: !isBrowserEnabled ? 0.65 : 1,
-          }}
-        >
-          <div style={{ fontWeight: 800 }}>Create merchant</div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder='e.g., "Merchant A"'
-              disabled={!isBrowserEnabled || creating}
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                border: "1px solid rgba(0,0,0,0.22)",
-                minWidth: 280,
-              }}
-            />
-
-            <button
-              type="submit"
-              disabled={!isBrowserEnabled || creating || !newName.trim()}
-              style={{
-                ...buttonBase,
-                background: !isBrowserEnabled || creating || !newName.trim() ? "rgba(0,0,0,0.03)" : "white",
-                cursor: !isBrowserEnabled || creating || !newName.trim() ? "not-allowed" : "pointer",
-              }}
-              onClick={() => {
-                if (!isBrowserEnabled) {
-                  pvUiHook("admin.merchants.create.blocked.ui", {
-                    tc: "TC-MER-UI-11B",
-                    sev: "warn",
-                    stable: "merchants:create",
-                    blockedReason: "browser_not_enabled",
-                  });
-                } else if (!newName.trim()) {
-                  pvUiHook("admin.merchants.create.blocked.ui", {
-                    tc: "TC-MER-UI-11A",
-                    sev: "warn",
-                    stable: "merchants:create",
-                    blockedReason: "name_missing",
-                  });
-                }
-              }}
-            >
-              {creating ? "Creating..." : "Create"}
-            </button>
-
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontWeight: 700 }}>Status filter</div>
-              <select
-                value={status}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  pvUiHook("admin.merchants.filters.status_change.ui", {
-                    tc: "TC-MER-UI-40",
-                    sev: "info",
-                    stable: "merchants:filters",
-                    from: status || null,
-                    to: next || null,
-                  });
-                  setStatus(next);
-                }}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={sendVerifyLink}
+                disabled={verifying}
                 style={{
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,0,0,0.22)",
-                  background: "white",
+                  ...buttonBase,
+                  background: "rgba(0,0,0,0.92)",
+                  color: "white",
+                  borderColor: "rgba(0,0,0,0.92)",
+                  cursor: verifying ? "not-allowed" : "pointer",
                 }}
               >
-                <option value="active">active</option>
-                <option value="suspended">suspended</option>
-                <option value="archived">archived</option>
-                <option value="all">all</option>
-              </select>
+                {verifying ? "Sending..." : "Email me the verification link"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => loadDeviceStatus("manual_refresh")}
+                disabled={verifying}
+                style={{ ...buttonBase, cursor: verifying ? "not-allowed" : "pointer" }}
+                title="If you already clicked the email link, refresh the status"
+              >
+                I already verified — refresh
+              </button>
             </div>
+
+            {verifySent ? (
+              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+                Tip: if you don’t see it, check spam/junk.
+              </div>
+            ) : null}
+
+            {err ? (
+              <div
+                style={{
+                  marginTop: 12,
+                  background: "rgba(255,0,0,0.06)",
+                  border: "1px solid rgba(255,0,0,0.15)",
+                  padding: 10,
+                  borderRadius: 12,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {err}
+              </div>
+            ) : null}
           </div>
 
-          {!isBrowserEnabled ? (
-            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-              Creating merchants is disabled until this browser is enabled (top menu → Admin Key).
-            </div>
-          ) : null}
-
-          {err ? (
-            <div
-              style={{
-                background: "rgba(255,0,0,0.06)",
-                border: "1px solid rgba(255,0,0,0.15)",
-                padding: 10,
-                borderRadius: 12,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {err}
-            </div>
-          ) : null}
-        </form>
-
-        <div style={card}>
-          <div
-            style={{
-              padding: 12,
-              borderBottom: "1px solid rgba(0,0,0,0.08)",
-              display: "flex",
-              gap: 10,
-              alignItems: "baseline",
-            }}
-          >
-            <div style={{ fontWeight: 800 }}>Results</div>
-            <div style={{ color: "rgba(0,0,0,0.6)" }}>
-              ({items.length} merchant{items.length === 1 ? "" : "s"})
-            </div>
-          </div>
-
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ textAlign: "left" }}>
-                  <th style={th}>ID</th>
-                  <th style={th}>Name</th>
-                  <th style={th}>Status</th>
-                  <th style={th}>Stores</th>
-                  <th style={{ ...th, textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {items.map((m) => (
-                  <tr key={m.id}>
-                    <td style={td}>{m.id}</td>
-                    <td style={td}>
-                      <div style={{ fontWeight: 700 }}>{m.name}</div>
-                    </td>
-                    <td style={td}>
-                      <Badge>{m.status}</Badge>
-                    </td>
-                    <td style={td}>{Array.isArray(m.stores) ? m.stores.length : 0}</td>
-                    <td style={{ ...td, textAlign: "right" }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          pvUiHook("admin.merchants.row_action.view.ui", {
-                            tc: "TC-MER-UI-50",
-                            sev: "info",
-                            stable: `merchant:${String(m.id)}`,
-                            merchantId: Number(m.id),
-                          });
-                          navigate(`/merchants/${m.id}`);
-                        }}
-                        style={actionBtn}
-                      >
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-
-                {!loading && items.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
-                      No merchants found for status: <code>{status}</code>
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+          <div style={{ marginTop: 12, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+            Why this exists: admin accounts can change billing and access sensitive data. This step helps prevent
+            accidental access from an untrusted machine.
           </div>
         </div>
+
+        {toast ? <Toast kind={toast.kind} message={toast.message} onClose={() => setToast(null)} /> : null}
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader title="Merchants" subtitle="Manage merchant lifecycle and view merchant details." />
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "rgba(0,0,0,0.70)", fontWeight: 800 }}>Status</span>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)" }}
+          >
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="archived">Archived</option>
+          </select>
+        </label>
+
+        <button type="button" onClick={() => refresh("manual")} disabled={loading} style={buttonBase}>
+          {loading ? "Loading..." : "Refresh"}
+        </button>
+
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
+          {device?.loading ? <Badge>Checking device…</Badge> : device?.trusted ? <Badge>Device enabled</Badge> : null}
+        </div>
       </div>
+
+      <div style={{ ...card, marginBottom: 12 }}>
+        <form onSubmit={onCreate} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="New merchant name"
+            disabled={creating}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.18)",
+              minWidth: 240,
+              flex: 1,
+            }}
+          />
+          <button type="submit" disabled={creating} style={buttonBase}>
+            {creating ? "Creating..." : "Create"}
+          </button>
+        </form>
+      </div>
+
+      {err ? (
+        <div
+          style={{
+            ...card,
+            background: "rgba(255,0,0,0.06)",
+            borderColor: "rgba(255,0,0,0.15)",
+            marginBottom: 12,
+            whiteSpace: "pre-wrap",
+          }}
+        >
+          {err}
+        </div>
+      ) : null}
+
+      <div style={{ ...card }}>
+        {loading ? (
+          <div style={{ padding: 8 }}>Loading…</div>
+        ) : merchants.length === 0 ? (
+          <div style={{ padding: 8, color: "rgba(0,0,0,0.60)" }}>No merchants found.</div>
+        ) : (
+          <div style={{ display: "grid", gap: 8 }}>
+            {merchants.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => navigate(`/merchants/${m.id}`)}
+                style={{
+                  textAlign: "left",
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid rgba(0,0,0,0.12)",
+                  background: "white",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
+                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>ID: {m.id}</div>
+                </div>
+                <Badge>{m.status || "active"}</Badge>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {toast ? <Toast kind={toast.kind} message={toast.message} onClose={() => setToast(null)} /> : null}
     </PageContainer>
   );
 }
-
-const th = {
-  padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.08)",
-};
-
-const td = {
-  padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.06)",
-};
-
-const actionBtn = {
-  background: "none",
-  border: "none",
-  padding: 0,
-  cursor: "pointer",
-  font: "inherit",
-  fontWeight: 900,
-  textDecoration: "none",
-};

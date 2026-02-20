@@ -7,6 +7,12 @@ const ADMIN_KEY_STORAGE = "perkvalet_admin_api_key";
 const JWT_STORAGE = "perkvalet_access_token";
 const SYSTEM_ROLE_STORAGE = "perkvalet_system_role";
 
+// Security-V1: stable device id for trusted-device flow
+const PV_DEVICE_ID_STORAGE = "perkvalet_device_id";
+
+// NOTE: This device id is intentionally NOT cleared by pvClearSession().
+// It must remain stable across tabs and re-logins so device-trust works after email redirects.
+
 // Cross-tab sync channel
 export const AUTH_BC_NAME = "perkvalet_auth";
 
@@ -18,6 +24,8 @@ export const PV_LOCAL_KEYS = [
   SYSTEM_ROLE_STORAGE,
   "perkvalet_system_role_raw",
   "perkvalet_landing",
+
+  // Security-V1
 
   // POS legacy flag
   "perkvalet_is_pos",
@@ -116,6 +124,66 @@ function assertNotPvAdminForMerchantCall(endpointPath) {
 }
 
 /* -----------------------------
+   Security-V1: device id handling
+-------------------------------- */
+
+function pvGenerateUuid() {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {
+    // fall through
+  }
+
+  // Fallback UUID v4-ish (good enough for client-side stable id)
+  try {
+    const buf = new Uint8Array(16);
+    if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+      crypto.getRandomValues(buf);
+    } else {
+      for (let i = 0; i < buf.length; i++) buf[i] = Math.floor(Math.random() * 256);
+    }
+    // Per RFC 4122
+    buf[6] = (buf[6] & 0x0f) | 0x40;
+    buf[8] = (buf[8] & 0x3f) | 0x80;
+
+    const hex = Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  } catch {
+    // last resort
+    return `pv-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
+
+export function getDeviceId() {
+  try {
+    const existing = localStorage.getItem(PV_DEVICE_ID_STORAGE);
+    if (existing && String(existing).trim()) return existing;
+  } catch {
+    // ignore
+  }
+
+  const id = pvGenerateUuid();
+
+  try {
+    localStorage.setItem(PV_DEVICE_ID_STORAGE, id);
+  } catch {
+    // ignore
+  }
+
+  return id;
+}
+
+export function clearDeviceId() {
+  try {
+    localStorage.removeItem(PV_DEVICE_ID_STORAGE);
+  } catch {
+    // ignore
+  }
+}
+
+/* -----------------------------
    Core request helper
 -------------------------------- */
 
@@ -129,6 +197,15 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
   if (body && typeof body === "object" && !(body instanceof FormData)) {
     h.set("Content-Type", "application/json");
     payload = JSON.stringify(body);
+  }
+
+  // Security-V1: attach device id for all non-guest calls
+  if (auth !== "none") {
+    try {
+      h.set("X-PV-Device-Id", getDeviceId());
+    } catch {
+      // never break requests for device id issues
+    }
   }
 
   // auth modes:
@@ -211,6 +288,20 @@ export async function login(email, password) {
     auth: "auto",
   });
 
+  // Security-V1: privileged users on untrusted devices may receive:
+  // { requiresDeviceVerification: true } and MAY OR MAY NOT include accessToken
+  // depending on backend policy. Support both safely.
+  if (result?.requiresDeviceVerification) {
+    if (result?.accessToken) {
+      setAccessToken(result.accessToken);
+    } else {
+      // Ensure we do not accidentally keep a stale token from a prior session
+      clearAccessToken();
+    }
+    pvBroadcast("login_requires_device_verification", {});
+    return result;
+  }
+
   if (!result?.accessToken) throw new Error("Login failed: missing accessToken");
   setAccessToken(result.accessToken);
 
@@ -227,6 +318,31 @@ export async function logout() {
   pvClearSession({ reason: "logout", broadcast: true });
 }
 
+/* -----------------------------
+   Security-V1: device verification
+-------------------------------- */
+
+export async function startDeviceVerification({ returnTo } = {}) {
+  const qs = new URLSearchParams();
+  if (returnTo) qs.set("returnTo", String(returnTo));
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return request(`/auth/device/start${suffix}`, { method: "POST", body: {}, auth: "jwt" });
+}
+
+
+
+export async function authDeviceStatus() {
+  return request("/auth/device/status", { auth: "jwt" });
+}
+
+export async function authDeviceStart({ returnTo } = {}) {
+  const rt = String(returnTo || "").trim();
+  return request("/auth/device/start", {
+    method: "POST",
+    body: { ...(rt ? { returnTo: rt } : {}) },
+    auth: "jwt",
+  });
+}
 /* -----------------------------
    Password management
 -------------------------------- */
