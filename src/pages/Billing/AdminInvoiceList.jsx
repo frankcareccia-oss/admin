@@ -1,6 +1,6 @@
 // admin/src/pages/Billing/AdminInvoiceList.jsx
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { adminListInvoices, adminGenerateInvoice, listMerchants } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
@@ -101,6 +101,26 @@ function Pill({ children }) {
 }
 
 export default function AdminInvoiceList() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Return-to-row focus restore: when coming back from detail, we append ?focus=<invoiceId>
+  const focusId = React.useMemo(() => {
+    const sp = new URLSearchParams(location.search || "");
+    const v = sp.get("focus");
+    const n = v ? Number(v) : null;
+    return Number.isInteger(n) && n > 0 ? n : null;
+  }, [location.search]);
+
+  const didFocusRef = React.useRef(false);
+
+  const [highlightId, setHighlightId] = React.useState(null);
+  const highlightTimerRef = React.useRef(null);
+
+  const currentListUrl = React.useMemo(() => {
+    return location.pathname + (location.search || "");
+  }, [location.pathname, location.search]);
+
   const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -384,6 +404,44 @@ export default function AdminInvoiceList() {
     return `${m.name} (#${m.id})`;
   };
 
+
+  React.useEffect(() => {
+    if (loading) return;
+    if (!focusId) return;
+    if (didFocusRef.current) return;
+
+    const t = window.setTimeout(() => {
+      const el = document.getElementById(`inv-row-${focusId}`);
+      if (el) {
+        el.scrollIntoView({ block: "center" });
+        didFocusRef.current = true;
+
+        // Brief highlight so the user can visually re-orient.
+        setHighlightId(focusId);
+        if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = window.setTimeout(() => setHighlightId(null), 1200);
+
+
+        // Remove focus param so refresh doesn't keep jumping.
+        const sp = new URLSearchParams(location.search || "");
+        sp.delete("focus");
+        const next = location.pathname + (sp.toString() ? `?${sp.toString()}` : "");
+        navigate(next, { replace: true });
+
+        pvUiHook("billing.admin_invoices.return_focus.applied.ui", {
+          tc: "TC-AIL-UI-56",
+          sev: "info",
+          stable: "adminInvoices:returnFocus",
+          focusId,
+        });
+      }
+    }, 0);
+
+    return () => {
+      window.clearTimeout(t);
+      if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
+    };
+  }, [loading, focusId, location.pathname, location.search, navigate]);
   return (
     <PageContainer size="page">
       <PageHeader
@@ -401,9 +459,9 @@ export default function AdminInvoiceList() {
               load();
             }}
             disabled={loading || busy}
-            style={buttonBase}
+            style={{ ...buttonBase, marginRight: 72 }}
           >
-            {loading ? "Loading…" : "Reload"}
+            {loading ? "Loading..." : "Reload"}
           </button>
         }
       />
@@ -548,7 +606,7 @@ export default function AdminInvoiceList() {
         </form>
       </div>
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading…</div> : null}
+      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading...</div> : null}
 
       {/* Table */}
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
@@ -565,87 +623,60 @@ export default function AdminInvoiceList() {
               <tr style={{ textAlign: "left" }}>
                 <th style={styles.th}>Invoice</th>
                 <th style={styles.th}>Merchant</th>
-                <th style={styles.th}>Status</th>
                 <th style={styles.th}>Total</th>
                 <th style={styles.th}>Due</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Actions</th>
+                <th style={styles.th}>Status</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
                     No invoices found.
                   </td>
                 </tr>
               ) : (
-                items.map((inv) => {
-                  const isPaid = inv.status === "paid";
-                  return (
-                    <tr key={inv.id}>
-                      <td style={styles.td}>
-                        <Link
-                          to={`/admin/invoices/${inv.id}`}
-                          style={{ textDecoration: "none" }}
-                          onClick={() => {
-                            pvUiHook("billing.admin_invoices.row_action.view.ui", {
-                              tc: "TC-AIL-UI-50",
-                              sev: "info",
-                              stable: `invoice:${inv.id}`,
-                              invoiceId: inv.id,
-                            });
+                items.map((inv) => (
+                  <tr
+                      key={inv.id}
+                      id={`inv-row-${inv.id}`}
+                      style={
+                        highlightId === inv.id
+                          ? { background: "rgba(0,120,255,0.06)" }
+                          : undefined
+                      }
+                    >
+                    <td style={styles.td}>
+                      <Link
+                        to={`/admin/invoices/${inv.id}?return=${encodeURIComponent(currentListUrl)}`}
+                        style={styles.invoiceLink}
+                        onClick={() => {
+                          pvUiHook("billing.admin_invoices.row_nav.click.ui", {
+                            tc: "TC-AIL-UI-55",
+                            sev: "info",
+                            stable: `invoice:${String(inv.id)}`,
+                            invoiceId: inv.id,
+                          });
+                        }}
+                        title="View invoice details"
+                      >
+                        #{inv.id}
+                      </Link>
+                    </td>
 
-                            // Back-compat alias (optional)
-                            pvUiHook("billing.admin_invoices.row_open_clicked.ui", {
-                              tc: "TC-AIL-UI-50A",
-                              sev: "info",
-                              stable: `invoice:${inv.id}`,
-                              invoiceId: inv.id,
-                            });
-                          }}
-                        >
-                          #{inv.id}
-                        </Link>
-                      </td>
-                      <td style={styles.td}>{merchantLabel(inv.merchantId)}</td>
-                      <td style={styles.td}>
-                        <Pill>{inv.status}</Pill>
-                      </td>
-                      <td style={styles.td}>
-                        <Money cents={inv.totalCents} />
-                      </td>
-                      <td style={styles.td}>{inv.dueAt ? new Date(inv.dueAt).toLocaleDateString() : "—"}</td>
-                      <td style={{ ...styles.td, textAlign: "right" }}>
-                        {isPaid ? (
-                          <span style={{ fontWeight: 800, color: "rgba(0,0,0,0.35)" }}>Paid</span>
-                        ) : (
-                          <Link
-                            to={`/admin/invoices/${inv.id}`}
-                            style={{ textDecoration: "none", fontWeight: 800 }}
-                            onClick={() => {
-                              pvUiHook("billing.admin_invoices.row_action.view.ui", {
-                                tc: "TC-AIL-UI-51",
-                                sev: "info",
-                                stable: `invoice:${inv.id}`,
-                                invoiceId: inv.id,
-                              });
+                    <td style={styles.td}>{merchantLabel(inv.merchantId)}</td>
 
-                              // Back-compat alias (optional): remove once consumers migrate
-                              pvUiHook("billing.admin_invoices.pay_now_clicked.ui", {
-                                tc: "TC-AIL-UI-51A",
-                                sev: "info",
-                                stable: `invoice:${inv.id}`,
-                                invoiceId: inv.id,
-                              });
-                            }}
-                          >
-                            View
-                          </Link>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
+                    <td style={styles.td}>
+                      <Money cents={inv.totalCents} />
+                    </td>
+
+                    <td style={styles.td}>{inv.dueAt ? new Date(inv.dueAt).toLocaleDateString() : "-"}</td>
+
+                    <td style={styles.td}>
+                      <Pill>{inv.status}</Pill>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -661,6 +692,16 @@ export default function AdminInvoiceList() {
 
 const styles = {
   label: { display: "block", fontSize: 12, color: "rgba(0,0,0,0.65)", marginBottom: 6, fontWeight: 700 },
+
   th: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)" },
   td: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.06)" },
+
+  // Navigation link (blue comes from Link / theme; we do NOT force a non-blue color here).
+  invoiceLink: { fontWeight: 700, textDecoration: "none" },
+
+  code: {
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    fontSize: 12,
+  },
 };

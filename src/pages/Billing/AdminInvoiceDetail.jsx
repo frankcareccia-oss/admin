@@ -1,6 +1,6 @@
 // admin/src/pages/Billing/AdminInvoiceDetail.jsx
 import React from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   adminGetInvoice,
   adminIssueInvoice,
@@ -180,6 +180,15 @@ const NET_TERMS_OPTIONS = [15, 30, 45];
 
 export default function AdminInvoiceDetail() {
   const { invoiceId } = useParams();
+  const [searchParams] = useSearchParams();
+  const returnTo = (searchParams.get("return") || "/admin/invoices").trim();
+
+  // On "Back", return to the originating list URL and ask it to focus this invoice row.
+  const backUrl =
+    returnTo +
+    (returnTo.includes("?") ? "&" : "?") +
+    `focus=${encodeURIComponent(String(invoiceId))}`;
+
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -519,30 +528,30 @@ export default function AdminInvoiceDetail() {
     <PageContainer size="page">
       {/* Q0: Back link top-left above PageHeader */}
       <div style={{ marginBottom: 10 }}>
-        <Link to="/admin/invoices" style={{ textDecoration: "none" }}>
-          ← Back to invoices
-        </Link>
+        <Link to={backUrl} style={{ textDecoration: "none" }}>Back to invoices</Link>
       </div>
 
       <PageHeader
         title={`Invoice #${invoiceId}`}
         subtitle={status ? <Badge text={status} /> : null}
         right={
-          <button
-            onClick={() => {
-              pvUiHook("billing.admin_invoice.reload.click.ui", {
-                tc: "TC-AID-UI-40",
-                sev: "info",
-                stable: `invoice:${String(invoiceId)}`,
-                invoiceId: Number(invoiceId),
-              });
-              load();
-            }}
-            disabled={actionBusy || loading || payBusy}
-            style={buttonBase}
-          >
-            Reload
-          </button>
+          <div style={{ paddingRight: 80 }}>
+            <button
+                        onClick={() => {
+                          pvUiHook("billing.admin_invoice.reload.click.ui", {
+                            tc: "TC-AID-UI-40",
+                            sev: "info",
+                            stable: `invoice:${String(invoiceId)}`,
+                            invoiceId: Number(invoiceId),
+                          });
+                          load();
+                        }}
+                        disabled={actionBusy || loading || payBusy}
+                        style={buttonBase}
+                      >
+                        Reload
+                      </button>
+          </div>
         }
       />
 
@@ -578,12 +587,12 @@ export default function AdminInvoiceDetail() {
       {!loading && !error && inv ? (
         <>
           {/* Actions */}
-          <div style={{ ...card, marginBottom: 12 }}>
+          <div style={{ ...card, marginBottom: 12, fontSize: 14 }}>
             <div style={{ fontWeight: 900, marginBottom: 10 }}>Actions</div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontSize: 12, color: "rgba(0,0,0,0.65)", fontWeight: 800 }}>Net terms</span>
+                <span style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800 }}>Net terms</span>
                 <select
                   value={netTermsDays}
                   onChange={(e) => setNetTermsDays(e.target.value)}
@@ -619,7 +628,7 @@ export default function AdminInvoiceDetail() {
 
               <div style={{ flex: 1 }} />
 
-              <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)" }}>Server enforces rules.</div>
+              <div style={{ color: "rgba(0,0,0,0.60)" }}>Server enforces rules.</div>
             </div>
 
             {/* Pay Link (Thread Q) */}
@@ -738,7 +747,7 @@ export default function AdminInvoiceDetail() {
 
                 <div style={{ flex: 1 }} />
 
-                <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+                <div style={{ color: "rgba(0,0,0,0.60)" }}>
                   Amount due: <b>{moneyUsd(amountDueCents)}</b>
                 </div>
               </div>
