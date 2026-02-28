@@ -498,7 +498,27 @@ export async function merchantUpdateStoreStatus(storeId, { status } = {}) {
   });
 }
 
-export async function merchantUpdateStoreProfile(storeId, { name, address1, city, state, postal } = {}) {
+export async function merchantUpdateStoreProfile(
+  storeId,
+  {
+    name,
+    address1,
+    city,
+    state,
+    postal,
+
+    // Store contact / phone fields (Thread: store_phone_and_contact)
+    phoneRaw,
+    phoneE164,
+    phoneCountry,
+
+    contactName,
+    contactEmail,
+    contactPhoneRaw,
+    contactPhoneE164,
+    contactPhoneCountry,
+  } = {}
+) {
   assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/profile`);
   if (storeId == null) throw new Error("storeId is required");
 
@@ -510,6 +530,14 @@ export async function merchantUpdateStoreProfile(storeId, { name, address1, city
     return upper ? s0.toUpperCase() : s0;
   }
 
+  function normOptPhoneRaw(v, { maxLen = 20 } = {}) {
+    if (v === undefined) return undefined; // not provided
+    if (v === null) return null;
+    const digits = String(v || "").replace(/\D+/g, "");
+    if (!digits) return null;
+    return digits.slice(0, maxLen);
+  }
+
   const nameNorm = normOpt(name);
   if (name !== undefined && !nameNorm) throw new Error("name cannot be empty");
 
@@ -519,6 +547,16 @@ export async function merchantUpdateStoreProfile(storeId, { name, address1, city
     ...(city !== undefined ? { city: normOpt(city) } : {}),
     ...(state !== undefined ? { state: normOpt(state, { upper: true }) } : {}),
     ...(postal !== undefined ? { postal: normOpt(postal) } : {}),
+
+    ...(phoneRaw !== undefined ? { phoneRaw: normOptPhoneRaw(phoneRaw) } : {}),
+    ...(phoneE164 !== undefined ? { phoneE164: normOpt(phoneE164) } : {}),
+    ...(phoneCountry !== undefined ? { phoneCountry: normOpt(phoneCountry, { upper: true }) } : {}),
+
+    ...(contactName !== undefined ? { contactName: normOpt(contactName) } : {}),
+    ...(contactEmail !== undefined ? { contactEmail: normOpt(contactEmail) } : {}),
+    ...(contactPhoneRaw !== undefined ? { contactPhoneRaw: normOptPhoneRaw(contactPhoneRaw) } : {}),
+    ...(contactPhoneE164 !== undefined ? { contactPhoneE164: normOpt(contactPhoneE164) } : {}),
+    ...(contactPhoneCountry !== undefined ? { contactPhoneCountry: normOpt(contactPhoneCountry, { upper: true }) } : {}),
   };
 
   if (!Object.keys(body).length) {
