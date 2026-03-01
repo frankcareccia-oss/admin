@@ -50,7 +50,9 @@ import ChangePassword from "./pages/Auth/ChangePassword";
 import MerchantUsers from "./pages/MerchantUsers";
 import AdminMerchantUsers from "./pages/AdminMerchantUsers";
 
-import { getAccessToken, logout, AUTH_BC_NAME, me, authDeviceStatus } from "./api/client";
+import { getAccessToken, logout, AUTH_BC_NAME, me, authDeviceStatus, API_BASE } from "./api/client";
+
+import SupportInfo from "./components/SupportInfo";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -619,6 +621,19 @@ function Layout({ children }) {
         <main style={{ padding: 16, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {children}
         </main>
+
+<SupportInfo
+  authed={authed}
+  systemRole={sysRole}
+  merchantRole={merchantRole}
+  merchantRolePath={merchantRolePath}
+  deviceTrusted={deviceTrusted}
+  deviceTrustedLoading={deviceTrustedLoading}
+  pathname={location.pathname}
+  apiBase={API_BASE}
+  context={{ page: "Layout" }}
+  meFn={me}
+/>
       </div>
     </MerchantCtx.Provider>
   );

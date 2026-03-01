@@ -1,6 +1,6 @@
 // src/api/client.js
 
-const API_BASE = "http://localhost:3001";
+export const API_BASE = "http://localhost:3001";
 
 // Storage keys (canonical)
 const ADMIN_KEY_STORAGE = "perkvalet_admin_api_key";

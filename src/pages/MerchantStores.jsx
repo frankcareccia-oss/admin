@@ -513,7 +513,20 @@ export default function MerchantStores() {
                       )}
                     </div>
 
-                    <div style={actionsCol} />
+                    <div style={actionsCol}>
+  <Link
+    to={`/merchant/stores/${sid}`}
+    style={pillLinkMuted}
+    onClick={() =>
+      pvUiHook("merchant.stores.list.open_store_detail.ui", {
+        stable: "merchant:stores:list",
+        storeId: sid,
+      })
+    }
+  >
+    {canManageStores ? "Manage" : "View"}
+  </Link>
+</div>
                   </div>
 
                   {isExpanded ? (

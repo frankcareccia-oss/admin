@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { listMerchantStores, me, merchantUpdateStoreProfile } from "../api/client";
+import StoreTeamPanel from "./components/StoreTeamPanel";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -693,18 +694,7 @@ export default function MerchantStoreDetail() {
       )}
 
       {tab === "team" ? (
-        <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.12)", background: "white" }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Team & Access</div>
-          <div style={{ color: COLORS.neutral, fontSize: 13 }}>
-            Staffing endpoints are not yet wired:
-            <div style={{ marginTop: 8, fontFamily: "monospace", fontSize: 12, color: "rgba(0,0,0,0.65)" }}>
-              GET /merchant/stores/:storeId/team<br />
-              POST /merchant/stores/:storeId/team<br />
-              PATCH /merchant/stores/:storeId/team/:storeUserId
-            </div>
-            <div style={{ marginTop: 8 }}>For now this tab is a placeholder shell so navigation + URL shape are stable.</div>
-          </div>
-        </div>
+        <StoreTeamPanel storeId={sid} canManage={canManage} />
       ) : (
         <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.12)", background: "white" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
