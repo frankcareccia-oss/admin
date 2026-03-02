@@ -629,6 +629,62 @@ export async function merchantUpsertUserStoreAssignments(userId, { merchantId, a
   });
 }
 
+
+
+/* -----------------------------
+   Store Team (merchant portal)
+-------------------------------- */
+
+function pvApiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvApiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {
+    // never throw
+  }
+}
+
+export async function merchantListStoreTeam(storeId) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/team`);
+  if (storeId == null) throw new Error("storeId is required");
+
+  pvApiHook("merchant.store.team.list.api", { storeId });
+
+  return request(`/merchant/stores/${encodeURIComponent(String(storeId))}/team`, {
+    auth: "jwt",
+  });
+}
+
+export async function merchantAssignStoreTeamMember(storeId, { merchantUserId, permissionLevel } = {}) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/team`);
+  if (storeId == null) throw new Error("storeId is required");
+  if (merchantUserId == null) throw new Error("merchantUserId is required");
+  if (!permissionLevel) throw new Error("permissionLevel is required");
+
+  pvApiHook("merchant.store.team.assign.api", {
+    storeId,
+    merchantUserId,
+    permissionLevel,
+  });
+
+  return request(`/merchant/stores/${encodeURIComponent(String(storeId))}/team`, {
+    method: "POST",
+    auth: "jwt",
+    body: { merchantUserId, permissionLevel },
+  });
+}
+
+export async function merchantRemoveStoreTeamMember(storeUserId) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/team/${storeUserId}`);
+  if (storeUserId == null) throw new Error("storeUserId is required");
+
+  pvApiHook("merchant.store.team.remove.api", { storeUserId });
+
+  return request(`/merchant/stores/team/${encodeURIComponent(String(storeUserId))}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
 /* -----------------------------
    Billing (v2.02.1)
 -------------------------------- */
