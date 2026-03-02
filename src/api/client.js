@@ -48,6 +48,12 @@ export const PV_LOCAL_KEYS = [
 // Session storage keys (tab-scoped)
 export const PV_SESSION_KEYS = ["perkvalet_return_to"];
 
+// Support / diagnostics (tab-scoped, best-effort)
+const PV_SUPPORT_API_LOG_KEY = "perkvalet_support_api_log";
+const PV_SUPPORT_LAST_ERROR_KEY = "perkvalet_support_last_error";
+const PV_SUPPORT_LAST_SUCCESS_TS_KEY = "perkvalet_support_last_success_ts";
+const PV_SUPPORT_MAX_API_EVENTS = 60;
+
 /* -----------------------------
    Cross-tab broadcast helper
 -------------------------------- */
@@ -184,6 +190,202 @@ export function clearDeviceId() {
 }
 
 /* -----------------------------
+   Support helpers (best-effort)
+-------------------------------- */
+
+function pvSupportNowIso() {
+  try {
+    return new Date().toISOString();
+  } catch {
+    return "";
+  }
+}
+
+function pvSupportSafeGetSession(key) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function pvSupportSafeSetSession(key, val) {
+  try {
+    sessionStorage.setItem(key, val);
+  } catch {
+    // ignore
+  }
+}
+
+function pvSupportSafeJsonParse(s, fallback) {
+  try {
+    if (!s) return fallback;
+    return JSON.parse(s);
+  } catch {
+    return fallback;
+  }
+}
+
+function pvSupportGetApiLog() {
+  const raw = pvSupportSafeGetSession(PV_SUPPORT_API_LOG_KEY);
+  const arr = pvSupportSafeJsonParse(raw, []);
+  return Array.isArray(arr) ? arr : [];
+}
+
+function pvSupportAppendApiEvent(evt) {
+  try {
+    const arr = pvSupportGetApiLog();
+    arr.push(evt);
+    while (arr.length > PV_SUPPORT_MAX_API_EVENTS) arr.shift();
+    pvSupportSafeSetSession(PV_SUPPORT_API_LOG_KEY, JSON.stringify(arr));
+  } catch {
+    // ignore
+  }
+}
+
+function pvSupportSetLastError(msg) {
+  try {
+    pvSupportSafeSetSession(
+      PV_SUPPORT_LAST_ERROR_KEY,
+      JSON.stringify({ ts: pvSupportNowIso(), message: String(msg || "") })
+    );
+  } catch {
+    // ignore
+  }
+}
+
+function pvSupportSetLastSuccessTs() {
+  try {
+    pvSupportSafeSetSession(PV_SUPPORT_LAST_SUCCESS_TS_KEY, pvSupportNowIso());
+  } catch {
+    // ignore
+  }
+}
+
+function pvSupportGetLastError() {
+  const raw = pvSupportSafeGetSession(PV_SUPPORT_LAST_ERROR_KEY);
+  const obj = pvSupportSafeJsonParse(raw, null);
+  if (!obj || typeof obj !== "object") return null;
+  return {
+    ts: obj.ts ? String(obj.ts) : null,
+    message: obj.message ? String(obj.message) : null,
+  };
+}
+
+function pvSupportGetLastSuccessTs() {
+  const raw = pvSupportSafeGetSession(PV_SUPPORT_LAST_SUCCESS_TS_KEY);
+  return raw ? String(raw) : null;
+}
+
+/**
+ * Support panel: read last N outbound API events (best-effort, tab-scoped).
+ * This is outbound-only (what the browser called). We do not have inbound server logs here.
+ */
+export function pvSupportGetRecentApiEvents({ limit = 25 } = {}) {
+  const n = Math.max(0, Math.min(200, Number(limit) || 0));
+  const arr = pvSupportGetApiLog();
+  if (n === 0) return [];
+  return arr.slice(Math.max(0, arr.length - n));
+}
+
+/**
+ * Support panel: produce a snapshot of client-side diagnostics.
+ * Safe to call anytime; never throws.
+ */
+export function pvSupportGetSnapshot() {
+  try {
+    const systemRole = getSystemRole() || "";
+    const email =
+      (() => {
+        try {
+          // some pages stash "me" response; if not present, we'll just return blank
+          return "";
+        } catch {
+          return "";
+        }
+      })() || "";
+
+    const route =
+      (() => {
+        try {
+          return window?.location?.pathname || "";
+        } catch {
+          return "";
+        }
+      })() || "";
+
+    const page =
+      (() => {
+        try {
+          return document?.title || "";
+        } catch {
+          return "";
+        }
+      })() || "";
+
+    const jwtPresent = Boolean(getAccessToken());
+    const deviceId = (() => {
+      try {
+        const d = getDeviceId();
+        return d ? String(d) : "";
+      } catch {
+        return "";
+      }
+    })();
+
+    const viewport = (() => {
+      try {
+        return { w: window.innerWidth, h: window.innerHeight };
+      } catch {
+        return null;
+      }
+    })();
+
+    const userAgent = (() => {
+      try {
+        return navigator?.userAgent || "";
+      } catch {
+        return "";
+      }
+    })();
+
+    return {
+      session: {
+        systemRole,
+        email,
+        route,
+        page,
+        merchantId: null,
+        storeId: null,
+      },
+      authDevice: {
+        jwtPresent,
+        deviceId,
+        deviceVerificationRequired: null,
+      },
+      environment: {
+        API_BASE,
+        build: (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.MODE) ? import.meta.env.MODE : "",
+        viewport,
+        userAgent,
+      },
+      api: {
+        lastError: pvSupportGetLastError(),
+        lastSuccessTs: pvSupportGetLastSuccessTs(),
+        recentEvents: pvSupportGetRecentApiEvents({ limit: 25 }),
+      },
+    };
+  } catch {
+    return {
+      session: {},
+      authDevice: {},
+      environment: { API_BASE },
+      api: { recentEvents: pvSupportGetRecentApiEvents({ limit: 25 }) },
+    };
+  }
+}
+
+/* -----------------------------
    Core request helper
 -------------------------------- */
 
@@ -224,11 +426,26 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
     if (tok) h.set("Authorization", `Bearer ${tok}`);
   }
 
+  // Support panel: log outbound call (best-effort)
+  try {
+    pvSupportAppendApiEvent({
+      ts: pvSupportNowIso(),
+      kind: "request",
+      method,
+      path,
+      auth,
+    });
+  } catch {
+    // ignore
+  }
+
   const res = await fetch(url, { method, headers: h, body: payload });
 
   if (res.status === 429) {
     const retryAfter = res.headers.get("Retry-After");
-    throw new Error(retryAfter ? `Rate limited. Retry after ${retryAfter}s.` : "Rate limited.");
+    const msg = retryAfter ? `Rate limited. Retry after ${retryAfter}s.` : "Rate limited.";
+    pvSupportSetLastError(msg);
+    throw new Error(msg);
   }
 
   const ct = res.headers.get("content-type") || "";
@@ -244,6 +461,9 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
       const text = await res.text().catch(() => "");
       if (text) msg = text;
     }
+
+    // record last error for support panel
+    pvSupportSetLastError(msg);
 
     // If token is revoked/expired: clear session consistently.
     // BUT: do not nuke the whole session for every 401, because some endpoints may
@@ -273,6 +493,9 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
 
     throw new Error(msg);
   }
+
+  // success marker for support panel
+  pvSupportSetLastSuccessTs();
 
   return isJson ? res.json() : res;
 }
@@ -329,8 +552,6 @@ export async function startDeviceVerification({ returnTo } = {}) {
   return request(`/auth/device/start${suffix}`, { method: "POST", body: {}, auth: "jwt" });
 }
 
-
-
 export async function authDeviceStatus() {
   return request("/auth/device/status", { auth: "jwt" });
 }
@@ -343,6 +564,7 @@ export async function authDeviceStart({ returnTo } = {}) {
     auth: "jwt",
   });
 }
+
 /* -----------------------------
    Password management
 -------------------------------- */
@@ -629,8 +851,6 @@ export async function merchantUpsertUserStoreAssignments(userId, { merchantId, a
   });
 }
 
-
-
 /* -----------------------------
    Store Team (merchant portal)
 -------------------------------- */
@@ -640,6 +860,18 @@ function pvApiHook(event, fields = {}) {
     console.log(JSON.stringify({ pvApiHook: event, ts: new Date().toISOString(), ...fields }));
   } catch {
     // never throw
+  }
+
+  // Support panel: keep last N events (tab-scoped)
+  try {
+    pvSupportAppendApiEvent({
+      ts: pvSupportNowIso(),
+      kind: "pvApiHook",
+      event,
+      fields,
+    });
+  } catch {
+    // ignore
   }
 }
 

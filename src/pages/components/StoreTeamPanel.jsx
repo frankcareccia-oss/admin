@@ -30,30 +30,6 @@ function nameOf(u) {
   return nm || String(u?.email ?? "").trim() || "—";
 }
 
-function pillBtn(disabled) {
-  return {
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: disabled ? "rgba(0,0,0,0.05)" : "white",
-    borderRadius: 999,
-    padding: "8px 12px",
-    fontWeight: 700,
-    cursor: disabled ? "not-allowed" : "pointer",
-  };
-}
-
-function pillBtnPrimary(disabled) {
-  return {
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: disabled ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.10)",
-    borderRadius: 999,
-    padding: "8px 12px",
-    fontWeight: 900,
-    cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.55 : 1,
-  };
-}
-
-
 // Best-effort shape adapters (backend can evolve)
 function adaptMerchantUser(mu) {
   const user = mu?.user || mu?.User || mu;
@@ -63,7 +39,13 @@ function adaptMerchantUser(mu) {
     firstName: user?.firstName ?? user?.first_name ?? "",
     lastName: user?.lastName ?? user?.last_name ?? "",
     email: user?.email ?? mu?.email ?? "",
-    phone: user?.phoneE164 ?? user?.phone_e164 ?? user?.phoneRaw ?? user?.phone_raw ?? mu?.contactPhone ?? "",
+    phone:
+      user?.phoneE164 ??
+      user?.phone_e164 ??
+      user?.phoneRaw ??
+      user?.phone_raw ??
+      mu?.contactPhone ??
+      "",
   };
 }
 function adaptStoreUser(su) {
@@ -77,9 +59,119 @@ function adaptStoreUser(su) {
     firstName: user?.firstName ?? user?.first_name ?? "",
     lastName: user?.lastName ?? user?.last_name ?? "",
     email: user?.email ?? mu?.email ?? "",
-    phone: user?.phoneE164 ?? user?.phone_e164 ?? user?.phoneRaw ?? user?.phone_raw ?? mu?.contactPhone ?? "",
+    phone:
+      user?.phoneE164 ??
+      user?.phone_e164 ??
+      user?.phoneRaw ??
+      user?.phone_raw ??
+      mu?.contactPhone ??
+      "",
   };
 }
+
+const TOKENS = {
+  surface: "#FFFFFF",
+  text: "#0B2A33",
+  muted: "rgba(11,42,51,0.60)",
+  border: "rgba(0,0,0,0.10)",
+  divider: "rgba(0,0,0,0.06)",
+  teal: "#2F8F8B",
+  dangerBg: "rgba(255,0,0,0.06)",
+  dangerBorder: "rgba(255,0,0,0.15)",
+};
+
+const styles = {
+  card: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 14,
+    border: `1px solid ${TOKENS.border}`,
+    background: TOKENS.surface,
+    color: TOKENS.text,
+  },
+  headerRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  title: { fontWeight: 900, marginBottom: 2 },
+  subtitle: { fontSize: 12, color: TOKENS.muted },
+  sectionTitle: { marginTop: 14, fontWeight: 800, marginBottom: 8 },
+  errorBox: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 12,
+    border: `1px solid ${TOKENS.dangerBorder}`,
+    background: TOKENS.dangerBg,
+    fontSize: 13,
+    color: TOKENS.text,
+  },
+  // Inputs
+  input: {
+    padding: 10,
+    borderRadius: 12,
+    border: `1px solid ${TOKENS.border}`,
+    background: TOKENS.surface,
+    color: TOKENS.text,
+  },
+  selectPlaceholder: { color: TOKENS.muted },
+  selectValue: { color: TOKENS.text },
+  // Buttons
+  pillBtn: (disabled) => ({
+    border: `1px solid ${TOKENS.border}`,
+    background: disabled ? "rgba(0,0,0,0.04)" : TOKENS.surface,
+    borderRadius: 999,
+    padding: "8px 12px",
+    fontWeight: 800,
+    cursor: disabled ? "not-allowed" : "pointer",
+    color: TOKENS.text,
+    opacity: disabled ? 0.65 : 1,
+  }),
+  primaryBtn: (disabled) => ({
+    border: "none",
+    background: disabled ? "rgba(47,143,139,0.25)" : TOKENS.teal,
+    color: disabled ? "rgba(11,42,51,0.55)" : "#FFFFFF",
+    borderRadius: 999,
+    padding: "10px 14px",
+    fontWeight: 900,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.8 : 1,
+  }),
+  dangerBtn: (disabled) => ({
+    border: "1px solid rgba(160,0,0,0.25)",
+    background: disabled ? "rgba(0,0,0,0.04)" : "rgba(255,0,0,0.06)",
+    color: disabled ? "rgba(11,42,51,0.55)" : "rgba(160,0,0,0.85)",
+    borderRadius: 999,
+    padding: "8px 12px",
+    fontWeight: 900,
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.75 : 1,
+  }),
+  tableHeaderRow: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    flexWrap: "wrap",
+    padding: "6px 0 4px",
+    borderBottom: `1px solid ${TOKENS.divider}`,
+  },
+  tableRow: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    flexWrap: "wrap",
+    padding: "10px 0",
+    borderBottom: `1px solid ${TOKENS.divider}`,
+  },
+  th: { fontSize: 12, fontWeight: 800, color: "rgba(11,42,51,0.85)", lineHeight: 1.1 },
+  mono: {
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    fontSize: 12,
+  },
+};
 
 export default function StoreTeamPanel({ storeId, canManage }) {
   const [loading, setLoading] = React.useState(true);
@@ -96,6 +188,19 @@ export default function StoreTeamPanel({ storeId, canManage }) {
 
   const cancelledRef = React.useRef(false);
 
+  const assignedToThisStore = React.useMemo(
+    () => new Set(team.map((t) => t.merchantUserId).filter(Boolean)),
+    [team]
+  );
+
+  function pickNextAssignable(nextUsers, nextTeam) {
+    const assigned = new Set(nextTeam.map((x) => x.merchantUserId).filter(Boolean));
+    const first = nextUsers.find(
+      (x) => x.status !== "archived" && x.merchantUserId && !assigned.has(x.merchantUserId)
+    );
+    return first?.merchantUserId || "";
+  }
+
   const load = React.useCallback(async () => {
     if (!storeId) return;
     setLoading(true);
@@ -104,30 +209,33 @@ export default function StoreTeamPanel({ storeId, canManage }) {
     pvUiHook("merchant.store.team.load_started.ui", { stable: "merchant:store:team", storeId });
 
     try {
-let mid = merchantId;
-if (mid == null) {
-  const prof = await me();
-  const guess =
-    prof?.user?.merchantUsers?.[0]?.merchantId ??
-    prof?.merchantId ??
-    prof?.user?.merchantId ??
-    null;
-  mid = guess != null ? guess : null;
-  if (mid != null) setMerchantId(mid);
-}
+      let mid = merchantId;
+      if (mid == null) {
+        const prof = await me();
+        const guess =
+          prof?.user?.merchantUsers?.[0]?.merchantId ??
+          prof?.merchantId ??
+          prof?.user?.merchantId ??
+          null;
+        mid = guess != null ? guess : null;
+        if (mid != null) setMerchantId(mid);
+      }
 
-const teamRaw = await merchantListStoreTeam(storeId);
+      const teamRaw = await merchantListStoreTeam(storeId);
 
-let usersRaw = [];
-if (mid == null) {
-  usersRaw = [];
-} else {
-  usersRaw = await merchantListUsers({ merchantId: mid });
-}
+      let usersRaw = [];
+      if (mid == null) {
+        usersRaw = [];
+      } else {
+        usersRaw = await merchantListUsers({ merchantId: mid });
+      }
 
       if (mid == null) {
         setErr("merchantId is required");
-        pvUiHook("merchant.store.team.load_warn_missing_merchantId.ui", { stable: "merchant:store:team", storeId });
+        pvUiHook("merchant.store.team.load_warn_missing_merchantId.ui", {
+          stable: "merchant:store:team",
+          storeId,
+        });
       }
 
       const teamItems = Array.isArray(teamRaw) ? teamRaw : teamRaw?.items || teamRaw?.team || [];
@@ -140,12 +248,15 @@ if (mid == null) {
         setTeam(t);
         setUsers(u);
 
-        const assigned = new Set(t.map((x) => x.merchantUserId).filter(Boolean));
-        const first = u.find((x) => x.status !== "archived" && x.merchantUserId && !assigned.has(x.merchantUserId));
-        setPickId(first?.merchantUserId || u[0]?.merchantUserId || "");
+        const nextPick = pickNextAssignable(u, t);
+        setPickId((prev) => (prev && !new Set(t.map((x) => x.merchantUserId)).has(prev) ? prev : nextPick));
       }
 
-      pvUiHook("merchant.store.team.load_succeeded.ui", { stable: "merchant:store:team", storeId, count: t.length });
+      pvUiHook("merchant.store.team.load_succeeded.ui", {
+        stable: "merchant:store:team",
+        storeId,
+        count: t.length,
+      });
     } catch (e) {
       const m = e?.message || "Failed to load store team";
       if (!cancelledRef.current) setErr(m);
@@ -153,7 +264,7 @@ if (mid == null) {
     } finally {
       if (!cancelledRef.current) setLoading(false);
     }
-  }, [storeId]);
+  }, [storeId, merchantId]);
 
   React.useEffect(() => {
     cancelledRef.current = false;
@@ -163,12 +274,11 @@ if (mid == null) {
     };
   }, [load]);
 
-  const assignedToThisStore = React.useMemo(() => new Set(team.map((t) => t.merchantUserId).filter(Boolean)), [team]);
-
   async function onAssign() {
     if (!canManage) return;
     if (!pickId) return setErr("Select an employee to assign.");
     if (!pickPerm) return setErr("Select a role to assign.");
+
     setBusy(true);
     setErr("");
 
@@ -181,7 +291,15 @@ if (mid == null) {
 
     try {
       await merchantAssignStoreTeamMember(storeId, { merchantUserId: pickId, permissionLevel: pickPerm });
-      pvUiHook("merchant.store.team.assign_succeeded.ui", { stable: "merchant:store:team", storeId, merchantUserId: pickId });
+      pvUiHook("merchant.store.team.assign_succeeded.ui", {
+        stable: "merchant:store:team",
+        storeId,
+        merchantUserId: pickId,
+        permissionLevel: pickPerm,
+      });
+
+      // Reset role to placeholder every time (your rule #2: always)
+      setPickPerm("");
       await load();
     } catch (e) {
       const m = e?.message || "Failed to assign employee";
@@ -204,6 +322,9 @@ if (mid == null) {
     try {
       await merchantRemoveStoreTeamMember(storeUserId);
       pvUiHook("merchant.store.team.remove_succeeded.ui", { stable: "merchant:store:team", storeId, storeUserId });
+
+      // Reset role to placeholder every time (your rule #2: always)
+      setPickPerm("");
       await load();
     } catch (e) {
       const m = e?.message || "Failed to remove employee";
@@ -214,91 +335,137 @@ if (mid == null) {
     }
   }
 
+  const employeeSelectStyle = {
+    ...styles.input,
+    flex: "1 1 360px",
+    minWidth: 260,
+    ...(pickId ? styles.selectValue : styles.selectPlaceholder),
+  };
+
+  const roleSelectStyle = {
+    ...styles.input,
+    width: 170,
+    flex: "0 0 170px",
+    ...(pickPerm ? styles.selectValue : styles.selectPlaceholder),
+  };
+
   return (
-    <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.12)", background: "white" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+    <div style={styles.card}>
+      <div style={styles.headerRow}>
         <div>
-          <div style={{ fontWeight: 900, marginBottom: 2 }}>Store Team</div>
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
-            Employees are merchant-scoped. A user may be assigned to multiple stores.
-          </div>
+          <div style={styles.title}>Store Team</div>
+          <div style={styles.subtitle}>Team members can be assigned to more than one store.</div>
         </div>
-        <button onClick={load} disabled={loading || busy} style={pillBtn(loading || busy)}>
+        <button onClick={load} disabled={loading || busy} style={styles.pillBtn(loading || busy)}>
           Refresh
         </button>
       </div>
 
-      {err ? (
-        <div style={{ marginTop: 10, padding: 10, borderRadius: 12, border: "1px solid rgba(160,0,0,0.18)", background: "rgba(255,0,0,0.06)", fontSize: 13 }}>
-          {err}
-        </div>
-      ) : null}
+      {err ? <div style={styles.errorBox}>{err}</div> : null}
 
       {loading ? (
         <div style={{ marginTop: 12, fontSize: 13 }}>Loading…</div>
       ) : (
         <>
-          <div style={{ marginTop: 14, fontWeight: 800, marginBottom: 8 }}>Assign to this store</div>
+          <div style={styles.sectionTitle}>Assign to this store</div>
 
           {!canManage ? (
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.60)" }}>You do not have permission to edit store team.</div>
+            <div style={{ fontSize: 13, color: TOKENS.muted }}>You do not have permission to edit store team.</div>
           ) : (
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {/* Field labels (always visible) */}
               <div style={{ display: "flex", gap: 10, alignItems: "center", width: "100%", marginBottom: 2 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", flex: "1 1 360px", minWidth: 260, lineHeight: 1.1 }}>Employee</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", width: 170, flex: "0 0 170px", textAlign: "center", lineHeight: 1.1 }}>Role</div>
-                <div style={{ width: 120, flex: "0 0 120px", textAlign: "center", fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", lineHeight: 1.1 }} />
+                <div style={{ ...styles.th, flex: "1 1 360px", minWidth: 260 }}>Employee</div>
+                <div style={{ ...styles.th, width: 170, flex: "0 0 170px", textAlign: "center" }}>Role</div>
+                <div style={{ width: 140, flex: "0 0 140px" }} />
               </div>
-              <select value={pickId} onChange={(e) => setPickId(e.target.value)} style={{ padding: 10, borderRadius: 12, border: "1px solid rgba(0,0,0,0.18)", flex: "1 1 360px", minWidth: 260 }}>
-                <option value="">Select employee…</option>
+
+              <select
+                value={pickId}
+                onChange={(e) => {
+                  setPickId(e.target.value);
+                  pvUiHook("merchant.store.team.assign_employee_changed.ui", {
+                    stable: "merchant:store:team",
+                    storeId,
+                    merchantUserId: e.target.value,
+                  });
+                }}
+                style={employeeSelectStyle}
+              >
+                <option value="" disabled>
+                  Select employee…
+                </option>
                 {users.map((u) => {
                   const label = `${nameOf(u)} • ${fmtPhone(u.phone)} • ${u.email}`;
                   const isAssigned = assignedToThisStore.has(u.merchantUserId);
                   return (
                     <option key={u.merchantUserId || label} value={u.merchantUserId} disabled={!u.merchantUserId || isAssigned}>
-                      {label}{isAssigned ? " (already in this store)" : ""}
+                      {label}
+                      {isAssigned ? " (already assigned)" : ""}
                     </option>
                   );
                 })}
               </select>
 
-              <select value={pickPerm} onChange={(e) => setPickPerm(e.target.value)} style={{ padding: 10, borderRadius: 12, border: "1px solid rgba(0,0,0,0.18)", width: 170, flex: "0 0 170px" }}>
-                <option value="">Select role…</option>
+              <select
+                value={pickPerm}
+                onChange={(e) => {
+                  setPickPerm(e.target.value);
+                  pvUiHook("merchant.store.team.assign_role_changed.ui", {
+                    stable: "merchant:store:team",
+                    storeId,
+                    permissionLevel: e.target.value,
+                  });
+                }}
+                style={roleSelectStyle}
+              >
+                <option value="" disabled>
+                  Select role…
+                </option>
                 <option value="admin">admin</option>
                 <option value="subadmin">subadmin</option>
               </select>
 
-              <button onClick={onAssign} disabled={busy || !pickId || !pickPerm} style={{ ...pillBtnPrimary(busy || !pickId || !pickPerm), width: 120, flex: "0 0 120px" }}>
+              <button onClick={onAssign} disabled={busy || !pickId || !pickPerm} style={styles.primaryBtn(busy || !pickId || !pickPerm)}>
                 {busy ? "Working…" : "Assign"}
               </button>
             </div>
           )}
 
-          <div style={{ marginTop: 18, fontWeight: 800, marginBottom: 8 }}>Current store team ({team.length})</div>
+          <div style={{ marginTop: 18, fontWeight: 900, marginBottom: 8 }}>
+            Team members assigned to this store ({team.length})
+          </div>
 
           {team.length === 0 ? (
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.60)" }}>No employees assigned to this store yet.</div>
+            <div style={{ fontSize: 13, color: TOKENS.muted }}>No team members assigned yet.</div>
           ) : (
-            <div style={{ borderTop: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "6px 0 4px", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
-                <div style={{ flex: "1 1 260px", minWidth: 220, fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", lineHeight: 1.1 }}>Employee</div>
-                <div style={{ width: 160, flex: "0 0 160px", fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", textAlign: "center", lineHeight: 1.1 }}>Role</div>
-                <div style={{ width: 140, flex: "0 0 140px", fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", textAlign: "center", lineHeight: 1.1 }}>Status</div>
-                <div style={{ width: 120, flex: "0 0 120px", fontSize: 12, fontWeight: 800, color: "rgba(0,0,0,0.85)", textAlign: "right", lineHeight: 1.1 }}>Action</div>
+            <div style={{ borderTop: `1px solid ${TOKENS.divider}` }}>
+              <div style={styles.tableHeaderRow}>
+                <div style={{ ...styles.th, flex: "1 1 260px", minWidth: 220 }}>Employee</div>
+                <div style={{ ...styles.th, width: 160, flex: "0 0 160px", textAlign: "center" }}>Role</div>
+                <div style={{ ...styles.th, width: 140, flex: "0 0 140px", textAlign: "center" }}>Status</div>
+                <div style={{ ...styles.th, width: 120, flex: "0 0 120px", textAlign: "right" }}>Action</div>
               </div>
+
               {team.map((t) => (
-                <div key={t.storeUserId || `${t.email}-${t.permissionLevel}`} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "10px 0", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+                <div key={t.storeUserId || `${t.email}-${t.permissionLevel}`} style={styles.tableRow}>
                   <div style={{ flex: "1 1 260px", minWidth: 220 }}>
                     <div style={{ fontWeight: 800 }}>{nameOf(t)}</div>
-                    <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)" }}>{fmtPhone(t.phone)} • {t.email || "—"}</div>
+                    <div style={{ fontSize: 12, color: TOKENS.muted }}>
+                      {fmtPhone(t.phone)} • {t.email || "—"}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "monospace", fontSize: 12, width: 160, flex: "0 0 160px" }}>{t.permissionLevel || "—"}</div>
-                  <div style={{ fontFamily: "monospace", fontSize: 12, width: 140, flex: "0 0 140px" }}>{t.status || "—"}</div>
+                  <div style={{ ...styles.mono, width: 160, flex: "0 0 160px", textAlign: "center" }}>
+                    {t.permissionLevel || "—"}
+                  </div>
+                  <div style={{ ...styles.mono, width: 140, flex: "0 0 140px", textAlign: "center" }}>
+                    {t.status || "—"}
+                  </div>
                   <div style={{ display: "flex", justifyContent: "flex-end", width: 120, flex: "0 0 120px" }}>
                     <button
                       onClick={() => onRemove(t.storeUserId)}
                       disabled={!canManage || busy || !t.storeUserId}
-                      style={{ ...pillBtn(!canManage || busy || !t.storeUserId), border: "1px solid rgba(160,0,0,0.25)" }}
+                      style={styles.dangerBtn(!canManage || busy || !t.storeUserId)}
                     >
                       Remove
                     </button>
