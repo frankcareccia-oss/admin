@@ -9,6 +9,7 @@ import {
   NavLink,
   useLocation,
   useNavigate,
+  matchPath,
 } from "react-router-dom";
 
 import RequireAuth from "./components/RequireAuth";
@@ -50,7 +51,15 @@ import ChangePassword from "./pages/Auth/ChangePassword";
 import MerchantUsers from "./pages/MerchantUsers";
 import AdminMerchantUsers from "./pages/AdminMerchantUsers";
 
-import { getAccessToken, logout, AUTH_BC_NAME, me, authDeviceStatus, API_BASE } from "./api/client";
+import {
+  getAccessToken,
+  logout,
+  AUTH_BC_NAME,
+  me,
+  authDeviceStatus,
+  API_BASE,
+  pvSupportGetMerchantId,
+} from "./api/client";
 
 import SupportInfo from "./components/SupportInfo";
 
@@ -269,6 +278,38 @@ function Layout({ children }) {
 
   const onAuthPage = onLoginPage || onForgotPage || onResetPage || onVerifyDevice;
   const onPublicPay = isPublicPayPath(location.pathname);
+
+  function deriveSupportRouteContext(pathname) {
+    try {
+      // Prefer explicit route params when available; otherwise leave blank.
+      const patterns = [
+        "/merchant/stores/:storeId/edit",
+        "/merchant/stores/:storeId",
+        "/merchants/:merchantId/stores/:storeId",
+        "/merchants/:merchantId/stores",
+        "/merchants/:merchantId/users",
+        "/merchants/:merchantId",
+        "/stores/:storeId/print-qr",
+        "/merchant/invoices/:invoiceId",
+        "/admin/invoices/:invoiceId",
+      ];
+      for (const p of patterns) {
+        const m = matchPath({ path: p, end: false }, pathname);
+        if (m && m.params) {
+          return {
+            merchantId: m.params.merchantId ? String(m.params.merchantId) : "",
+            storeId: m.params.storeId ? String(m.params.storeId) : "",
+          };
+        }
+      }
+      return { merchantId: "", storeId: "" };
+    } catch {
+      return { merchantId: "", storeId: "" };
+    }
+  }
+
+  const supportRouteCtx = deriveSupportRouteContext(location.pathname);
+  const supportMerchantId = supportRouteCtx.merchantId || (typeof pvSupportGetMerchantId === "function" ? pvSupportGetMerchantId() : "") || "";
 
   // Merchant membership role (from /me)
   const [merchantRole, setMerchantRole] = React.useState(null);
@@ -631,7 +672,7 @@ function Layout({ children }) {
   deviceTrustedLoading={deviceTrustedLoading}
   pathname={location.pathname}
   apiBase={API_BASE}
-  context={{ page: "Layout" }}
+  context={{ page: "Layout", merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
   meFn={me}
 />
       </div>

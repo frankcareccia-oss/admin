@@ -53,6 +53,7 @@ const PV_SUPPORT_API_LOG_KEY = "perkvalet_support_api_log";
 const PV_SUPPORT_LAST_ERROR_KEY = "perkvalet_support_last_error";
 const PV_SUPPORT_LAST_SUCCESS_TS_KEY = "perkvalet_support_last_success_ts";
 const PV_SUPPORT_LAST_REQUEST_KEY = "perkvalet_support_last_request";
+const PV_SUPPORT_MERCHANT_ID_KEY = "pv_support.merchantId";
 const PV_SUPPORT_MAX_API_EVENTS = 60;
 
 /* -----------------------------
@@ -275,6 +276,28 @@ function pvSupportClearLastError() {
     // ignore
   }
 }
+
+function pvSupportSetMerchantId(val) {
+  try {
+    const s = val == null ? "" : String(val).trim();
+    if (!s) {
+      sessionStorage.removeItem(PV_SUPPORT_MERCHANT_ID_KEY);
+      return;
+    }
+    sessionStorage.setItem(PV_SUPPORT_MERCHANT_ID_KEY, s);
+  } catch {
+    // ignore
+  }
+}
+
+export function pvSupportGetMerchantId() {
+  try {
+    return String(sessionStorage.getItem(PV_SUPPORT_MERCHANT_ID_KEY) || "");
+  } catch {
+    return "";
+  }
+}
+
 
 
 function pvSupportSetLastSuccessTs() {
@@ -683,8 +706,22 @@ export async function login(email, password) {
 }
 
 export async function me() {
-  return request("/me", { auth: "jwt" });
+  const res = await request("/me", { auth: "jwt" });
+  // Best-effort: persist merchantId for support snapshots on merchant routes.
+  try {
+    const mid =
+      res?.user?.merchantUsers?.[0]?.merchantId ??
+      res?.user?.merchantUsers?.[0]?.merchant?.id ??
+      res?.user?.merchantId ??
+      res?.merchantId ??
+      "";
+    pvSupportSetMerchantId(mid);
+  } catch {
+    // ignore
+  }
+  return res;
 }
+
 
 export async function logout() {
   pvClearSession({ reason: "logout", broadcast: true });
