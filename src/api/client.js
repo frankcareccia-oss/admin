@@ -2,6 +2,28 @@
 
 export const API_BASE = "http://localhost:3001";
 
+/* =============================================================
+   API Stability: single-flight + short TTL cache (Thread: api-stability-v1)
+   - Coalesce concurrent /me calls
+   - Short TTL cache (3s) scoped to current JWT
+   - Coalesce concurrent /merchant/stores calls
+   - Hard reset on logout/token clear
+============================================================= */
+
+const __ME_TTL_MS = 3000;
+
+let __meCache = null;           // { token, ts, data }
+let __meInFlight = null;        // Promise
+let __storesInFlight = null;    // Promise
+
+function __clearApiStabilityCaches() {
+  __meCache = null;
+  __meInFlight = null;
+  __storesInFlight = null;
+}
+
+
+
 // Storage keys (canonical)
 const ADMIN_KEY_STORAGE = "perkvalet_admin_api_key";
 const JWT_STORAGE = "perkvalet_access_token";
@@ -117,6 +139,7 @@ export function setAccessToken(token) {
 }
 
 export function clearAccessToken() {
+  __clearApiStabilityCaches();
   localStorage.removeItem(JWT_STORAGE);
 }
 
@@ -706,24 +729,52 @@ export async function login(email, password) {
 }
 
 export async function me() {
-  const res = await request("/me", { auth: "jwt" });
-  // Best-effort: persist merchantId for support snapshots on merchant routes.
-  try {
-    const mid =
-      res?.user?.merchantUsers?.[0]?.merchantId ??
-      res?.user?.merchantUsers?.[0]?.merchant?.id ??
-      res?.user?.merchantId ??
-      res?.merchantId ??
-      "";
-    pvSupportSetMerchantId(mid);
-  } catch {
-    // ignore
+  const token = getAccessToken() || "";
+  const now = Date.now();
+
+  // TTL cache hit
+  if (
+    __meCache &&
+    __meCache.token === token &&
+    now - __meCache.ts < __ME_TTL_MS
+  ) {
+    return __meCache.data;
   }
-  return res;
+
+  // Join in-flight request
+  if (__meInFlight) {
+    return __meInFlight;
+  }
+
+  __meInFlight = (async () => {
+    try {
+      const res = await request("/me", { auth: "jwt" });
+
+      try {
+        const mid =
+          res?.user?.merchantUsers?.[0]?.merchantId ??
+          res?.user?.merchantUsers?.[0]?.merchant?.id ??
+          res?.user?.merchantId ??
+          res?.merchantId ??
+          "";
+        pvSupportSetMerchantId(mid);
+      } catch {
+        // ignore
+      }
+
+      __meCache = { token, ts: Date.now(), data: res };
+      return res;
+    } finally {
+      __meInFlight = null;
+    }
+  })();
+
+  return __meInFlight;
 }
 
 
 export async function logout() {
+  __clearApiStabilityCaches();
   pvClearSession({ reason: "logout", broadcast: true });
 }
 
@@ -880,7 +931,18 @@ export function normalizeMerchantRole(role) {
 
 export async function listMerchantStores() {
   assertNotPvAdminForMerchantCall("/merchant/stores");
-  return request("/merchant/stores", { auth: "jwt" });
+
+  if (__storesInFlight) return __storesInFlight;
+
+  __storesInFlight = (async () => {
+    try {
+      return await request("/merchant/stores", { auth: "jwt" });
+    } finally {
+      __storesInFlight = null;
+    }
+  })();
+
+  return __storesInFlight;
 }
 
 export async function authMe() {
