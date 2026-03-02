@@ -80,6 +80,27 @@ export default function SupportInfo({ context = {} }) {
   const lastError = context?.lastError ?? snap?.lastError ?? "—";
   const lastSuccessTs = context?.lastSuccessTs ?? snap?.lastSuccessTs ?? "—";
 
+  function asText(v) {
+    try {
+      if (v == null) return "—";
+      if (typeof v === "string") return v || "—";
+      if (typeof v === "number" || typeof v === "boolean") return String(v);
+      if (typeof v === "object") {
+        // common support error shape
+        if (typeof v.message === "string" && v.message) return v.message;
+        // avoid crashing UI; last resort
+        return JSON.stringify(v);
+      }
+      return String(v);
+    } catch {
+      return "—";
+    }
+  }
+
+  const lastErrorText = asText(lastError);
+  const lastSuccessText = asText(lastSuccessTs);
+
+
   function valueStyle() {
     return {
       fontFamily:
@@ -143,8 +164,8 @@ export default function SupportInfo({ context = {} }) {
         userAgent: uaShort,
       },
       api: {
-        lastError,
-        lastSuccessTs,
+        lastError: lastErrorText,
+        lastSuccessTs: lastSuccessText,
         lastRequest: snap?.lastRequest || "—",
       },
       apiEvents, // last N outbound/inbound events (no bodies/tokens)
@@ -256,8 +277,8 @@ export default function SupportInfo({ context = {} }) {
           {row("user agent", uaShort)}
 
           <div style={sectionTitleStyle()}>API Diagnostics</div>
-          {row("lastError", lastError || "—", { warn: lastError && lastError !== "—" })}
-          {row("lastSuccessTs", lastSuccessTs || "—")}
+          {row("lastError", lastErrorText || "—", { warn: lastErrorText && lastErrorText !== "—" })}
+          {row("lastSuccessTs", lastSuccessText || "—")}
           {row("lastRequest", snap?.lastRequest || "—")}
 
           {apiEvents.length ? (

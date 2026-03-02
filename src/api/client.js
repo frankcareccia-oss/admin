@@ -52,6 +52,7 @@ export const PV_SESSION_KEYS = ["perkvalet_return_to"];
 const PV_SUPPORT_API_LOG_KEY = "perkvalet_support_api_log";
 const PV_SUPPORT_LAST_ERROR_KEY = "perkvalet_support_last_error";
 const PV_SUPPORT_LAST_SUCCESS_TS_KEY = "perkvalet_support_last_success_ts";
+const PV_SUPPORT_LAST_REQUEST_KEY = "perkvalet_support_last_request";
 const PV_SUPPORT_MAX_API_EVENTS = 60;
 
 /* -----------------------------
@@ -233,9 +234,21 @@ function pvSupportGetApiLog() {
 }
 
 function pvSupportAppendApiEvent(evt) {
+  // Safety: keep meta-only fields (no bodies/tokens/headers)
   try {
+    const safe = {
+      ts: evt?.ts ? String(evt.ts) : pvSupportNowIso(),
+      direction: evt?.direction ? String(evt.direction) : "out",
+      method: evt?.method ? String(evt.method) : "",
+      path: evt?.path ? String(evt.path) : "",
+      status: evt?.status == null ? null : Number(evt.status),
+      ms: evt?.ms == null ? null : Number(evt.ms),
+    };
+    // optional meta (string only, short) — still safe, and ignored by UI if absent
+    if (evt?.error) safe.error = String(evt.error).slice(0, 180);
+
     const arr = pvSupportGetApiLog();
-    arr.push(evt);
+    arr.push(safe);
     while (arr.length > PV_SUPPORT_MAX_API_EVENTS) arr.shift();
     pvSupportSafeSetSession(PV_SUPPORT_API_LOG_KEY, JSON.stringify(arr));
   } catch {
@@ -254,12 +267,52 @@ function pvSupportSetLastError(msg) {
   }
 }
 
+function pvSupportClearLastError() {
+  try {
+    // Removing the key represents a clean/healthy state.
+    sessionStorage.removeItem(PV_SUPPORT_LAST_ERROR_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+
 function pvSupportSetLastSuccessTs() {
   try {
     pvSupportSafeSetSession(PV_SUPPORT_LAST_SUCCESS_TS_KEY, pvSupportNowIso());
   } catch {
     // ignore
   }
+}
+
+function pvSupportSetLastRequest({ method = "", path = "", status = null, ms = null, error = "" } = {}) {
+  try {
+    const obj = {
+      ts: pvSupportNowIso(),
+      method: method ? String(method) : "",
+      path: path ? String(path) : "",
+      status: status == null ? null : Number(status),
+      ms: ms == null ? null : Number(ms),
+      error: error ? String(error) : null,
+    };
+    pvSupportSafeSetSession(PV_SUPPORT_LAST_REQUEST_KEY, JSON.stringify(obj));
+  } catch {
+    // ignore
+  }
+}
+
+function pvSupportGetLastRequest() {
+  const raw = pvSupportSafeGetSession(PV_SUPPORT_LAST_REQUEST_KEY);
+  const obj = pvSupportSafeJsonParse(raw, null);
+  if (!obj || typeof obj !== "object") return null;
+  return {
+    ts: obj.ts ? String(obj.ts) : null,
+    method: obj.method ? String(obj.method) : null,
+    path: obj.path ? String(obj.path) : null,
+    status: obj.status == null ? null : Number(obj.status),
+    ms: obj.ms == null ? null : Number(obj.ms),
+    error: obj.error ? String(obj.error) : null,
+  };
 }
 
 function pvSupportGetLastError() {
@@ -281,7 +334,9 @@ function pvSupportGetLastSuccessTs() {
  * Support panel: read last N outbound API events (best-effort, tab-scoped).
  * This is outbound-only (what the browser called). We do not have inbound server logs here.
  */
-export function pvSupportGetRecentApiEvents({ limit = 25 } = {}) {
+export function pvSupportGetRecentApiEvents(arg = {}) {
+  // Back-compat: allow pvSupportGetRecentApiEvents(10)
+  const limit = (typeof arg === "number" ? arg : arg?.limit) ?? 25;
   const n = Math.max(0, Math.min(200, Number(limit) || 0));
   const arr = pvSupportGetApiLog();
   if (n === 0) return [];
@@ -324,10 +379,13 @@ export function pvSupportGetSnapshot() {
       })() || "";
 
     const jwtPresent = Boolean(getAccessToken());
-    const deviceId = (() => {
+    const deviceIdMasked = (() => {
       try {
         const d = getDeviceId();
-        return d ? String(d) : "";
+        const s = d ? String(d) : "";
+        if (!s) return "";
+        if (s.length <= 10) return `${s.slice(0, 3)}…`;
+        return `${s.slice(0, 6)}…${s.slice(-4)}`;
       } catch {
         return "";
       }
@@ -349,6 +407,9 @@ export function pvSupportGetSnapshot() {
       }
     })();
 
+    const lastErrorObj = pvSupportGetLastError();
+
+
     return {
       session: {
         systemRole,
@@ -360,7 +421,7 @@ export function pvSupportGetSnapshot() {
       },
       authDevice: {
         jwtPresent,
-        deviceId,
+        deviceIdMasked,
         deviceVerificationRequired: null,
       },
       environment: {
@@ -370,17 +431,33 @@ export function pvSupportGetSnapshot() {
         userAgent,
       },
       api: {
-        lastError: pvSupportGetLastError(),
+        lastError: lastErrorObj?.message ?? null,
+        lastErrorTs: lastErrorObj?.ts ?? null,
         lastSuccessTs: pvSupportGetLastSuccessTs(),
+        lastRequest: pvSupportGetLastRequest(),
         recentEvents: pvSupportGetRecentApiEvents({ limit: 25 }),
       },
+      // Convenience top-level fields for UI consumers
+      lastError: pvSupportGetLastError(),
+      lastSuccessTs: pvSupportGetLastSuccessTs(),
+      lastRequest: (() => {
+        const lr = pvSupportGetLastRequest();
+        if (!lr) return null;
+        const st = lr.status != null ? `HTTP ${lr.status}` : (lr.error ? "ERR" : "—");
+        const ms = lr.ms != null ? ` (${lr.ms}ms)` : "";
+        const mp = `${lr.method || ""} ${lr.path || ""}`.trim();
+        return `${mp} → ${st}${ms}`.trim();
+      })(),
     };
   } catch {
     return {
       session: {},
       authDevice: {},
       environment: { API_BASE },
-      api: { recentEvents: pvSupportGetRecentApiEvents({ limit: 25 }) },
+      api: { lastError: null, lastErrorTs: null, recentEvents: pvSupportGetRecentApiEvents({ limit: 25 }) },
+      lastError: pvSupportGetLastError(),
+      lastSuccessTs: pvSupportGetLastSuccessTs(),
+      lastRequest: null,
     };
   }
 }
@@ -426,20 +503,91 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
     if (tok) h.set("Authorization", `Bearer ${tok}`);
   }
 
-  // Support panel: log outbound call (best-effort)
+  const t0 = (() => {
+    try {
+      return (typeof performance !== "undefined" && typeof performance.now === "function") ? performance.now() : Date.now();
+    } catch {
+      return Date.now();
+    }
+  })();
+
+  // Support panel: log outbound call (best-effort, meta only; never bodies/tokens)
   try {
     pvSupportAppendApiEvent({
       ts: pvSupportNowIso(),
-      kind: "request",
+      direction: "out",
       method,
       path,
-      auth,
+      status: null,
+      ms: null,
     });
+    pvSupportSetLastRequest({ method, path, status: null, ms: null });
   } catch {
     // ignore
   }
 
-  const res = await fetch(url, { method, headers: h, body: payload });
+  let res;
+  try {
+    res = await fetch(url, { method, headers: h, body: payload });
+  } catch (e) {
+    const t1 = (() => {
+      try {
+        return (typeof performance !== "undefined" && typeof performance.now === "function") ? performance.now() : Date.now();
+      } catch {
+        return Date.now();
+      }
+    })();
+    const ms = Math.max(0, Math.round(Number(t1 - t0) || 0));
+
+    try {
+      pvSupportAppendApiEvent({
+        ts: pvSupportNowIso(),
+        direction: "in",
+        method,
+        path,
+        status: null,
+        ms,
+        error: e?.message ? String(e.message) : "network_error",
+      });
+      pvSupportSetLastRequest({
+        method,
+        path,
+        status: null,
+        ms,
+        error: e?.message ? String(e.message) : "network_error",
+      });
+      pvSupportSetLastError(e?.message ? String(e.message) : "Network error");
+    } catch {
+      // ignore
+    }
+
+    throw e;
+  }
+
+  const t1 = (() => {
+    try {
+      return (typeof performance !== "undefined" && typeof performance.now === "function") ? performance.now() : Date.now();
+    } catch {
+      return Date.now();
+    }
+  })();
+  const ms = Math.max(0, Math.round(Number(t1 - t0) || 0));
+
+  // Support panel: log inbound response (best-effort)
+  try {
+    pvSupportAppendApiEvent({
+      ts: pvSupportNowIso(),
+      direction: "in",
+      method,
+      path,
+      status: res?.status ?? null,
+      ms,
+    });
+    pvSupportSetLastRequest({ method, path, status: res?.status ?? null, ms });
+  } catch {
+    // ignore
+  }
+
 
   if (res.status === 429) {
     const retryAfter = res.headers.get("Retry-After");
@@ -496,6 +644,7 @@ async function request(path, { method = "GET", headers = {}, body, auth = "auto"
 
   // success marker for support panel
   pvSupportSetLastSuccessTs();
+  pvSupportClearLastError();
 
   return isJson ? res.json() : res;
 }
