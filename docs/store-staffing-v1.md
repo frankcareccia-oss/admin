@@ -110,19 +110,24 @@ Billing note:
 
 ## 6. Phone + Contact Strategy (LOCKED)
 
-### 6.1 Store phone (location-level)
-Store keeps:
-- Store public phone (location-level)
+### 6.1 Store phone (location-level) — REQUIRED
+Store keeps a customer-facing location phone:
+- `Store.phoneRaw / phoneE164 / phoneCountry`
 
-### 6.2 Primary Contact (assigned employee)
-Store contact should not rely on free-text “contact person” fields long-term.
-Instead:
-- Primary Contact is a staffed employee (StoreUser)
-- Display their person identity fields
+This field is required for “store completeness” and eligibility to staff the store.
 
-### 6.3 “Whom to ask for”
-“Whom to ask for” (a display/ask-for property) belongs to the employee identity, not the store model.
-This prevents polluting the store physical model/page and supports multi-store staff.
+### 6.2 Back-Office Phone (location-level) — OPTIONAL
+Store also keeps an optional internal operational phone:
+- `Store.backOfficePhoneRaw / backOfficePhoneE164 / backOfficePhoneCountry`
+
+Rules:
+- Same country selector and formatting behavior as Store Phone (consistency).
+- Not shown on the Stores list.
+- Shown only on Store Settings (expanded caret / store settings UI).
+
+### 6.3 Primary Contact (assigned employee)
+Primary Contact should be an assigned employee (`StoreUser`) and is the store’s official point of contact.
+Avoid relying on free-text “contact person” fields long-term.
 
 ---
 
