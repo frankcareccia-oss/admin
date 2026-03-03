@@ -987,6 +987,9 @@ export async function merchantUpdateStoreProfile(
     contactPhoneRaw,
     contactPhoneE164,
     contactPhoneCountry,
+    // V1: Store primary contact (StoreUser-backed)
+    primaryContactStoreUserId,
+
   } = {}
 ) {
   assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/profile`);
@@ -1008,6 +1011,16 @@ export async function merchantUpdateStoreProfile(
     return digits.slice(0, maxLen);
   }
 
+  function normOptInt(v) {
+    if (v === undefined) return undefined; // not provided
+    if (v === null) return null;
+    const n = parseInt(String(v), 10);
+    if (!Number.isFinite(n) || n <= 0) {
+      throw new Error("primaryContactStoreUserId must be a positive integer or null");
+    }
+    return n;
+  }
+
   const nameNorm = normOpt(name);
   if (name !== undefined && !nameNorm) throw new Error("name cannot be empty");
 
@@ -1027,6 +1040,7 @@ export async function merchantUpdateStoreProfile(
     ...(contactPhoneRaw !== undefined ? { contactPhoneRaw: normOptPhoneRaw(contactPhoneRaw) } : {}),
     ...(contactPhoneE164 !== undefined ? { contactPhoneE164: normOpt(contactPhoneE164) } : {}),
     ...(contactPhoneCountry !== undefined ? { contactPhoneCountry: normOpt(contactPhoneCountry, { upper: true }) } : {}),
+    ...(primaryContactStoreUserId !== undefined ? { primaryContactStoreUserId: normOptInt(primaryContactStoreUserId) } : {}),
   };
 
   if (!Object.keys(body).length) {

@@ -694,7 +694,7 @@ export default function MerchantStoreDetail() {
       )}
 
       {tab === "team" ? (
-        <StoreTeamPanel storeId={sid} canManage={canManage} />
+        <StoreTeamPanel storeId={sid} canManage={canManage} primaryContactStoreUserId={store?.primaryContactStoreUserId ?? store?.primaryContactStoreUserID ?? null} onPrimaryContactChanged={() => load()} />
       ) : (
         <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.12)", background: "white" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
