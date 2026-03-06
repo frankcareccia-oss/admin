@@ -513,6 +513,18 @@ export function pvSupportGetSnapshot() {
 -------------------------------- */
 
 async function request(path, { method = "GET", headers = {}, body, auth = "auto" } = {}) {
+
+  // Guardrail: prevent common API contract mistakes
+  if (typeof body === "string") {
+    throw new Error("client.js guardrail: body must be an object, not JSON.stringify(). The request() helper serializes automatically.");
+  }
+
+  // Guardrail: merchant user PATCH must include merchantId in body
+  if (method === "PATCH" && path.startsWith("/merchant/users")) {
+    if (!body || typeof body !== "object" || !("merchantId" in body)) {
+      throw new Error("client.js guardrail: PATCH /merchant/users requires merchantId in the request body.");
+    }
+  }
   const url = `${API_BASE}${path}`;
   const h = new Headers(headers);
 
@@ -1060,21 +1072,31 @@ export async function merchantListUsers({ merchantId } = {}) {
   return request(`/merchant/users${qs}`, { auth: "jwt" });
 }
 
-export async function merchantCreateUser({ merchantId, email, role } = {}) {
+export async function merchantCreateUser(
+  { merchantId, email, role, status, firstName, lastName, phoneRaw, phoneCountry } = {}
+) {
   assertNotPvAdminForMerchantCall("/merchant/users");
 
   const emailNorm = String(email || "").trim().toLowerCase();
   if (!emailNorm) throw new Error("Email is required");
 
-  const roleNorm = normalizeMerchantRole(role);
-  if (!roleNorm) {
-    throw new Error(`Invalid role. Allowed: ${MERCHANT_ROLE_VALUES.join("|")}`);
-  }
+  const roleNorm = String(role || "").trim();
+  if (!roleNorm) throw new Error("Role is required");
 
-  return request("/merchant/users", {
+  const statusNorm = String(status || "active").trim();
+
+  const body = { merchantId, email: emailNorm, role: roleNorm, status: statusNorm };
+
+  // Optional identity fields (backend may ignore if not supported yet)
+  if (firstName !== undefined) body.firstName = firstName === null ? null : String(firstName).trim() || null;
+  if (lastName !== undefined) body.lastName = lastName === null ? null : String(lastName).trim() || null;
+  if (phoneRaw !== undefined) body.phoneRaw = phoneRaw === null ? null : String(phoneRaw).trim() || null;
+  if (phoneCountry !== undefined) body.phoneCountry = phoneCountry === null ? null : String(phoneCountry).trim() || null;
+
+  return apiFetch("/merchant/users", {
     method: "POST",
     auth: "jwt",
-    body: { merchantId, email: emailNorm, role: roleNorm },
+    body,
   });
 }
 
@@ -1096,6 +1118,22 @@ export async function merchantUpdateUserMembership(userId, { merchantId, role, s
       ...(role !== undefined ? { role } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(reason !== undefined ? { reason } : {}),
+    },
+  });
+}
+
+export async function merchantUpdateUserProfile(userId, merchantId, fields = {}) {
+  assertNotPvAdminForMerchantCall(`/merchant/users/${userId}`);
+  if (!userId) throw new Error("merchantUpdateUserProfile: userId is required");
+  if (!merchantId) throw new Error("merchantUpdateUserProfile: merchantId is required");
+
+  // Backend expects merchantId inside the PATCH body (not query string)
+  return request(`/merchant/users/${encodeURIComponent(String(userId))}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: {
+      merchantId,
+      ...fields
     },
   });
 }

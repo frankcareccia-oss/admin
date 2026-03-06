@@ -1,13 +1,44 @@
-// admin/src/pages/MerchantUsers.jsx
+﻿// admin/src/pages/MerchantUsers.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import {
   merchantListUsers,
   merchantCreateUser,
+  merchantUpdateUserProfile,
+  merchantUpdateStoreProfile,
+  listMerchantStores,
   me,
   getSystemRole,
+  // NOTE: adminGetMerchantUser is only used in readOnly mode (pv_admin views)
+  // If your client exports it, keep this import; otherwise remove the readOnly detail fetch block.
   adminGetMerchantUser,
 } from "../api/client";
+
+
+// PV Admin UI Contract v1.0 (LOCKED)
+// Landscape: Model B (single scroll)
+// Row Pattern: B (inline expand)
+// Hooks: pvUiHook preserved (must never throw)
+
+const ROLE_OPTIONS = [
+  { value: "owner", label: "Merchant Owner" },
+  { value: "merchant_admin", label: "Merchant Admin" },
+  { value: "store_admin", label: "Store Admin" },
+  { value: "store_subadmin", label: "Store Sub-admin" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "active" },
+  { value: "suspended", label: "suspended" },
+];
+
+
+const PHONE_COUNTRY_OPTIONS = [
+  { value: "US", label: "+1", name: "United States" },
+  { value: "CA", label: "+1", name: "Canada" },
+  { value: "MX", label: "+52", name: "Mexico" },
+  { value: "GB", label: "+44", name: "United Kingdom" },
+];
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -27,19 +58,31 @@ function pvUiHook(event, fields = {}) {
   }
 }
 
-// NOTE (locked to schema.prisma enum MerchantRole):
-// owner | merchant_admin | store_admin | store_subadmin
-const ROLE_OPTIONS = [
-  { value: "owner", label: "owner (Merchant Owner)" },
-  { value: "merchant_admin", label: "merchant_admin (Merchant Admin)" },
-  { value: "store_admin", label: "store_admin (Store Admin)" },
-  { value: "store_subadmin", label: "store_subadmin (Store Sub-admin)" },
-];
+
+function normOptionalText(v) {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const s = String(v || "").trim();
+  return s ? s : null;
+}
+
+
+function normEmail(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return s || "";
+}
+
+
+function normPhoneDigits(v, maxLen = 20) {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  const digits = String(v || "").replace(/\D+/g, "");
+  return digits ? digits.slice(0, maxLen) : null;
+}
+
 
 function resolveMerchantContextFromMe(meRes) {
-  const membership = Array.isArray(meRes?.memberships)
-    ? meRes.memberships[0]
-    : null;
+  const membership = Array.isArray(meRes?.memberships) ? meRes.memberships[0] : null;
 
   const merchantIdRaw =
     meRes?.merchantId ??
@@ -51,105 +94,350 @@ function resolveMerchantContextFromMe(meRes) {
   const merchantId = merchantIdRaw != null ? Number(merchantIdRaw) : null;
 
   const merchantName =
-    membership?.merchant?.name ||
-    meRes?.merchant?.name ||
-    meRes?.merchantName ||
-    "";
+    membership?.merchant?.name || meRes?.merchant?.name || meRes?.merchantName || "";
 
   const tenantRole = membership?.role || membership?.tenantRole || "";
 
   return { merchantId, merchantName, tenantRole, membership };
 }
 
-function safeStringify(value) {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return "—";
-  }
+
+const TOKENS = {
+  pageBg: "#FEFCF7",
+  surface: "#FFFFFF",
+  text: "#0B2A33",
+  muted: "rgba(11,42,51,0.60)",
+  border: "rgba(0,0,0,0.10)",
+  divider: "rgba(0,0,0,0.06)",
+  teal: "#2F8F8B",
+  tealHover: "#277D79",
+  errBg: "rgba(255,0,0,0.06)",
+  errBorder: "rgba(255,0,0,0.15)",
+  okBg: "rgba(47,143,139,0.10)",
+  okBorder: "rgba(47,143,139,0.50)",
+  mono:
+    'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+};
+
+const styles = {
+  page: { minHeight: "100vh", background: TOKENS.pageBg, color: TOKENS.text, overflowX: "hidden" },
+  frame: { maxWidth: 980, margin: "0 auto", padding: "18px 16px 32px" },
+
+  breadcrumbRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+    marginBottom: 10,
+    fontSize: 13,
+    color: TOKENS.muted,
+  },
+  breadcrumbLink: {
+    color: TOKENS.teal,
+    textDecoration: "none",
+    fontWeight: 800,
+  },
+
+  headerRow: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 14,
+  },
+  titleWrap: { minWidth: 280 },
+  h2: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 900,
+    letterSpacing: "-0.01em",
+  },
+  sub: {
+    marginTop: 6,
+    fontSize: 13,
+    color: TOKENS.muted,
+    maxWidth: 720,
+    lineHeight: 1.35,
+  },
+  actions: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
+
+  card: {
+    border: `1px solid ${TOKENS.border}`,
+    borderRadius: 14,
+    padding: 14,
+    background: TOKENS.surface,
+    boxShadow: "0 1px 0 rgba(0,0,0,0.03)",
+  },
+
+  editCard: {
+    border: `2px solid ${TOKENS.okBorder}`,
+    borderRadius: 16,
+    padding: 16,
+    background: TOKENS.okBg,
+    boxShadow: "0 8px 24px rgba(11,42,51,0.10)",
+    position: "sticky",
+    top: 12,
+    zIndex: 3,
+  },
+  activeRow: {
+    background: "rgba(47,143,139,0.04)",
+  },
+
+  cardTitleRow: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 12,
+  },
+  cardTitle: { margin: 0, fontSize: 14, fontWeight: 900, letterSpacing: "0.01em" },
+  cardHelp: { marginTop: 4, fontSize: 12.5, color: TOKENS.muted },
+
+  divider: { height: 1, background: TOKENS.divider, margin: "12px 0" },
+
+  toolbar: { display: "flex", gap: 10, flexWrap: "nowrap", alignItems: "center" },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    color: "#0B2A33",
+  },
+  select: {
+    minWidth: 140,
+    flexShrink: 0,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    color: "#0B2A33",
+  },
+
+  btnPrimary: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid transparent",
+    background: TOKENS.teal,
+    color: "white",
+    fontWeight: 900,
+    cursor: "pointer",
+  },
+  btnPrimaryDisabled: { opacity: 0.55, cursor: "not-allowed" },
+
+  btnGhost: {
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: `1px solid ${TOKENS.border}`,
+    background: "white",
+    color: TOKENS.text,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  btnLink: { padding: 0, border: 0, background: "transparent", color: TOKENS.teal, fontWeight: 800, cursor: "pointer" },
+
+  tableWrap: { overflowX: "auto" },
+  table: { width: "100%", borderCollapse: "collapse", minWidth: 780 },
+  th: {
+    textAlign: "left",
+    fontSize: 12,
+    color: TOKENS.muted,
+    fontWeight: 800,
+    padding: "10px 10px",
+    borderBottom: `1px solid ${TOKENS.divider}`,
+    whiteSpace: "nowrap",
+  },
+  td: { padding: "10px 10px", borderBottom: `1px solid ${TOKENS.divider}`, verticalAlign: "top" },
+
+  caretBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    border: `1px solid ${TOKENS.border}`,
+    background: "white",
+    color: TOKENS.text,
+    cursor: "pointer",
+    fontWeight: 900,
+    lineHeight: "26px",
+    textAlign: "center",
+  },
+
+  pill: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: `1px solid ${TOKENS.border}`,
+    background: "rgba(0,0,0,0.02)",
+    fontSize: 12,
+    fontFamily: TOKENS.mono,
+    whiteSpace: "nowrap",
+  },
+  statusOk: { border: `1px solid ${TOKENS.okBorder}`, background: TOKENS.okBg },
+  statusErr: { border: `1px solid ${TOKENS.errBorder}`, background: TOKENS.errBg },
+  contactPill: { border: `1px solid ${TOKENS.okBorder}`, background: TOKENS.okBg, fontFamily: "inherit", fontWeight: 800 },
+
+  errBox: {
+    marginTop: 12,
+    border: `1px solid ${TOKENS.errBorder}`,
+    background: TOKENS.errBg,
+    padding: 10,
+    borderRadius: 10,
+    color: TOKENS.text,
+    fontSize: 13,
+  },
+  okBox: {
+    marginTop: 12,
+    border: `1px solid ${TOKENS.okBorder}`,
+    background: TOKENS.okBg,
+    padding: 10,
+    borderRadius: 10,
+    color: TOKENS.text,
+    fontSize: 13,
+  },
+
+  grid3: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 },
+  grid2: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 },
+
+  label: { display: "block", fontSize: 12, color: TOKENS.muted, marginBottom: 6, fontWeight: 800 },
+  phoneFieldRow: { display: "flex", alignItems: "stretch", gap: 8 },
+  phonePrefixSelect: {
+    width: 86,
+    flexShrink: 0,
+    padding: "10px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    color: "#0B2A33",
+  },
+  phoneInput: {
+    flex: 1,
+    minWidth: 0,
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.12)",
+    background: "white",
+    color: "#0B2A33",
+  },
+  formActions: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 12 },
+};
+
+function resolveUserId(mu) {
+  return mu?.userId ?? mu?.user?.id ?? mu?.id ?? null;
 }
 
-/**
- * MerchantUsers
- *
- * Props:
- * - readOnly (boolean, default false)
- *   When true:
- *   - hides Create / Save / mutation actions
- *   - prevents any mutation calls
- *
- * Row expand (Option A):
- * - Enabled ONLY when readOnly === true (admin view)
- * - Lazy fetches /admin/merchant-users/:merchantUserId on first expand
- */
-export default function MerchantUsers({ readOnly = false }) {
-  const [loading, setLoading] = React.useState(true);
-  const [err, setErr] = React.useState("");
-  const [items, setItems] = React.useState([]);
-  const [profile, setProfile] = React.useState(null);
+function displayName(mu) {
+  const fn = (mu?.firstName || mu?.user?.firstName || "").trim();
+  const ln = (mu?.lastName || mu?.user?.lastName || "").trim();
+  const full = [fn, ln].filter(Boolean).join(" ").trim();
+  return full || "—";
+}
 
-  const [email, setEmail] = React.useState("");
-  const [role, setRole] = React.useState("store_subadmin");
+function formatPhone(raw) {
+  const digits = String(raw || "").replace(/\D/g, "");
+  if (!digits) return "—";
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+1 (${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return raw;
+}
+
+function displayPhone(mu) {
+  const raw = (mu?.phoneRaw || mu?.user?.phoneRaw || "").trim();
+  return formatPhone(raw);
+}
+
+export default function MerchantUsers({ readOnly = false }) {
+  const [profile, setProfile] = React.useState(null);
+  const [sysRole, setSysRole] = React.useState("");
+  const [items, setItems] = React.useState([]);
+  const [merchantStores, setMerchantStores] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
   const [result, setResult] = React.useState(null);
 
-  // Row expand state (admin/readOnly only)
+  // Create form fields (preserved)
+  const [email, setEmail] = React.useState("");
+  const [role, setRole] = React.useState("merchant_admin");
+  const [status, setStatus] = React.useState("active");
+  const [firstName, setFirstName] = React.useState("");
+  const [lastName, setLastName] = React.useState("");
+  const [phoneCountry, setPhoneCountry] = React.useState("US");
+  const [phoneRaw, setPhoneRaw] = React.useState("");
+
+  const [showCreate, setShowCreate] = React.useState(false);
+
+  // Expand/edit (Pattern B)
   const [expandedId, setExpandedId] = React.useState(null);
-  const [detailById, setDetailById] = React.useState({});
-  const [detailBusyById, setDetailBusyById] = React.useState({});
-  const [detailErrById, setDetailErrById] = React.useState({});
+  const [editDraft, setEditDraft] = React.useState(null);
+
+  // Filters/search
+  const [q, setQ] = React.useState("");
+  const [roleFilter, setRoleFilter] = React.useState("all");
+  const [statusFilter, setStatusFilter] = React.useState("all");
+
+  const expandedMu = React.useMemo(() => {
+    if (!expandedId) return null;
+    return items.find((x) => resolveUserId(x) === expandedId) || null;
+  }, [items, expandedId]);
+
+  function isEditDirty(expandedMu) {
+    if (!expandedMu || !editDraft) return false;
+    const a = {
+      role: String(editDraft.role ?? expandedMu.role ?? "").trim(),
+      status: String(editDraft.status ?? expandedMu.status ?? "active").trim(),
+      phoneCountry: String(editDraft.phoneCountry ?? expandedMu.phoneCountry ?? "US").trim(),
+      firstName: String(editDraft.firstName ?? expandedMu.firstName ?? "").trim(),
+      lastName: String(editDraft.lastName ?? expandedMu.lastName ?? "").trim(),
+      phoneRaw: String(editDraft.phoneRaw ?? expandedMu.phoneRaw ?? "").trim(),
+    };
+    const b = {
+      role: String(expandedMu.role ?? "").trim(),
+      status: String(expandedMu.status ?? "active").trim(),
+      phoneCountry: String(expandedMu.phoneCountry ?? "US").trim(),
+      firstName: String(expandedMu.firstName ?? "").trim(),
+      lastName: String(expandedMu.lastName ?? "").trim(),
+      phoneRaw: String(expandedMu.phoneRaw ?? "").trim(),
+    };
+    return JSON.stringify(a) !== JSON.stringify(b);
+  }
 
   async function load() {
     setLoading(true);
     setErr("");
-    setResult(null);
-
-    // Reset expansions on reload to avoid showing stale IDs
-    setExpandedId(null);
-    setDetailById({});
-    setDetailBusyById({});
-    setDetailErrById({});
-
-    const sysRole = getSystemRole();
-
-    // Guard: pv_admin should never mutate via merchant endpoints
-    if (sysRole === "pv_admin" && !readOnly) {
-      setItems([]);
-      setProfile(null);
-      setErr("pv_admin session: merchant portal is not available.");
-      setLoading(false);
-      return;
-    }
-
     try {
-      pvUiHook("screen.enter", {
-        screen: "MerchantUsers",
-        readOnly,
-      });
+      const r = await me();
+      setProfile(r);
+      try {
+        setSysRole(getSystemRole());
+      } catch {
+        setSysRole("");
+      }
+
+      pvUiHook("merchant.users.load.ui", { stable: "merchant:users:load", readOnly });
 
       const m = await me();
       setProfile(m);
 
       const ctx = resolveMerchantContextFromMe(m);
-      if (!ctx.merchantId) throw new Error("merchantId is required");
+      if (!ctx?.merchantId) throw new Error("merchantId is required");
 
-      const r = await merchantListUsers({ merchantId: ctx.merchantId });
-      setItems(Array.isArray(r?.items) ? r.items : []);
-
-      pvUiHook("merchant.users.list_load_succeeded.ui", {
-        stable: "merchant:users:list",
-        count: Array.isArray(r?.items) ? r.items.length : 0,
-        merchantId: ctx.merchantId,
-        readOnly,
-      });
+      const [list, storesRes] = await Promise.all([
+        merchantListUsers({ merchantId: ctx.merchantId }),
+        listMerchantStores(),
+      ]);
+      setItems(Array.isArray(list) ? list : list?.items || []);
+      setMerchantStores(Array.isArray(storesRes?.items) ? storesRes.items : []);
     } catch (e) {
-      const msg = e?.message || "Failed to load users";
-      setErr(msg);
-      pvUiHook("merchant.users.list_load_failed.ui", {
-        stable: "merchant:users:list",
-        error: msg,
-        readOnly,
-      });
+      setErr(e?.message || "Failed to load team members.");
     } finally {
       setLoading(false);
     }
@@ -160,15 +448,95 @@ export default function MerchantUsers({ readOnly = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
+  function guardDiscardIfDirty() {
+    if (busy) return false;
+    if (expandedMu && isEditDirty(expandedMu)) {
+      const ok = window.confirm("You have unsaved edits. Discard changes?");
+      if (!ok) return false;
+    }
+    return true;
+  }
+
+  function focusRow(userId) {
+    try {
+      if (!userId) return;
+      // allow DOM to settle
+      setTimeout(() => {
+        const el = document.getElementById(`mu-row-${userId}`);
+        if (el && typeof el.scrollIntoView === "function") {
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
+      }, 50);
+    } catch {
+      // never throw
+    }
+  }
+
+  function toggleCreatePanel() {
+    if (!guardDiscardIfDirty()) return;
+
+    if (expandedId) {
+      setExpandedId(null);
+      setEditDraft(null);
+    }
+
+    const next = !showCreate;
+    setShowCreate(next);
+    pvUiHook("merchant.users.create_panel_toggle.ui", { stable: "merchant:users:create_panel_toggle", open: next });
+  }
+
+  function toggleExpand(mu) {
+    if (!mu) return;
+
+    // contract: mutually exclusive
+    if (showCreate) {
+      const ok = window.confirm("Close the Create panel to edit a team member?");
+      if (!ok) return;
+      setShowCreate(false);
+    }
+
+    if (!guardDiscardIfDirty()) return;
+
+    const id = resolveUserId(mu);
+    if (!id) {
+      setErr("Cannot expand: missing userId");
+      return;
+    }
+
+    const next = expandedId === id ? null : id;
+    setExpandedId(next);
+
+    setEditDraft(
+      next
+        ? {
+            email: mu.email ?? mu.user?.email ?? "",
+            role: mu.role ?? "merchant_admin",
+            status: mu.status ?? "active",
+            firstName: mu.firstName ?? mu.user?.firstName ?? "",
+            lastName: mu.lastName ?? mu.user?.lastName ?? "",
+            phoneCountry: mu.phoneCountry ?? mu.user?.phoneCountry ?? "US",
+            phoneRaw: mu.phoneRaw ?? mu.user?.phoneRaw ?? "",
+            primaryContactStoreId:
+              Array.isArray(mu.primaryContactStores) && mu.primaryContactStores.length === 1
+                ? String(mu.primaryContactStores[0].storeId)
+                : Array.isArray(mu.primaryContactStores) && mu.primaryContactStores.length > 1
+                  ? "__MULTI__"
+                  : "",
+          }
+        : null
+    );
+
+    pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: Boolean(next) });
+  }
+
   async function onCreate(e) {
     e.preventDefault();
-
     if (readOnly) return;
 
     setErr("");
     setResult(null);
 
-    const em = String(email || "").trim();
+    const em = normEmail(email);
     if (!em) {
       setErr("Email is required.");
       return;
@@ -180,446 +548,607 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
+    const body = {
+      merchantId: ctx.merchantId,
+      email: em,
+      role,
+      status,
+      firstName: normOptionalText(firstName),
+      lastName: normOptionalText(lastName),
+      phoneCountry: normOptionalText(phoneCountry)?.toUpperCase() || "US",
+      phoneRaw: normPhoneDigits(phoneRaw),
+    };
+
     setBusy(true);
     try {
-      pvUiHook("merchant.users.create_clicked.ui", {
-        stable: "merchant:users:create",
-        role,
-        merchantId: ctx.merchantId,
-      });
-
-      const r = await merchantCreateUser({
-        merchantId: ctx.merchantId,
-        email: em,
-        role,
-      });
+      pvUiHook("merchant.users.create_clicked.ui", { stable: "merchant:users:create", merchantId: ctx.merchantId, role, status });
+      const r = await merchantCreateUser(body);
       setResult(r);
-
-      pvUiHook("merchant.users.create_succeeded.ui", {
-        stable: "merchant:users:create",
-        role: r?.role || role,
-        createdUser: Boolean(r?.createdUser),
-        merchantId: ctx.merchantId,
-      });
+      pvUiHook("merchant.users.create_ok.ui", { stable: "merchant:users:create_ok", merchantId: ctx.merchantId });
 
       setEmail("");
+      setFirstName("");
+      setLastName("");
+      setPhoneRaw("");
+      setPhoneCountry("US");
+      setRole("merchant_admin");
+      setStatus("active");
+      setShowCreate(false);
+
       await load();
-    } catch (e2) {
-      const msg = e2?.message || "Failed to create user";
-      setErr(msg);
-      pvUiHook("merchant.users.create_failed.ui", {
-        stable: "merchant:users:create",
-        error: msg,
-      });
+    } catch (e) {
+      setErr(e?.message || "Failed to create user.");
+      pvUiHook("merchant.users.create_fail.ui", { stable: "merchant:users:create_fail", message: String(e?.message || "") });
     } finally {
       setBusy(false);
     }
   }
 
-  async function toggleExpand(mu) {
-    // Expand only supported in admin readOnly view (Option A scope)
-    if (!readOnly) return;
+  async function onSaveEdit(expandedMu) {
+    if (!expandedMu) return;
+    if (readOnly) return;
 
-    const merchantUserIdRaw = mu?.id ?? null;
-    const merchantUserId = merchantUserIdRaw != null ? String(merchantUserIdRaw) : "";
-    if (!merchantUserId) return;
+    const ctx = resolveMerchantContextFromMe(profile);
+    const merchantId = ctx.merchantId;
 
-    // Toggle collapse if already open
-    if (expandedId === merchantUserId) {
-      setExpandedId(null);
-      pvUiHook("merchant.users.row_collapsed.ui", {
-        stable: "merchant:users:detail",
-        merchantUserId,
-      });
+    if (!merchantId) {
+      setErr("merchantId is required");
       return;
     }
 
-    setExpandedId(merchantUserId);
-    pvUiHook("merchant.users.row_expanded.ui", {
-      stable: "merchant:users:detail",
-      merchantUserId,
-    });
+    const userId = resolveUserId(expandedMu);
+    if (!userId) {
+      setErr("Cannot save: missing userId");
+      return;
+    }
 
-    // Lazy fetch on first open
-    if (detailById[merchantUserId]) return;
-    if (detailBusyById[merchantUserId]) return;
+    const draft = editDraft || {};
+    const nextEmail = normEmail(draft.email ?? expandedMu.email ?? expandedMu.user?.email ?? "");
+    if (!nextEmail) {
+      setErr("Email is required.");
+      return;
+    }
 
-    setDetailBusyById((prev) => ({ ...prev, [merchantUserId]: true }));
-    setDetailErrById((prev) => ({ ...prev, [merchantUserId]: "" }));
+    const fields = {
+      email: nextEmail,
+      role: String(draft.role ?? expandedMu.role ?? "").trim(),
+      status: String(draft.status ?? expandedMu.status ?? "active").trim(),
+      firstName: normOptionalText(draft.firstName),
+      lastName: normOptionalText(draft.lastName),
+      phoneCountry: normOptionalText(draft.phoneCountry)?.toUpperCase() || "US",
+      phoneRaw: normPhoneDigits(draft.phoneRaw),
+    };
 
+    setBusy(true);
+    setErr("");
     try {
-      const detail = await adminGetMerchantUser(merchantUserId);
-      setDetailById((prev) => ({ ...prev, [merchantUserId]: detail }));
+      pvUiHook("merchant.users.row_save.ui", { stable: "merchant:users:row_save", merchantId, userId });
+      await merchantUpdateUserProfile(userId, merchantId, fields);
 
-      pvUiHook("merchant.users.detail_load_succeeded.ui", {
-        stable: "merchant:users:detail",
-        merchantUserId,
-      });
+      const assignedStores = Array.isArray(expandedMu?.stores) ? expandedMu.stores : [];
+      const currentPrimary = Array.isArray(expandedMu?.primaryContactStores) ? expandedMu.primaryContactStores : [];
+      const desiredStoreIdRaw = draft.primaryContactStoreId;
+
+      if (desiredStoreIdRaw !== "__MULTI__") {
+        if (desiredStoreIdRaw) {
+          const desiredStoreId = Number(desiredStoreIdRaw);
+          const targetStore = assignedStores.find((s) => Number(s.storeId) === desiredStoreId);
+          if (targetStore?.storeUserId) {
+            await merchantUpdateStoreProfile(desiredStoreId, {
+              primaryContactStoreUserId: Number(targetStore.storeUserId),
+            });
+          }
+        } else if (currentPrimary.length === 1) {
+          await merchantUpdateStoreProfile(Number(currentPrimary[0].storeId), {
+            primaryContactStoreUserId: null,
+          });
+        }
+      }
+
+      pvUiHook("merchant.users.row_save_ok.ui", { stable: "merchant:users:row_save_ok", merchantId, userId });
+      await load();
     } catch (e) {
-      const msg = e?.message || "Failed to load user detail";
-      setDetailErrById((prev) => ({ ...prev, [merchantUserId]: msg }));
-
-      pvUiHook("merchant.users.detail_load_failed.ui", {
-        stable: "merchant:users:detail",
-        merchantUserId,
-        error: msg,
-      });
+      setErr(e?.message || "Failed to save changes.");
+      pvUiHook("merchant.users.row_save_fail.ui", { stable: "merchant:users:row_save_fail", message: String(e?.message || "") });
     } finally {
-      setDetailBusyById((prev) => ({ ...prev, [merchantUserId]: false }));
+      setBusy(false);
     }
   }
+  function clearFilters() {
+    setQ("");
+    setRoleFilter("all");
+    setStatusFilter("all");
+    pvUiHook("merchant.users.filters_clear.ui", { stable: "merchant:users:filters_clear" });
+  }
 
-  const ctx = resolveMerchantContextFromMe(profile);
-  const merchantLabel = ctx.merchantName
-    ? ctx.merchantName
-    : ctx.merchantId
-    ? `Merchant #${ctx.merchantId}`
-    : "—";
+  const filtered = React.useMemo(() => {
+    const needle = String(q || "").trim().toLowerCase();
+    const needleDigits = needle.replace(/\D/g, "");
 
-  const resolvedRoleLabel = ctx.tenantRole || "user";
+    return (items || []).filter((mu) => {
+      if (roleFilter !== "all" && String(mu?.role || "") !== roleFilter) return false;
+      if (statusFilter !== "all" && String(mu?.status || "") !== statusFilter) return false;
+
+      if (!needle) return true;
+
+      const parts = [
+        mu?.email,
+        mu?.user?.email,
+        mu?.firstName,
+        mu?.user?.firstName,
+        mu?.lastName,
+        mu?.user?.lastName,
+        mu?.phoneRaw,
+        mu?.user?.phoneRaw,
+        mu?.role,
+        mu?.status,
+      ]
+        .filter(Boolean)
+        .map((x) => String(x).toLowerCase().trim());
+
+      const hay = parts.join(" ");
+      if (hay.includes(needle)) return true;
+
+      if (needleDigits) {
+        const digitsHay = hay.replace(/\D/g, "");
+        return digitsHay.includes(needleDigits);
+      }
+      return false;
+    });
+  }, [items, q, roleFilter, statusFilter]);
+
+
+  const merchantCtx = resolveMerchantContextFromMe(profile);
+  const merchantLabel = merchantCtx?.merchantName || "your merchant";
+  const storeAssignmentTip =
+    merchantStores.length === 1
+      ? "After creating the employee, assign them to your store from that store’s Team & Access page."
+      : "After creating the employee, assign them to a store from that store’s Team & Access page.";
+
 
   return (
-    <div style={{ maxWidth: 980 }}>
-      <div style={{ marginBottom: 10 }}>
-        <Link
-          to={readOnly ? "/merchants" : "/merchant"}
-          style={{ textDecoration: "none" }}
-        >
-          ← Back
-        </Link>
-      </div>
+    <div style={styles.page}>
+      <div style={styles.frame}>
+        <div style={styles.breadcrumbRow}>
+          <Link
+            to="/merchant/stores"
+            style={styles.breadcrumbLink}
+            onClick={() => pvUiHook("merchant.users.back.ui", { stable: "merchant:users:back" })}
+          >
+            Stores
+          </Link>
+          <span style={{ color: TOKENS.muted }}>›</span>
+          <span>Team</span>
+        </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <h2 style={{ marginTop: 0, marginBottom: 6 }}>Team</h2>
-          <div style={{ color: "rgba(0,0,0,0.65)" }}>
-            {readOnly
-              ? "View merchant users (read-only)."
-              : "Manage merchant users (employees) and tenant roles."}
+        <div style={styles.headerRow}>
+          <div style={styles.titleWrap}>
+            <h2 style={styles.h2}>Team</h2>
+            <div style={styles.sub}>
+              Manage merchant-level employees (identity + tenant role). Store staffing happens from a store’s Team &amp; Access tab.
+            </div>
+          </div>
+
+          <div style={styles.actions}>
+            <button
+              type="button"
+              onClick={() => {
+                pvUiHook("merchant.users.refresh.ui", { stable: "merchant:users:refresh" });
+                load();
+              }}
+              disabled={busy}
+              style={{ ...styles.btnGhost, ...(busy ? styles.btnPrimaryDisabled : null) }}
+            >
+              Refresh
+            </button>
+
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={toggleCreatePanel}
+                disabled={busy}
+                style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}
+              >
+                {showCreate ? "Close Create" : "+ Add Employee"}
+              </button>
+            )}
           </div>
         </div>
 
-        <button onClick={load} disabled={loading || busy} style={styles.refreshBtn}>
-          {loading ? "Loading..." : "Refresh"}
-        </button>
-      </div>
-
-      {err && <div style={styles.errBox}>{err}</div>}
-
-      {!readOnly && (
-        <div style={{ marginTop: 14, ...styles.card }}>
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Add employee</div>
-          <div
-            style={{
-              fontSize: 12,
-              color: "rgba(0,0,0,0.6)",
-              marginBottom: 10,
-            }}
-          >
-            If the email does not exist yet, a temporary password is generated and
-            returned once.
-          </div>
-
-          <form onSubmit={onCreate} style={styles.formRow}>
-            <div style={{ minWidth: 280, flex: "1 1 280px" }}>
-              <label style={styles.label}>Email</label>
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={busy}
-                placeholder="employee@merchant.com"
-                style={styles.input}
-              />
+        <div style={{ display: "grid", gap: 14 }}>
+          <div style={styles.card}>
+            <div style={styles.cardTitleRow}>
+              <div>
+                <div style={styles.cardTitle}>Team Members</div>
+                <div style={styles.cardHelp}>
+                  Search and edit employees. Inline expand is the only row interaction on this screen (Pattern B).
+                </div>
+              </div>
             </div>
 
-            <div style={{ minWidth: 260 }}>
-              <label style={styles.label}>Role</label>
+            <div style={styles.toolbar}>
+              <input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  pvUiHook("merchant.users.search_changed.ui", { stable: "merchant:users:search_changed" });
+                }}
+                placeholder="Search email, name, phone, role, status…"
+                style={styles.input}
+              />
+
               <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                disabled={busy}
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  pvUiHook("merchant.users.role_filter.ui", { stable: "merchant:users:role_filter", value: e.target.value });
+                }}
                 style={styles.select}
               >
-                {ROLE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                <option value="all">All roles</option>
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
                   </option>
                 ))}
               </select>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  pvUiHook("merchant.users.status_filter.ui", { stable: "merchant:users:status_filter", value: e.target.value });
+                }}
+                style={styles.select}
+              >
+                <option value="all">All status</option>
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+
+              <button type="button" onClick={clearFilters} style={styles.btnGhost} disabled={busy}>
+                Clear
+              </button>
             </div>
 
-            <button type="submit" disabled={busy} style={styles.saveBtn}>
-              {busy ? "Creating…" : "Create"}
-            </button>
-          </form>
+            <div style={styles.divider} />
 
-          {result ? (
-            <div style={styles.resultBox}>
-              <div>
-                Created/updated: <code>{result.email}</code> as{" "}
-                <code>{result.role}</code>
+            {loading ? (
+              <div style={{ fontSize: 13, color: TOKENS.muted }}>Loading…</div>
+            ) : (
+              <>
+              {expandedMu && (
+              <div style={{ marginTop: 12 }}>
+                <div style={styles.editCard}>
+                                  <div style={styles.cardTitleRow}>
+                                    <div>
+                                      <div style={styles.cardTitle}>Edit Employee</div>
+                                      <div style={styles.cardHelp}>
+                                        {displayName(expandedMu) !== "—" ? displayName(expandedMu) : (expandedMu?.email || expandedMu?.user?.email || "—")}
+                                      </div>
+                                      <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
+                                        Changes apply to this merchant-level employee.
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div style={styles.grid3}>
+                                    <div>
+                                      <label style={styles.label}>Email</label>
+                                      <input
+                                        value={editDraft?.email ?? expandedMu?.email ?? expandedMu?.user?.email ?? ""}
+                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), email: e.target.value }))}
+                                        style={styles.input}
+                                        disabled={busy}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={styles.label}>Role</label>
+                                      <select
+                                        value={editDraft?.role ?? ""}
+                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), role: e.target.value }))}
+                                        style={styles.select}
+                                        disabled={busy}
+                                      >
+                                        {ROLE_OPTIONS.map((r) => (
+                                          <option key={r.value} value={r.value}>
+                                            {r.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <label style={styles.label}>Status</label>
+                                      <select
+                                        value={editDraft?.status ?? "active"}
+                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), status: e.target.value }))}
+                                        style={styles.select}
+                                        disabled={busy}
+                                      >
+                                        {STATUS_OPTIONS.map((s) => (
+                                          <option key={s.value} value={s.value}>
+                                            {s.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </div>
+
+                                    <div>
+                                      <label style={styles.label}>Store Contact</label>
+                                      <select
+                                        value={editDraft?.primaryContactStoreId ?? ""}
+                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), primaryContactStoreId: e.target.value }))}
+                                        style={styles.select}
+                                        disabled={busy || (Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1)}
+                                      >
+                                        <option value="">Not a store contact</option>
+                                        {Array.isArray(expandedMu?.stores) &&
+                                          expandedMu.stores.map((s) => (
+                                            <option key={String(s.storeId)} value={String(s.storeId)}>
+                                              {s.name}
+                                            </option>
+                                          ))}
+                                        {Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1 ? (
+                                          <option value="__MULTI__">Multiple stores — manage from store pages</option>
+                                        ) : null}
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  <div style={{ height: 12 }} />
+
+                                  <div style={styles.grid3}>
+                                    <div>
+                                      <label style={styles.label}>First name</label>
+                                      <input
+                                        value={editDraft?.firstName ?? ""}
+                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), firstName: e.target.value }))}
+                                        style={styles.input}
+                                        disabled={busy}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={styles.label}>Last name</label>
+                                      <input
+                                        value={editDraft?.lastName ?? ""}
+                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), lastName: e.target.value }))}
+                                        style={styles.input}
+                                        disabled={busy}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label style={styles.label}>Phone</label>
+                                      <div style={styles.phoneFieldRow}>
+                                        <select
+                                          value={editDraft?.phoneCountry ?? "US"}
+                                          onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneCountry: e.target.value }))}
+                                          style={styles.phonePrefixSelect}
+                                          disabled={busy}
+                                        >
+                                          {PHONE_COUNTRY_OPTIONS.map((c) => (
+                                            <option key={c.value} value={c.value}>
+                                              {c.label}
+                                            </option>
+                                          ))}
+                                        </select>
+                                        <input
+                                          value={formatPhone(editDraft?.phoneRaw ?? "") === "—" ? "" : formatPhone(editDraft?.phoneRaw ?? "")}
+                                          onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneRaw: normPhoneDigits(e.target.value) ?? "" }))}
+                                          style={styles.phoneInput}
+                                          disabled={busy}
+                                          placeholder="(415) 555-1212"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1 ? (
+                                    <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 8 }}>
+                                      This employee is the contact for multiple stores. Manage changes from the store pages.
+                                    </div>
+                                  ) : null}
+
+                                  <div style={styles.formActions}>
+                                    <button
+                                      type="button"
+                                      onClick={() => onSaveEdit(expandedMu)}
+                                      disabled={busy}
+                                      style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}
+                                    >
+                                      {busy ? "Saving…" : "Save"}
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (!guardDiscardIfDirty()) return;
+                                        setExpandedId(null);
+                                        setEditDraft(null);
+                                      }}
+                                      disabled={busy}
+                                      style={styles.btnGhost}
+                                    >
+                                      Close
+                                    </button>
+
+                                    {isEditDirty(expandedMu) && <span style={{ fontSize: 12, color: TOKENS.muted }}>Unsaved changes</span>}
+                                  </div>
+                                </div>
               </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      <div style={{ marginTop: 14 }}>
-        <div style={styles.card}>
-          <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-            <div style={{ fontWeight: 800 }}>Users</div>
-            <div style={{ color: "rgba(0,0,0,0.6)" }}>
-              ({items.length} user{items.length === 1 ? "" : "s"})
-            </div>
-            {readOnly ? (
-              <div style={{ marginLeft: "auto", fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-                Click a row to expand details
-              </div>
-            ) : null}
-          </div>
-
-          <div style={{ marginTop: 10, overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ textAlign: "left" }}>
-                  <th style={th}>User</th>
-                  <th style={th}>Tenant Role</th>
-                  <th style={th}>Membership Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((mu, idx) => {
-                  const rowKey =
-                    mu?.id ??
-                    mu?.user?.id ??
-                    mu?.user?.email ??
-                    mu?.email ??
-                    `${idx}`;
-
-                  const merchantUserIdRaw = mu?.id ?? null;
-                  const merchantUserId = merchantUserIdRaw != null ? String(merchantUserIdRaw) : "";
-
-                  const isExpandable = readOnly && Boolean(merchantUserId);
-                  const isExpanded = isExpandable && expandedId === merchantUserId;
-
-                  const emailLabel =
-                    mu?.user?.email ||
-                    mu?.email ||
-                    mu?.userEmail ||
-                    "—";
-
-                  const userStatus = mu?.user?.status || "";
-
-                  const detail = merchantUserId ? detailById[merchantUserId] : null;
-                  const detailBusy = merchantUserId ? Boolean(detailBusyById[merchantUserId]) : false;
-                  const detailErr = merchantUserId ? String(detailErrById[merchantUserId] || "") : "";
-
-                  return (
-                    <React.Fragment key={String(rowKey)}>
-                      <tr
-                        onClick={isExpandable ? () => toggleExpand(mu) : undefined}
-                        style={isExpandable ? styles.expandableRow : undefined}
-                        title={isExpandable ? "Click to expand details" : undefined}
-                      >
-                        <td style={td}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            {isExpandable ? (
-                              <span style={styles.caret}>{isExpanded ? "▼" : "▶"}</span>
-                            ) : null}
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{emailLabel}</div>
-                              {userStatus ? (
-                                <div
-                                  style={{
-                                    fontSize: 12,
-                                    color: "rgba(0,0,0,0.55)",
-                                  }}
-                                >
-                                  userStatus: <code>{userStatus}</code>
+            )}
+<div style={styles.tableWrap}>
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}></th>
+                      <th style={styles.th}>Email</th>
+                      <th style={styles.th}>Name</th>
+                      <th style={styles.th}>Phone</th>
+                      <th style={styles.th}>Role</th>
+                      <th style={styles.th}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((mu) => {
+                      const id = resolveUserId(mu);
+                      const isOpen = expandedId && id && expandedId === id;
+                      const st = String(mu?.status || "active");
+                      return (
+                        <React.Fragment key={id || mu?.email || Math.random()}>
+                          <tr id={id ? `mu-row-${id}` : undefined} style={isOpen ? styles.activeRow : undefined}>
+                            <td style={{ ...styles.td, width: 42 }}>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpand(mu)}
+                                style={styles.caretBtn}
+                                aria-label={isOpen ? "Collapse row" : "Expand row"}
+                              >
+                                {isOpen ? "▾" : "▸"}
+                              </button>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={{ fontWeight: 900 }}>{mu?.email || mu?.user?.email || "—"}</div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                <span>{displayName(mu)}</span>
+                                {mu?.isPrimaryContact ? (
+                                  <span style={{ ...styles.pill, ...styles.contactPill }} title={mu?.primaryContactStoreNames || "Primary contact"}>
+                                    ★ Contact
+                                  </span>
+                                ) : null}
+                              </div>
+                              {mu?.primaryContactStoreNames ? (
+                                <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
+                                  {mu.primaryContactStoreNames}
                                 </div>
                               ) : null}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={td}>
-                          <code>{mu?.role || "—"}</code>
-                        </td>
-                        <td style={td}>
-                          <code>{mu?.status || "—"}</code>
+                            </td>
+                            <td style={styles.td}>{displayPhone(mu)}</td>
+                            <td style={styles.td}>
+                              <span style={styles.pill}>{String(mu?.role || "—")}</span>
+                            </td>
+                            <td style={styles.td}>
+                              <span style={{ ...styles.pill, ...(st === "active" ? styles.statusOk : styles.statusErr) }}>
+                                {String(mu?.status || "active")}
+                              </span>
+                            </td>
+
+                          </tr>
+
+                          
+                        </React.Fragment>
+                      );
+                    })}
+
+                    {filtered.length === 0 && (
+                      <tr>
+                        <td style={styles.td} colSpan={6}>
+                          <div style={{ fontSize: 13, color: TOKENS.muted }}>No team members match your filters.</div>
                         </td>
                       </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              </>
+            )}
 
-                      {isExpanded ? (
-                        <tr>
-                          <td colSpan={3} style={styles.detailCell}>
-                            {detailBusy ? (
-                              <div style={{ color: "rgba(0,0,0,0.65)" }}>Loading details…</div>
-                            ) : detailErr ? (
-                              <div style={styles.detailErrBox}>{detailErr}</div>
-                            ) : detail ? (
-                              <pre style={styles.detailPre}>{safeStringify(detail)}</pre>
-                            ) : (
-                              <div style={{ color: "rgba(0,0,0,0.65)" }}>
-                                No detail loaded.
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ) : null}
-                    </React.Fragment>
-                  );
-                })}
-
-                {!loading && items.length === 0 && !err && (
-                  <tr>
-                    <td
-                      colSpan={3}
-                      style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}
-                    >
-                      No users found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            {err && <div style={styles.errBox}>{err}</div>}
+            {result && <div style={styles.okBox}>Created employee successfully.</div>}
           </div>
+
+          {showCreate && !readOnly && (
+            <div style={styles.card}>
+              <div style={styles.cardTitleRow}>
+                <div>
+                  <div style={styles.cardTitle}>{`Create ${merchantLabel} Employee`}</div>
+                  <div style={styles.cardHelp}>{`Create an employee account for ${merchantLabel} and choose their role.`}</div>
+                </div>
+              </div>
+
+              <form onSubmit={onCreate}>
+                <div style={styles.grid3}>
+                  <div>
+                    <label style={styles.label}>Email</label>
+                    <input value={email} onChange={(e) => setEmail(e.target.value)} style={styles.input} disabled={busy} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Role</label>
+                    <select value={role} onChange={(e) => setRole(e.target.value)} style={styles.select} disabled={busy}>
+                      {ROLE_OPTIONS.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={styles.label}>Status</label>
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select} disabled={busy}>
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ height: 12 }} />
+
+                <div style={styles.grid3}>
+                  <div>
+                    <label style={styles.label}>First name</label>
+                    <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={styles.input} disabled={busy} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Last name</label>
+                    <input value={lastName} onChange={(e) => setLastName(e.target.value)} style={styles.input} disabled={busy} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Phone</label>
+                    <div style={styles.phoneFieldRow}>
+                      <select value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value)} style={styles.phonePrefixSelect} disabled={busy}>
+                        {PHONE_COUNTRY_OPTIONS.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={formatPhone(phoneRaw) === "—" ? "" : formatPhone(phoneRaw)}
+                        onChange={(e) => setPhoneRaw(normPhoneDigits(e.target.value) ?? "")}
+                        style={styles.phoneInput}
+                        disabled={busy}
+                        placeholder="(415) 555-1212"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={styles.formActions}>
+                  <button type="submit" disabled={busy} style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}>
+                    {busy ? "Saving…" : "Save Employee"}
+                  </button>
+
+                  <button type="button" onClick={toggleCreatePanel} disabled={busy} style={styles.btnGhost}>
+                    Close
+                  </button>
+
+                  <span style={{ fontSize: 12, color: TOKENS.muted }}>
+                    {storeAssignmentTip}
+                  </span>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
-
-        {profile ? (
-          <div
-            style={{
-              marginTop: 10,
-              fontSize: 12,
-              color: "rgba(0,0,0,0.55)",
-            }}
-          >
-            Screen <code>MerchantUsers</code> · User{" "}
-            <code>{profile?.user?.email}</code> · Resolved Role{" "}
-            <code>{resolvedRoleLabel}</code> · Merchant{" "}
-            <code>{merchantLabel}</code>
-          </div>
-        ) : null}
       </div>
     </div>
   );
 }
-
-const styles = {
-  card: {
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14,
-    padding: 14,
-    background: "white",
-  },
-  label: {
-    display: "block",
-    fontSize: 12,
-    color: "rgba(0,0,0,0.65)",
-    marginBottom: 6,
-  },
-  select: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-  },
-  saveBtn: {
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
-  },
-  refreshBtn: {
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
-  },
-  errBox: {
-    marginTop: 14,
-    background: "rgba(255,0,0,0.06)",
-    border: "1px solid rgba(255,0,0,0.15)",
-    padding: 10,
-    borderRadius: 12,
-    whiteSpace: "pre-wrap",
-  },
-  formRow: {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-    alignItems: "end",
-  },
-  resultBox: {
-    marginTop: 10,
-    background: "rgba(0,128,0,0.06)",
-    border: "1px solid rgba(0,128,0,0.15)",
-    padding: 10,
-    borderRadius: 12,
-    whiteSpace: "pre-wrap",
-    fontSize: 13,
-  },
-  expandableRow: {
-    cursor: "pointer",
-  },
-  caret: {
-    width: 16,
-    display: "inline-block",
-    textAlign: "center",
-    color: "rgba(0,0,0,0.55)",
-    fontSize: 12,
-  },
-  detailCell: {
-    padding: 12,
-    borderBottom: "1px solid rgba(0,0,0,0.06)",
-    background: "rgba(0,0,0,0.02)",
-  },
-  detailPre: {
-    margin: 0,
-    fontSize: 12,
-    lineHeight: 1.35,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    maxHeight: 280,
-    overflow: "auto",
-    padding: 10,
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "white",
-  },
-  detailErrBox: {
-    background: "rgba(255,0,0,0.06)",
-    border: "1px solid rgba(255,0,0,0.15)",
-    padding: 10,
-    borderRadius: 12,
-    whiteSpace: "pre-wrap",
-  },
-};
-
-const th = {
-  padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.08)",
-};
-
-const td = {
-  padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.06)",
-};

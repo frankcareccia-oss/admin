@@ -164,6 +164,7 @@ export default function StoreTeamPanel({
   canManage,
   primaryContactStoreUserId = null,
   onPrimaryContactChanged,
+  onPrimaryContactResolved,
 }) {
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -267,6 +268,33 @@ export default function StoreTeamPanel({
       primaryContactStoreUserId: next || null,
     });
   }, [primaryContactStoreUserId, storeId]);
+
+
+  // Lift resolved Primary Contact back up to the parent (MerchantStoreDetail) so it can render
+  // a small summary card. This is read-only; it does not change behavior.
+  const resolvedPrimaryContact = React.useMemo(() => {
+    if (!primaryId) return null;
+    const match = team.find((t) => String(t.storeUserId) === String(primaryId));
+    if (!match) return null;
+    return {
+      storeUserId: match.storeUserId,
+      merchantUserId: match.merchantUserId,
+      firstName: match.firstName,
+      lastName: match.lastName,
+      email: match.email,
+      phone: match.phone,
+    };
+  }, [team, primaryId]);
+
+  React.useEffect(() => {
+    if (typeof onPrimaryContactResolved !== "function") return;
+    try {
+      onPrimaryContactResolved(resolvedPrimaryContact);
+    } catch {
+      // never break UI for parent notification
+    }
+  }, [resolvedPrimaryContact, onPrimaryContactResolved]);
+
 
   const assignedToThisStore = React.useMemo(
     () => new Set(team.map((t) => t.merchantUserId).filter(Boolean)),

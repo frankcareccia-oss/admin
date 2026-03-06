@@ -44,6 +44,20 @@ const COLORS = {
   okBorder: "rgba(0, 160, 80, 0.18)",
 };
 
+
+const infoCard = {
+  marginTop: 12,
+  padding: 14,
+  borderRadius: 14,
+  border: "1px solid rgba(0,0,0,0.12)",
+  background: "white",
+};
+
+const infoK = { fontSize: 12, color: "rgba(0,0,0,0.60)", marginBottom: 4 };
+const infoV = { fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.85)" };
+const infoRow = { display: "flex", gap: 14, flexWrap: "wrap" };
+const infoCell = { minWidth: 220, flex: "1 1 220px" };
+
 const breadcrumbLink = {
   textDecoration: "none",
   color: COLORS.primary,
@@ -328,6 +342,8 @@ export default function MerchantStoreDetail() {
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState("");
 
+  const [primaryContact, setPrimaryContact] = React.useState(null);
+
   const [initial, setInitial] = React.useState(null);
   const [fields, setFields] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
@@ -337,10 +353,18 @@ export default function MerchantStoreDetail() {
   const tab = (q.get("tab") || "settings").toLowerCase();
 
   const sid = Number(storeId) || null;
+
+  React.useEffect(() => {
+    setPrimaryContact(null);
+  }, [sid]);
   const systemRole = getSystemRoleLocal();
   const canManage = merchantRole === "merchant_admin" || merchantRole === "owner";
 
   const cancelledRef = React.useRef(false);
+
+  const handlePrimaryResolved = React.useCallback((pc) => {
+    setPrimaryContact(pc || null);
+  }, []);
 
   const [openPrefix, setOpenPrefix] = React.useState(null); // "store" | "contact" | null
   const storePrefixBtnRef = React.useRef(null);
@@ -694,7 +718,38 @@ export default function MerchantStoreDetail() {
       )}
 
       {tab === "team" ? (
-        <StoreTeamPanel storeId={sid} canManage={canManage} primaryContactStoreUserId={store?.primaryContactStoreUserId ?? store?.primaryContactStoreUserID ?? null} onPrimaryContactChanged={() => load()} />
+        <div>
+          <div style={infoCard}>
+            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>Primary Contact</div>
+
+            {primaryContact ? (
+              <div style={infoRow}>
+                <div style={infoCell}>
+                  <div style={infoK}>Name</div>
+                  <div style={infoV}>
+                    {String(`${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`).trim() || "—"}
+                  </div>
+                </div>
+
+                <div style={infoCell}>
+                  <div style={infoK}>Phone</div>
+                  <div style={infoV}>{primaryContact.phone ? formatNanp10(primaryContact.phone) : "—"}</div>
+                </div>
+
+                <div style={infoCell}>
+                  <div style={infoK}>Email</div>
+                  <div style={infoV}>{primaryContact.email || "—"}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ color: "rgba(0,0,0,0.60)" }}>
+                Not set. Choose a Primary Contact in Team &amp; Access.
+              </div>
+            )}
+          </div>
+
+          <StoreTeamPanel storeId={sid} canManage={canManage} primaryContactStoreUserId={store?.primaryContactStoreUserId ?? store?.primaryContactStoreUserID ?? null} onPrimaryContactChanged={() => load()}   onPrimaryContactResolved={handlePrimaryResolved} />
+        </div>
       ) : (
         <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.12)", background: "white" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
