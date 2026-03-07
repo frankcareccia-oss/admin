@@ -357,9 +357,15 @@ export default function MerchantStoreDetail() {
   React.useEffect(() => {
     setPrimaryContact(null);
   }, [sid]);
-  const systemRole = getSystemRoleLocal();
+  
   const canManage = merchantRole === "merchant_admin" || merchantRole === "owner";
 
+  const systemRole = getSystemRoleLocal();
+  console.log("[MerchantStoreDetail] role gate", {
+  systemRole,
+  merchantRole,
+  canManage,
+});
   const cancelledRef = React.useRef(false);
 
   const handlePrimaryResolved = React.useCallback((pc) => {
@@ -861,71 +867,13 @@ export default function MerchantStoreDetail() {
                 <div style={{ marginBottom: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "rgba(0,0,0,0.01)" }}>
                   <div style={{ fontWeight: 900, marginBottom: 8 }}>Primary contact</div>
 
-                  <div style={grid2}>
-                    <div style={cell}>
-                      <div style={label}>First name</div>
-                      <input className="pvInput" value={fields?.contactFirstName ?? ""} onChange={(e) => setField("contactFirstName", e.target.value)} placeholder="e.g., Jane" style={input} autoComplete="given-name" />
-                    </div>
-
-                    <div style={cell}>
-                      <div style={label}>Last name</div>
-                      <input className="pvInput" value={fields?.contactLastName ?? ""} onChange={(e) => setField("contactLastName", e.target.value)} placeholder="e.g., Doe" style={input} autoComplete="family-name" />
-                    </div>
+                  <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)", lineHeight: 1.5 }}>
+                    The primary contact for this location is managed from the 
+                    <strong>Team &amp; Access</strong> panel for the store.
                   </div>
 
-                  <div style={row}>
-                    <div style={label}>Contact email</div>
-                    <input className="pvInput" value={fields?.contactEmail ?? norm(store.contactEmail)} onChange={(e) => setField("contactEmail", e.target.value)} placeholder="e.g., jane@merchant.com" style={input} inputMode="email" autoComplete="email" />
-                  </div>
-
-                  <div style={row}>
-                    <div style={label}>Primary contact phone</div>
-
-                    <div style={{ position: "relative", display: "flex", alignItems: "stretch" }}>
-                      <button type="button" ref={contactPrefixBtnRef} onClick={() => setOpenPrefix((cur) => (cur === "contact" ? null : "contact"))} style={phonePrefixBtn(openPrefix === "contact")} title="Select country">
-                        {getPhoneCountryMeta(fields?.contactPhoneCountry).dial} ▾
-                      </button>
-
-                      <input
-                        className="pvInput"
-                        style={{ ...input, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "none" }}
-                        value={formatNanp10(fields?.contactPhoneRaw)}
-                        placeholder="(415) 555-1212"
-                        inputMode="numeric"
-                        autoComplete="tel-national"
-                        onChange={(e) => setField("contactPhoneRaw", normalizePhoneRaw(e.target.value))}
-                      />
-
-                      {openPrefix === "contact" ? (
-                        <div ref={contactMenuRef} style={phonePrefixMenu}>
-                          {PHONE_COUNTRIES.map((c) => (
-                            <button
-                              key={c.code}
-                              type="button"
-                              style={phonePrefixItem(normalizeCountry2(fields?.contactPhoneCountry) === c.code)}
-                              onClick={() => {
-                                setField("contactPhoneCountry", c.code);
-                                setOpenPrefix(null);
-                              }}
-                            >
-                              {c.label} ({c.dial})
-                            </button>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div style={actionsRow}>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <button type="button" onClick={revert} disabled={saving || !dirty} style={saving || !dirty ? mutedPillDisabled : mutedPill}>
-                        Revert
-                      </button>
-
-                      <button type="button" onClick={save} disabled={saving || !dirty} style={saving || !dirty ? primaryPillDisabled : primaryPill}>
-                        {saving ? "Saving…" : "Save"}
-                      </button>
-                    </div>
+                  <div style={{ fontSize: 12, marginTop: 8, color: "rgba(0,0,0,0.55)" }}>
+                    Assign an employee to this store and mark them as the primary contact there.
                   </div>
                 </div>
               </div>

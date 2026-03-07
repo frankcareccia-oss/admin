@@ -877,26 +877,6 @@ export default function MerchantUsers({ readOnly = false }) {
                                       </select>
                                     </div>
 
-                                    <div>
-                                      <label style={styles.label}>Store Contact</label>
-                                      <select
-                                        value={editDraft?.primaryContactStoreId ?? ""}
-                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), primaryContactStoreId: e.target.value }))}
-                                        style={styles.select}
-                                        disabled={busy || (Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1)}
-                                      >
-                                        <option value="">Not a store contact</option>
-                                        {Array.isArray(expandedMu?.stores) &&
-                                          expandedMu.stores.map((s) => (
-                                            <option key={String(s.storeId)} value={String(s.storeId)}>
-                                              {s.name}
-                                            </option>
-                                          ))}
-                                        {Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1 ? (
-                                          <option value="__MULTI__">Multiple stores — manage from store pages</option>
-                                        ) : null}
-                                      </select>
-                                    </div>
                                   </div>
 
                                   <div style={{ height: 12 }} />

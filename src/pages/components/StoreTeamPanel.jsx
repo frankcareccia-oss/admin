@@ -122,8 +122,21 @@ function mono() {
 // Best-effort shape adapters (backend can evolve)
 function adaptMerchantUser(mu) {
   const user = mu?.user || mu?.User || mu;
+
+  // NOTE:
+  // Current GET /merchant/users payload is returning userId but not merchantUserId.
+  // Fall back to userId so Team & Access can proceed while backend contract is corrected.
   return {
-    merchantUserId: String(mu?.id ?? mu?.merchantUserId ?? ""),
+    merchantUserId: String(
+      mu?.merchantUserId ??
+        mu?.id ??
+        mu?.merchant_user_id ??
+        mu?.merchantUser?.id ??
+        mu?.merchantUser?.merchantUserId ??
+        mu?.user?.merchantUserId ??
+        mu?.userId ??
+        ""
+    ),
     status: String(mu?.status ?? ""),
     firstName: user?.firstName ?? user?.first_name ?? "",
     lastName: user?.lastName ?? user?.last_name ?? "",
@@ -222,7 +235,7 @@ export default function StoreTeamPanel({
         });
       }
 
-      const teamItems = Array.isArray(teamRaw) ? teamRaw : teamRaw?.items || teamRaw?.team || [];
+      const teamItems = Array.isArray(teamRaw) ? teamRaw : teamRaw?.items || teamRaw?.team || teamRaw?.assigned || [];
       const userItems = Array.isArray(usersRaw) ? usersRaw : usersRaw?.items || usersRaw?.users || [];
 
       const t = teamItems.map(adaptStoreUser);
@@ -257,7 +270,7 @@ export default function StoreTeamPanel({
     return () => {
       cancelledRef.current = true;
     };
-  }, [load]);
+  }, [storeId]);
 
   React.useEffect(() => {
     const next = primaryContactStoreUserId != null ? String(primaryContactStoreUserId) : "";
@@ -505,7 +518,7 @@ export default function StoreTeamPanel({
                 <div style={{ width: 120, flex: "0 0 120px" }} />
               </div>
 
-              <select value={pickId} onChange={(e) => setPickId(e.target.value)} style={pickSelectStyle}>
+              <select value={pickId ?? ""} onChange={(e) => setPickId(e.target.value)} style={pickSelectStyle}>
                 <option value="">Select employee…</option>
                 {users.map((u) => {
                   const label = `${nameOf(u)} • ${fmtPhone(u.phone)} • ${u.email}`;
@@ -513,7 +526,7 @@ export default function StoreTeamPanel({
                   return (
                     <option
                       key={u.merchantUserId || label}
-                      value={u.merchantUserId}
+                      value={String(u.merchantUserId)}
                       disabled={!u.merchantUserId || isAssigned}
                     >
                       {label}

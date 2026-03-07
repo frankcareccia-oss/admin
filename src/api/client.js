@@ -1198,7 +1198,7 @@ export async function merchantAssignStoreTeamMember(storeId, { merchantUserId, p
     permissionLevel,
   });
 
-  return request(`/merchant/stores/${encodeURIComponent(String(storeId))}/team`, {
+  return request(`/merchant/stores/${encodeURIComponent(String(storeId))}/team/assign`, {
     method: "POST",
     auth: "jwt",
     body: { merchantUserId, permissionLevel },
