@@ -80,6 +80,15 @@ function Money({ cents }) {
   return <span>{v.toFixed(2)}</span>;
 }
 
+function titleCaseStatus(value) {
+  const s = String(value || "").trim().toLowerCase();
+  if (!s) return "—";
+  return s
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function Pill({ children }) {
   return (
     <span
@@ -92,10 +101,9 @@ function Pill({ children }) {
         fontWeight: 800,
         background: "rgba(0,0,0,0.06)",
         border: "1px solid rgba(0,0,0,0.10)",
-        textTransform: "lowercase",
       }}
     >
-      {children}
+      {titleCaseStatus(children)}
     </span>
   );
 }
@@ -400,8 +408,8 @@ export default function AdminInvoiceList() {
 
   const merchantLabel = (id) => {
     const m = merchants.find((x) => String(x.id) === String(id));
-    if (!m) return `Merchant ${id}`;
-    return `${m.name} (#${m.id})`;
+    if (!m) return `Merchant #${id}`;
+    return m.name;
   };
 
 

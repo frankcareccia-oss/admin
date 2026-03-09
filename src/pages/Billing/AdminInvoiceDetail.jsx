@@ -42,6 +42,26 @@ function fmtDate(iso) {
   }
 }
 
+function titleCaseStatus(value) {
+  const s = String(value || "").trim().toLowerCase();
+  if (!s) return "—";
+  return s
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function merchantDisplay(detail, inv) {
+  const name =
+    detail?.merchant?.name ||
+    detail?.merchantName ||
+    inv?.merchantName ||
+    inv?.merchant?.name ||
+    "";
+  if (name) return name;
+  return inv?.merchantId ? `Merchant #${inv.merchantId}` : "—";
+}
+
 function Badge({ text }) {
   const bg =
     text === "paid"
@@ -74,10 +94,9 @@ function Badge({ text }) {
         background: bg,
         fontSize: 12,
         fontWeight: 800,
-        textTransform: "lowercase",
       }}
     >
-      {text}
+      {titleCaseStatus(text)}
     </span>
   );
 }
@@ -204,12 +223,14 @@ export default function AdminInvoiceDetail() {
   const [payBusy, setPayBusy] = React.useState(false);
   const [payErr, setPayErr] = React.useState("");
   const [payLink, setPayLink] = React.useState(null); // { payUrl, expiresAt } (do not expose token/tokenHash)
+  const [confirmVoid, setConfirmVoid] = React.useState(false);
 
   async function load() {
     setError("");
     setActionMsg("");
     setLateFeePreview(null);
     setPayErr("");
+    setConfirmVoid(false);
     setLoading(true);
 
     pvUiHook("billing.admin_invoice.page.load_started.ui", {
@@ -271,6 +292,7 @@ export default function AdminInvoiceDetail() {
     setActionMsg("");
     setError("");
     setLateFeePreview(null);
+    setConfirmVoid(false);
 
     const net = Number(String(netTermsDays || "").trim());
     if (!NET_TERMS_OPTIONS.includes(net)) {
@@ -327,6 +349,7 @@ export default function AdminInvoiceDetail() {
     setActionMsg("");
     setError("");
     setLateFeePreview(null);
+    setConfirmVoid(false);
     setActionBusy(true);
 
     pvUiHook("billing.admin_invoice.late_fee.preview.click.ui", {
@@ -350,7 +373,15 @@ export default function AdminInvoiceDetail() {
       });
 
       if (p?.eligible) setActionMsg("Late fee eligible (preview loaded).");
-      else if (p?.reason) setActionMsg(`Late fee not eligible: ${p.reason}`);
+      else if (p?.reason) {
+        const reasonMap = {
+          NOT_PAST_GRACE_PERIOD: "invoice is still within the grace period",
+          ALREADY_APPLIED: "a late fee has already been applied",
+          PAID: "the invoice has already been paid"
+        };
+        const human = reasonMap[p.reason] || "late fee cannot be applied";
+        setActionMsg(`Late fee not eligible — ${human}.`);
+      }
       else setActionMsg("Late fee not eligible.");
     } catch (e) {
       pvUiHook("billing.admin_invoice.late_fee.preview.failure.ui", {
@@ -382,6 +413,7 @@ export default function AdminInvoiceDetail() {
     try {
       const r = await adminVoidInvoice(invoiceId);
       setActionMsg(`Voided. Status: ${r?.status || "void"}`);
+      setConfirmVoid(false);
 
       pvUiHook("billing.admin_invoice.void.success.ui", {
         tc: "TC-AID-VOID-02",
@@ -409,6 +441,7 @@ export default function AdminInvoiceDetail() {
   async function onGeneratePayLink() {
     setPayErr("");
     setActionMsg("");
+    setConfirmVoid(false);
     setPayBusy(true);
 
     pvUiHook("billing.admin_invoice.pay_link.generate.click.ui", {
@@ -622,9 +655,71 @@ export default function AdminInvoiceDetail() {
                 {actionBusy ? "Working…" : "Preview late fee"}
               </button>
 
-              <button onClick={onVoid} disabled={!canVoid || actionBusy} style={buttonBase}>
-                {actionBusy ? "Working…" : "Void invoice"}
-              </button>
+              {confirmVoid ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 10,
+                    alignItems: "center",
+                    padding: "10px 12px",
+                    borderRadius: 12,
+                    border: "1px solid rgba(160,0,0,0.18)",
+                    background: "rgba(160,0,0,0.04)",
+                  }}
+                >
+                  <div style={{ fontWeight: 800, color: "rgba(120,0,0,0.95)" }}>
+                    This will void invoice #{invoiceId}. This cannot be undone.
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmVoid(false);
+                      pvUiHook("billing.admin_invoice.void.cancel.ui", {
+                        tc: "TC-AID-VOID-01C",
+                        sev: "info",
+                        stable: `invoice:${String(invoiceId)}`,
+                        invoiceId: Number(invoiceId),
+                      });
+                    }}
+                    disabled={actionBusy}
+                    style={buttonBase}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onVoid}
+                    disabled={actionBusy}
+                    style={{
+                      ...buttonBase,
+                      border: "1px solid rgba(160,0,0,0.25)",
+                      color: "rgba(140,0,0,0.95)",
+                    }}
+                  >
+                    {actionBusy ? "Voiding…" : "Confirm Void"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmVoid(true);
+                    pvUiHook("billing.admin_invoice.void.arm.ui", {
+                      tc: "TC-AID-VOID-01A",
+                      sev: "warn",
+                      stable: `invoice:${String(invoiceId)}`,
+                      invoiceId: Number(invoiceId),
+                    });
+                  }}
+                  disabled={!canVoid || actionBusy}
+                  style={buttonBase}
+                >
+                  Void invoice
+                </button>
+              )}
 
               <div style={{ flex: 1 }} />
 
@@ -823,13 +918,10 @@ export default function AdminInvoiceDetail() {
             <div style={{ fontWeight: 900, marginBottom: 10 }}>Summary</div>
             <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 8 }}>
               <div style={styles.k}>Status</div>
-              <div>{inv.status}</div>
+              <div>{titleCaseStatus(inv.status)}</div>
 
               <div style={styles.k}>Merchant</div>
-              <div>{inv.merchantId}</div>
-
-              <div style={styles.k}>BillingAccount</div>
-              <div>{inv.billingAccountId}</div>
+              <div>{merchantDisplay(detail, inv)}</div>
 
               <div style={styles.k}>Issued</div>
               <div>{inv.issuedAt ? new Date(inv.issuedAt).toLocaleString() : "—"}</div>

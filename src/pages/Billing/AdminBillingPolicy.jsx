@@ -205,7 +205,7 @@ export default function AdminBillingPolicy() {
     <PageContainer size="form">
       <PageHeader
         title="Admin Billing Policy"
-        subtitle="Global billing defaults used for invoice issuance and late-fee behavior."
+        subtitle="Global billing defaults for invoice terms, late fees, and guest payments."
         right={
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" onClick={load} disabled={busy} style={buttonBase}>
@@ -248,8 +248,8 @@ export default function AdminBillingPolicy() {
       ) : null}
 
       <form onSubmit={onSave} style={{ display: "grid", gap: 12 }}>
-        <fieldset disabled={loading || busy} style={{ ...card }}>
-          <legend style={styles.legend}>Late Fee Policy</legend>
+        <div style={{ ...card, opacity: loading || busy ? 0.75 : 1 }}>
+          <div style={styles.cardHeader}>Late Fee Policy</div>
 
           <div style={styles.grid}>
             <label style={styles.label}>Grace days</label>
@@ -259,6 +259,7 @@ export default function AdminBillingPolicy() {
               step={1}
               value={graceDays}
               onChange={(e) => setGraceDays(Number(e.target.value))}
+              disabled={loading || busy}
               style={controlBase}
             />
 
@@ -269,6 +270,7 @@ export default function AdminBillingPolicy() {
               step="0.01"
               value={lateFeeDollars}
               onChange={(e) => setLateFeeDollars(e.target.value)}
+              disabled={loading || busy}
               style={controlBase}
             />
 
@@ -279,6 +281,7 @@ export default function AdminBillingPolicy() {
               step={1}
               value={lateFeeNetDays}
               onChange={(e) => setLateFeeNetDays(Number(e.target.value))}
+              disabled={loading || busy}
               style={controlBase}
             />
 
@@ -289,15 +292,16 @@ export default function AdminBillingPolicy() {
               step={1}
               value={guestPayTokenDays}
               onChange={(e) => setGuestPayTokenDays(Number(e.target.value))}
+              disabled={loading || busy}
               style={controlBase}
             />
           </div>
 
           <div style={styles.note}>Note: Amounts are stored internally as cents to avoid rounding bugs.</div>
-        </fieldset>
+        </div>
 
-        <fieldset disabled={loading || busy} style={{ ...card }}>
-          <legend style={styles.legend}>Invoice Net Terms</legend>
+        <div style={{ ...card, opacity: loading || busy ? 0.75 : 1 }}>
+          <div style={styles.cardHeader}>Invoice Net Terms</div>
 
           <div style={styles.grid}>
             <label style={styles.label}>Allowed net terms (days)</label>
@@ -306,6 +310,7 @@ export default function AdminBillingPolicy() {
               placeholder="15,30,45"
               value={allowedNetTermsCsv}
               onChange={(e) => setAllowedNetTermsCsv(e.target.value)}
+              disabled={loading || busy}
               style={controlBase}
             />
 
@@ -313,6 +318,7 @@ export default function AdminBillingPolicy() {
             <select
               value={defaultNetTermsDays}
               onChange={(e) => setDefaultNetTermsDays(Number(e.target.value))}
+              disabled={loading || busy}
               style={controlBase}
             >
               {allowedParsed.map((n) => (
@@ -329,7 +335,7 @@ export default function AdminBillingPolicy() {
           <div style={styles.note}>
             Note: “Past due” is derived from due date. Net terms sets the due date at invoice issuance.
           </div>
-        </fieldset>
+        </div>
 
         {updatedAt ? (
           <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
@@ -342,10 +348,11 @@ export default function AdminBillingPolicy() {
 }
 
 const styles = {
-  legend: {
+  cardHeader: {
     fontWeight: 900,
-    padding: "0 6px",
-    color: "rgba(0,0,0,0.75)",
+    fontSize: 14,
+    marginBottom: 10,
+    color: "rgba(0,0,0,0.78)",
   },
   grid: {
     display: "grid",
