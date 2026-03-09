@@ -1,6 +1,7 @@
 // admin/src/pages/MerchantStores.jsx
 import React from "react";
 import { Link } from "react-router-dom";
+import PageContainer from "../components/layout/PageContainer";
 import { listMerchantStores, me, getSystemRole, merchantUpdateStoreProfile } from "../api/client";
 
 /**
@@ -17,7 +18,7 @@ function pvUiHook(event, fields = {}) {
       })
     );
   } catch {
-    // never break UI for logging
+      // never break UI for logging
   }
 }
 
@@ -434,40 +435,62 @@ export default function MerchantStores() {
   }, []);
 
   return (
-    <div style={{ maxWidth: 980 }}>
-      {/* Header */}
+    <PageContainer size="wide">
+      <div style={breadcrumbRow}>
+        <span>Merchant</span>
+        <span style={{ color: TOKENS.muted }}>›</span>
+        <span>Stores</span>
+      </div>
+
       <div style={headerRow}>
         <div>
-          <h2 style={{ marginTop: 0, marginBottom: 6 }}>My Stores</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 6, color: TOKENS.text }}>Stores</h2>
+          <div style={headerSub}>Manage the locations where your business operates.</div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {canManageStores && (
-            <Link to="/merchant/stores/new" style={pillLinkMuted}>
-              Create Store
-            </Link>
-          )}
-
           <button onClick={load} disabled={loading} style={pillButtonMuted(loading)}>
             {loading ? "Loading..." : "Refresh"}
           </button>
         </div>
       </div>
 
-      {/* Error */}
-      {err && <div style={errorBox}>{err}</div>}
+      <div style={pageBody}>
+        {canManageStores ? (
+          <div style={{ ...card, overflow: "visible" }}>
+          <div style={cardHeader}>
+            <div>
+              <div style={{ fontWeight: 900, color: TOKENS.text }}>Create Store</div>
+              <div style={{ marginTop: 4, fontSize: 12.5, color: TOKENS.muted }}>
+                Add a new location for your business.
+              </div>
+            </div>
 
-      {/* List */}
-      <div style={{ marginTop: 14 }}>
+            <Link to="/merchant/stores/new" style={pillLinkMuted}>
+              Create Store
+            </Link>
+          </div>
+        </div>
+        ) : null}
+
+        {/* Error */}
+        {err && <div style={errorBox}>{err}</div>}
+
+        {/* List */}
         <div style={card}>
           <div style={cardHeader}>
-            <div style={{ fontWeight: 800 }}>Results</div>
+            <div>
+              <div style={{ fontWeight: 900, color: TOKENS.text }}>Store Locations</div>
+              <div style={{ marginTop: 4, fontSize: 12.5, color: TOKENS.muted }}>
+                View and update your existing store locations.
+              </div>
+            </div>
             <div style={{ color: "rgba(0,0,0,0.6)" }}>
               ({items.length} store{items.length === 1 ? "" : "s"})
             </div>
           </div>
 
-          <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
+          <div style={listBody}>
             {items.map((s) => {
               const sid = s.id;
               const isExpanded = expandedId === sid;
@@ -491,16 +514,22 @@ export default function MerchantStores() {
                     <div style={{ minWidth: 0 }}>
                       <div style={rowTitle}>{s.name || `Store #${s.id}`}</div>
 
+                      <div style={rowMetaGrid}>
+                        <div style={rowMetaCell}>
+                          <div style={rowMetaLabel}>City</div>
+                          <div style={rowMetaValue}>{s.city ? String(s.city) : "—"}</div>
+                        </div>
+                        <div style={rowMetaCell}>
+                          <div style={rowMetaLabel}>State</div>
+                          <div style={rowMetaValue}>{s.state ? String(s.state) : "—"}</div>
+                        </div>
+                      </div>
+
                       <div style={rowSubLine}>
                         <span style={{ color: "rgba(0,0,0,0.55)" }}>
-                          {[
-                            s.address1 ? String(s.address1) : "",
-                            s.city ? String(s.city) : "",
-                            s.state ? String(s.state) : "",
-                            s.postal ? String(s.postal) : "",
-                          ]
+                          {[s.address1 ? String(s.address1) : "", s.postal ? String(s.postal) : ""]
                             .filter(Boolean)
-                            .join(", ") || "—"}
+                            .join(" · ") || "—"}
                         </span>
                       </div>
                     </div>
@@ -514,29 +543,54 @@ export default function MerchantStores() {
                     </div>
 
                     <div style={actionsCol}>
-  <Link
-    to={`/merchant/stores/${sid}`}
-    style={pillLinkMuted}
-    onClick={() =>
-      pvUiHook("merchant.stores.list.open_store_detail.ui", {
-        stable: "merchant:stores:list",
-        storeId: sid,
-      })
-    }
-  >
-    {canManageStores ? "Manage" : "View"}
-  </Link>
-</div>
+                      <Link
+                        to={`/merchant/stores/${sid}`}
+                        style={pillLinkMuted}
+                        onClick={() =>
+                          pvUiHook("merchant.stores.list.open_store_detail.ui", {
+                            stable: "merchant:stores:list",
+                            storeId: sid,
+                          })
+                        }
+                      >
+                        {canManageStores ? "Manage" : "View"}
+                      </Link>
+                    </div>
                   </div>
 
                   {isExpanded ? (
                     <div style={expandOuter}>
                       <div style={expandInner}>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                          <div style={{ fontWeight: 900 }}>Store settings</div>
-                          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-                            {canManageStores ? (dirty ? "Unsaved changes" : "No changes") : "View only"}
-                            {saving ? " · Saving…" : ""}
+                        <div style={expandHeader}>
+                          <div style={{ fontWeight: 900, color: TOKENS.text }}>Store settings</div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                              {canManageStores ? (dirty ? "Unsaved changes" : "No changes") : "View only"}
+                              {saving ? " · Saving…" : ""}
+                            </div>
+
+                            {canManageStores ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => revert(sid)}
+                                  disabled={saving || !dirty}
+                                  style={pillButtonMuted(saving || !dirty)}
+                                >
+                                  Revert
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => save(sid)}
+                                  disabled={saving || !dirty}
+                                  style={pillButtonMuted(saving || !dirty)}
+                                >
+                                  {saving ? "Saving…" : "Save"}
+                                </button>
+                              </>
+                            ) : null}
                           </div>
                         </div>
 
@@ -600,7 +654,6 @@ export default function MerchantStores() {
                                   />
                                 </div>
 
-                                {/* ✅ State dropdown (matches Create Store) */}
                                 <div style={cell}>
                                   <div style={label}>State</div>
                                   <select
@@ -635,27 +688,11 @@ export default function MerchantStores() {
                               </div>
 
                               <div style={actionsRow}>
-                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => revert(sid)}
-                                    disabled={saving || !dirty}
-                                    style={pillButtonMuted(saving || !dirty)}
-                                  >
-                                    Revert
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => save(sid)}
-                                    disabled={saving || !dirty}
-                                    style={pillButtonPrimary(saving || !dirty)}
-                                  >
-                                    {saving ? "Saving…" : "Save"}
-                                  </button>
-                                </div>
-
-                                <button type="button" onClick={() => setExpandedId(null)} style={pillButtonMuted(false)}>
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedId(null)}
+                                  style={pillButtonMuted(false)}
+                                >
                                   Close
                                 </button>
                               </div>
@@ -697,13 +734,34 @@ export default function MerchantStores() {
           </div>
         ) : null}
       </div>
-    </div>
+    </PageContainer>
   );
 }
 
 /* -----------------------------
    Styles (tight + neutral)
 -------------------------------- */
+
+const TOKENS = {
+  text: "#0B2A33",
+  muted: "rgba(11,42,51,0.60)",
+};
+
+const breadcrumbRow = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+  marginBottom: 10,
+  fontSize: 13,
+  color: TOKENS.muted,
+};
+
+const breadcrumbLink = {
+  color: "#2F8F8B",
+  textDecoration: "none",
+  fontWeight: 800,
+};
 
 const headerRow = {
   display: "flex",
@@ -713,28 +771,58 @@ const headerRow = {
   flexWrap: "wrap",
 };
 
+const headerSub = {
+  marginTop: 6,
+  fontSize: 13,
+  color: "rgba(0,0,0,0.60)",
+  maxWidth: 760,
+  lineHeight: 1.45,
+};
+
+const pageBody = {
+  display: "grid",
+  gap: 14,
+  width: "100%",
+  alignItems: "stretch",
+};
+
+const listBody = {
+  width: "100%",
+};
+
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  width: "100%",
+  boxSizing: "border-box",
+  border: "1px solid rgba(0,0,0,0.14)",
   borderRadius: 14,
   overflow: "hidden",
-  background: "rgba(0,0,0,0.015)", // subtle page-tone inside card
+  background: "rgba(0,0,0,0.015)",
+  justifySelf: "stretch",
 };
 
 const cardHeader = {
+  width: "100%",
+  boxSizing: "border-box",
   padding: 12,
   borderBottom: "1px solid rgba(0,0,0,0.08)",
   display: "flex",
   gap: 10,
   alignItems: "center",
+  justifyContent: "space-between",
+  flexWrap: "wrap",
   background: "white",
 };
 
 const rowWrap = {
+  width: "100%",
+  boxSizing: "border-box",
   borderBottom: "1px solid rgba(0,0,0,0.06)",
   background: "white",
 };
 
 const rowTopGrid = {
+  width: "100%",
+  boxSizing: "border-box",
   display: "grid",
   gridTemplateColumns: "38px minmax(0, 1fr) 128px 110px",
   gap: 10,
@@ -763,10 +851,35 @@ const rowTitle = {
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+  color: TOKENS.text,
+};
+
+const rowMetaGrid = {
+  display: "flex",
+  gap: 16,
+  flexWrap: "wrap",
+  marginTop: 4,
+};
+
+const rowMetaCell = {
+  minWidth: 72,
+};
+
+const rowMetaLabel = {
+  fontSize: 11,
+  color: "rgba(0,0,0,0.50)",
+  fontWeight: 800,
+};
+
+const rowMetaValue = {
+  marginTop: 2,
+  fontSize: 12,
+  color: TOKENS.text,
+  fontWeight: 700,
 };
 
 const rowSubLine = {
-  marginTop: 2,
+  marginTop: 6,
   fontSize: 12,
   minWidth: 0,
   overflow: "hidden",
@@ -811,12 +924,20 @@ const expandOuter = {
 };
 
 const expandInner = {
-  marginLeft: 38, // align under content (after caret column)
+  marginLeft: 38,
   padding: 14,
   borderRadius: 16,
-  border: "2px solid rgba(0,0,0,0.18)", // bolder
-  background: "rgba(0,0,0,0.02)", // more visible than white
-  boxShadow: "0 3px 10px rgba(0,0,0,0.10)", // slightly stronger
+  border: "2px solid rgba(0,0,0,0.18)",
+  background: "rgba(0,0,0,0.02)",
+  boxShadow: "0 3px 10px rgba(0,0,0,0.10)",
+};
+
+const expandHeader = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
 };
 
 const row = { marginBottom: 10, minWidth: 0 };
@@ -853,7 +974,7 @@ const cell = { minWidth: 0 };
 const actionsRow = {
   marginTop: 10,
   display: "flex",
-  justifyContent: "space-between",
+  justifyContent: "flex-end",
   alignItems: "center",
   gap: 10,
   flexWrap: "wrap",
@@ -880,18 +1001,6 @@ function pillButtonMuted(disabled) {
     background: "rgba(0,0,0,0.02)",
     cursor: disabled ? "not-allowed" : "pointer",
     fontWeight: 800,
-    opacity: disabled ? 0.55 : 1,
-  };
-}
-
-function pillButtonPrimary(disabled) {
-  return {
-    padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: disabled ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.08)",
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontWeight: 900,
     opacity: disabled ? 0.55 : 1,
   };
 }

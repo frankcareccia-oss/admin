@@ -393,7 +393,10 @@ export default function MerchantStoreCreate() {
         </Link>
       </div>
 
-      <h2 style={{ marginTop: 0, marginBottom: 10 }}>Create Store</h2>
+      <h2 style={{ marginTop: 0, marginBottom: 6 }}>Create Store</h2>
+      <div style={{ marginBottom: 16, fontSize: 13, color: "rgba(0,0,0,0.60)", maxWidth: 700 }}>
+        Add a new location where your business operates.
+      </div>
 
       {DEV_MODE ? (
         <div style={{ color: "rgba(0,0,0,0.45)", marginBottom: 12, fontSize: 12 }}>
@@ -433,7 +436,20 @@ export default function MerchantStoreCreate() {
 
       {/* ✅ Panel wrapper now matches expanded box scheme */}
       <div style={{ ...expandedBoxScheme, marginTop: 12 }}>
-        <div style={{ fontWeight: 900, marginBottom: 10 }}>Store profile</div>
+        <div style={{ fontWeight: 900, marginBottom: 10 }}>Define Store</div>
+
+        <div style={{ marginBottom: 10 }}>
+          <div style={label}>Store name</div>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => setTouched((t) => ({ ...t, name: true }))}
+            style={fieldStyle(showFieldError("name"))}
+            placeholder="e.g., Main Store"
+            autoComplete="organization"
+          />
+          {showFieldError("name") ? <div style={errorText}>{errors.name}</div> : null}
+        </div>
 
         <div style={{ marginBottom: 10 }}>
           <div style={label}>Status</div>
@@ -451,19 +467,6 @@ export default function MerchantStoreCreate() {
             ))}
           </select>
           {showFieldError("status") ? <div style={errorText}>{errors.status}</div> : null}
-        </div>
-
-        <div style={{ marginBottom: 10 }}>
-          <div style={label}>Store name</div>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => setTouched((t) => ({ ...t, name: true }))}
-            style={fieldStyle(showFieldError("name"))}
-            placeholder="e.g., Main Store"
-            autoComplete="organization"
-          />
-          {showFieldError("name") ? <div style={errorText}>{errors.name}</div> : null}
         </div>
 
         <div style={{ marginBottom: 10 }}>
@@ -539,7 +542,7 @@ export default function MerchantStoreCreate() {
             disabled={creating}
             onClick={() => {
               pvUiHook("merchant.store.create.cancel_click.ui", { stable: "merchant:store:create" });
-              navigate("/merchant", { replace: false });
+              navigate("/merchant/stores", { replace: false });
             }}
           >
             Cancel

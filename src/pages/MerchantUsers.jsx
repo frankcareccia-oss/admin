@@ -1,6 +1,7 @@
 ﻿// admin/src/pages/MerchantUsers.jsx
 import React from "react";
 import { Link } from "react-router-dom";
+import PageContainer from "../components/layout/PageContainer";
 import {
   merchantListUsers,
   merchantCreateUser,
@@ -25,12 +26,31 @@ const ROLE_OPTIONS = [
   { value: "merchant_admin", label: "Merchant Admin" },
   { value: "store_admin", label: "Store Admin" },
   { value: "store_subadmin", label: "Store Sub-admin" },
+  { value: "pos_employee", label: "POS Employee" },
 ];
 
 const STATUS_OPTIONS = [
-  { value: "active", label: "active" },
-  { value: "suspended", label: "suspended" },
+  { value: "active", label: "Active" },
+  { value: "suspended", label: "Suspended" },
 ];
+
+const ROLE_LABEL_BY_VALUE = ROLE_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+
+const STATUS_LABEL_BY_VALUE = STATUS_OPTIONS.reduce((acc, option) => {
+  acc[option.value] = option.label;
+  return acc;
+}, {});
+
+function displayRoleLabel(value) {
+  return ROLE_LABEL_BY_VALUE[String(value || "").trim()] || "—";
+}
+
+function displayStatusLabel(value) {
+  return STATUS_LABEL_BY_VALUE[String(value || "").trim()] || "—";
+}
 
 
 const PHONE_COUNTRY_OPTIONS = [
@@ -121,7 +141,6 @@ const TOKENS = {
 
 const styles = {
   page: { minHeight: "100vh", background: TOKENS.pageBg, color: TOKENS.text, overflowX: "hidden" },
-  frame: { maxWidth: 980, margin: "0 auto", padding: "18px 16px 32px" },
 
   breadcrumbRow: {
     display: "flex",
@@ -157,8 +176,8 @@ const styles = {
     marginTop: 6,
     fontSize: 13,
     color: TOKENS.muted,
-    maxWidth: 720,
-    lineHeight: 1.35,
+    maxWidth: 760,
+    lineHeight: 1.45,
   },
   actions: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" },
 
@@ -197,6 +216,13 @@ const styles = {
 
   divider: { height: 1, background: TOKENS.divider, margin: "12px 0" },
 
+  filterHeading: {
+    fontSize: 12,
+    fontWeight: 800,
+    color: TOKENS.muted,
+    marginBottom: 8,
+  },
+
   toolbar: { display: "flex", gap: 10, flexWrap: "nowrap", alignItems: "center" },
   input: {
     flex: 1,
@@ -218,12 +244,12 @@ const styles = {
   },
 
   btnPrimary: {
-    padding: "10px 12px",
+    padding: "9px 14px",
     borderRadius: 10,
     border: "1px solid transparent",
     background: TOKENS.teal,
     color: "white",
-    fontWeight: 900,
+    fontWeight: 800,
     cursor: "pointer",
   },
   btnPrimaryDisabled: { opacity: 0.55, cursor: "not-allowed" },
@@ -240,7 +266,7 @@ const styles = {
   btnLink: { padding: 0, border: 0, background: "transparent", color: TOKENS.teal, fontWeight: 800, cursor: "pointer" },
 
   tableWrap: { overflowX: "auto" },
-  table: { width: "100%", borderCollapse: "collapse", minWidth: 780 },
+  table: { width: "100%", borderCollapse: "collapse", minWidth: 860 },
   th: {
     textAlign: "left",
     fontSize: 12,
@@ -490,9 +516,11 @@ export default function MerchantUsers({ readOnly = false }) {
 
     // contract: mutually exclusive
     if (showCreate) {
-      const ok = window.confirm("Close the Create panel to edit a team member?");
-      if (!ok) return;
       setShowCreate(false);
+      pvUiHook("merchant.users.create_panel_auto_closed.ui", {
+        stable: "merchant:users:create_panel_auto_closed",
+        reason: "row_expand",
+      });
     }
 
     if (!guardDiscardIfDirty()) return;
@@ -708,7 +736,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
   return (
     <div style={styles.page}>
-      <div style={styles.frame}>
+      <PageContainer size="page">
         <div style={styles.breadcrumbRow}>
           <Link
             to="/merchant/stores"
@@ -725,7 +753,7 @@ export default function MerchantUsers({ readOnly = false }) {
           <div style={styles.titleWrap}>
             <h2 style={styles.h2}>Team</h2>
             <div style={styles.sub}>
-              Manage merchant-level employees (identity + tenant role). Store staffing happens from a store’s Team &amp; Access tab.
+              Manage people who work for your business. Assign people to specific stores from each store’s Team &amp; Access page.
             </div>
           </div>
 
@@ -749,7 +777,7 @@ export default function MerchantUsers({ readOnly = false }) {
                 disabled={busy}
                 style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}
               >
-                {showCreate ? "Close Create" : "+ Add Employee"}
+                {showCreate ? "Close" : "Add Employee"}
               </button>
             )}
           </div>
@@ -761,10 +789,12 @@ export default function MerchantUsers({ readOnly = false }) {
               <div>
                 <div style={styles.cardTitle}>Team Members</div>
                 <div style={styles.cardHelp}>
-                  Search and edit employees. Inline expand is the only row interaction on this screen (Pattern B).
+                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page.
                 </div>
               </div>
             </div>
+
+            <div style={styles.filterHeading}>Find team members</div>
 
             <div style={styles.toolbar}>
               <input
@@ -773,7 +803,7 @@ export default function MerchantUsers({ readOnly = false }) {
                   setQ(e.target.value);
                   pvUiHook("merchant.users.search_changed.ui", { stable: "merchant:users:search_changed" });
                 }}
-                placeholder="Search email, name, phone, role, status…"
+                placeholder="Search by name, phone, email, role, or status"
                 style={styles.input}
               />
 
@@ -965,9 +995,9 @@ export default function MerchantUsers({ readOnly = false }) {
                   <thead>
                     <tr>
                       <th style={styles.th}></th>
-                      <th style={styles.th}>Email</th>
                       <th style={styles.th}>Name</th>
                       <th style={styles.th}>Phone</th>
+                      <th style={styles.th}>Email</th>
                       <th style={styles.th}>Role</th>
                       <th style={styles.th}>Status</th>
                     </tr>
@@ -991,14 +1021,11 @@ export default function MerchantUsers({ readOnly = false }) {
                               </button>
                             </td>
                             <td style={styles.td}>
-                              <div style={{ fontWeight: 900 }}>{mu?.email || mu?.user?.email || "—"}</div>
-                            </td>
-                            <td style={styles.td}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                <span>{displayName(mu)}</span>
+                                <span style={{ fontWeight: 800 }}>{displayName(mu)}</span>
                                 {mu?.isPrimaryContact ? (
                                   <span style={{ ...styles.pill, ...styles.contactPill }} title={mu?.primaryContactStoreNames || "Primary contact"}>
-                                    ★ Contact
+                                    Primary contact
                                   </span>
                                 ) : null}
                               </div>
@@ -1010,11 +1037,14 @@ export default function MerchantUsers({ readOnly = false }) {
                             </td>
                             <td style={styles.td}>{displayPhone(mu)}</td>
                             <td style={styles.td}>
-                              <span style={styles.pill}>{String(mu?.role || "—")}</span>
+                              <div style={{ fontWeight: 700 }}>{mu?.email || mu?.user?.email || "—"}</div>
+                            </td>
+                            <td style={styles.td}>
+                              <span style={styles.pill}>{displayRoleLabel(mu?.role)}</span>
                             </td>
                             <td style={styles.td}>
                               <span style={{ ...styles.pill, ...(st === "active" ? styles.statusOk : styles.statusErr) }}>
-                                {String(mu?.status || "active")}
+                                {displayStatusLabel(mu?.status || "active")}
                               </span>
                             </td>
 
@@ -1128,7 +1158,7 @@ export default function MerchantUsers({ readOnly = false }) {
             </div>
           )}
         </div>
-      </div>
+      </PageContainer>
     </div>
   );
 }

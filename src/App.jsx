@@ -514,26 +514,26 @@ function Layout({ children }) {
 
   return (
     <MerchantCtx.Provider value={{ merchantRole, merchantRolePath, loading: merchantRoleLoading }}>
-      <div style={{ height: "100vh", display: "grid", gridTemplateRows: "56px 1fr" }}>
+      <div style={{ height: "100vh", display: "grid", gridTemplateRows: "56px 1fr", background: "#F7F5F1" }}>
         <header
           style={{
             background: "#FEFCF7",
             position: "sticky",
             top: 0,
             zIndex: 10,
+            borderBottom: "1px solid rgba(0,0,0,0.10)",
           }}
         >
           <div
             style={{
-              maxWidth: 980,
-              margin: "0 auto",
+              width: "100%",
               height: 56,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
               padding: "0 16px",
-              borderBottom: "1px solid rgba(0,0,0,0.10)",
+              boxSizing: "border-box",
               background: "#FEFCF7",
             }}
           >
@@ -659,11 +659,11 @@ function Layout({ children }) {
           </div>
         </header>
 
-        <main style={{ padding: 16, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
+        <main style={{ padding: "0 16px 16px", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
           {children}
         </main>
 
-<SupportInfo
+          <SupportInfo
   authed={authed}
   systemRole={sysRole}
   merchantRole={merchantRole}
@@ -674,7 +674,7 @@ function Layout({ children }) {
   apiBase={API_BASE}
   context={{ page: "Layout", merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
   meFn={me}
-/>
+          />
       </div>
     </MerchantCtx.Provider>
   );

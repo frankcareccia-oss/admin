@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { listMerchantStores, me, merchantUpdateStoreProfile } from "../api/client";
+import PageContainer from "../components/layout/PageContainer";
 import StoreTeamPanel from "./components/StoreTeamPanel";
 
 /**
@@ -33,8 +34,12 @@ function getSystemRoleLocal() {
 /* ---------------- UI palette ---------------- */
 
 const COLORS = {
-  primary: "#2563EB",
-  neutral: "rgba(0,0,0,0.55)",
+  primary: "#2F8F8B",
+  primaryHover: "#277D79",
+  text: "#0B2A33",
+  neutral: "rgba(11,42,51,0.60)",
+  border: "rgba(0,0,0,0.16)",
+  divider: "rgba(0,0,0,0.08)",
 
   dangerBg: "rgba(254, 226, 226, 0.85)",
   dangerBorder: "rgba(252, 165, 165, 0.9)",
@@ -44,17 +49,17 @@ const COLORS = {
   okBorder: "rgba(0, 160, 80, 0.18)",
 };
 
-
-const infoCard = {
+const cardBase = {
   marginTop: 12,
-  padding: 14,
+  padding: 16,
   borderRadius: 14,
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${COLORS.border}`,
   background: "white",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
 };
 
-const infoK = { fontSize: 12, color: "rgba(0,0,0,0.60)", marginBottom: 4 };
-const infoV = { fontSize: 14, fontWeight: 700, color: "rgba(0,0,0,0.85)" };
+const infoK = { fontSize: 12, color: COLORS.neutral, marginBottom: 4 };
+const infoV = { fontSize: 14, fontWeight: 700, color: COLORS.text };
 const infoRow = { display: "flex", gap: 14, flexWrap: "wrap" };
 const infoCell = { minWidth: 220, flex: "1 1 220px" };
 
@@ -81,8 +86,8 @@ const tabPill = {
 
 const tabPillActive = {
   ...tabPill,
-  border: "1px solid rgba(37, 99, 235, 0.55)",
-  background: "rgba(37, 99, 235, 0.08)",
+  border: `1px solid rgba(47, 143, 139, 0.55)`,
+  background: "rgba(47, 143, 139, 0.08)",
 };
 
 const primaryPill = {
@@ -196,8 +201,14 @@ function splitName(full) {
   const s = String(full ?? "").trim();
   if (!s) return { first: "", last: "" };
   const parts = s.split(/\s+/g);
-  if (parts.length == 1) return { first: parts[0], last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
   return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
+function fullName(person) {
+  const first = String(person?.firstName ?? "").trim();
+  const last = String(person?.lastName ?? "").trim();
+  return [first, last].filter(Boolean).join(" ").trim();
 }
 
 /**
@@ -357,15 +368,10 @@ export default function MerchantStoreDetail() {
   React.useEffect(() => {
     setPrimaryContact(null);
   }, [sid]);
-  
-  const canManage = merchantRole === "merchant_admin" || merchantRole === "owner";
 
+  const canManage = merchantRole === "merchant_admin" || merchantRole === "owner";
   const systemRole = getSystemRoleLocal();
-  console.log("[MerchantStoreDetail] role gate", {
-  systemRole,
-  merchantRole,
-  canManage,
-});
+
   const cancelledRef = React.useRef(false);
 
   const handlePrimaryResolved = React.useCallback((pc) => {
@@ -630,9 +636,6 @@ export default function MerchantStoreDetail() {
       });
 
       await merchantUpdateStoreProfile(sid, payload);
-
-      // Do not rely on the PATCH response shape. Re-load from source of truth so the
-      // Settings form always reflects what the backend actually persisted.
       await load();
 
       if (!cancelledRef.current) {
@@ -669,12 +672,26 @@ export default function MerchantStoreDetail() {
   const addressLine = [store.address1, store.city, store.state, store.postal].filter(Boolean).join(", ");
 
   const dirty = computeDirty();
+  const primaryDisplayName = fullName(primaryContact);
 
   return (
-    <div style={{ maxWidth: 900, padding: "0 12px" }}>
-      <style>{`.pvInput::placeholder{color: rgba(0,0,0,0.28);} .pvInput{ }`}</style>
-
-      <div style={{ marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+    <PageContainer size="wide">
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text }}>Store</div>
+        <div style={{ fontSize: 13, color: COLORS.neutral, marginTop: 4 }}>
+          Manage store profile, contact details, and team access.
+        </div>
+      </div>
+<div
+        style={{
+          marginBottom: 14,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <Link to="/merchant/stores" style={breadcrumbLink}>
             ← Back to My Stores
@@ -690,7 +707,15 @@ export default function MerchantStoreDetail() {
           ) : null}
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            flexWrap: "wrap",
+            justifyContent: "flex-end",
+          }}
+        >
           <Link
             to={tab === "team" ? `/merchant/stores/${store.id}` : `/merchant/stores/${store.id}?tab=team`}
             style={tab === "team" ? tabPillActive : tabPill}
@@ -711,9 +736,17 @@ export default function MerchantStoreDetail() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 12, alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+        }}
+      >
         <div style={{ minWidth: 0 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 6 }}>{displayName}</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 6, color: COLORS.text }}>{displayName}</h2>
         </div>
       </div>
 
@@ -725,21 +758,23 @@ export default function MerchantStoreDetail() {
 
       {tab === "team" ? (
         <div>
-          <div style={infoCard}>
-            <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 10 }}>Primary Contact</div>
+          <div style={cardBase}>
+            <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 12, color: COLORS.text }}>
+              Primary Contact
+            </div>
 
             {primaryContact ? (
               <div style={infoRow}>
                 <div style={infoCell}>
                   <div style={infoK}>Name</div>
-                  <div style={infoV}>
-                    {String(`${primaryContact.firstName || ""} ${primaryContact.lastName || ""}`).trim() || "—"}
-                  </div>
+                  <div style={infoV}>{primaryDisplayName || "—"}</div>
                 </div>
 
                 <div style={infoCell}>
                   <div style={infoK}>Phone</div>
-                  <div style={infoV}>{primaryContact.phone ? formatNanp10(primaryContact.phone) : "—"}</div>
+                  <div style={infoV}>
+                    {primaryContact.phone ? formatNanp10(primaryContact.phone) : "—"}
+                  </div>
                 </div>
 
                 <div style={infoCell}>
@@ -748,21 +783,59 @@ export default function MerchantStoreDetail() {
                 </div>
               </div>
             ) : (
-              <div style={{ color: "rgba(0,0,0,0.60)" }}>
-                Not set. Choose a Primary Contact in Team &amp; Access.
+              <div style={{ color: COLORS.neutral }}>
+                No primary contact is set for this store yet.
               </div>
             )}
           </div>
 
-          <StoreTeamPanel storeId={sid} canManage={canManage} primaryContactStoreUserId={store?.primaryContactStoreUserId ?? store?.primaryContactStoreUserID ?? null} onPrimaryContactChanged={() => load()}   onPrimaryContactResolved={handlePrimaryResolved} />
+          <StoreTeamPanel
+            storeId={sid}
+            canManage={canManage}
+            primaryContactStoreUserId={store?.primaryContactStoreUserId ?? store?.primaryContactStoreUserID ?? null}
+            onPrimaryContactChanged={() => load()}
+            onPrimaryContactResolved={handlePrimaryResolved}
+          />
         </div>
       ) : (
-        <div style={{ marginTop: 14, padding: 14, borderRadius: 14, border: "1px solid rgba(0,0,0,0.12)", background: "white" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 900 }}>Store settings</div>
-            <div style={{ fontSize: 12, color: COLORS.neutral }}>
-              {canManage ? (dirty ? "Unsaved changes" : "No changes") : ""}
-              {saving ? " · Saving…" : ""}
+        <div style={{ ...cardBase, marginTop: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ fontWeight: 900, color: COLORS.text }}>Store settings</div>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12, color: COLORS.neutral }}>
+                {canManage ? (dirty ? "Unsaved changes" : "No changes") : ""}
+                {saving ? " · Saving…" : ""}
+              </div>
+
+              {canManage ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={revert}
+                    disabled={!dirty || saving}
+                    style={!dirty || saving ? mutedPillDisabled : mutedPill}
+                  >
+                    Revert
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={save}
+                    disabled={!dirty || saving}
+                    style={!dirty || saving ? mutedPillDisabled : mutedPill}
+                  >
+                    Save
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
 
@@ -778,7 +851,11 @@ export default function MerchantStoreDetail() {
               <div style={{ marginTop: 10 }}>
                 <div style={row}>
                   <div style={label}>Status</div>
-                  <select value={normalizeStatusValue(fields?.status ?? store.status)} onChange={(e) => setField("status", normalizeStatusValue(e.target.value))} style={input}>
+                  <select
+                    value={normalizeStatusValue(fields?.status ?? store.status)}
+                    onChange={(e) => setField("status", normalizeStatusValue(e.target.value))}
+                    style={input}
+                  >
                     <option value="">Select status…</option>
                     {STATUS_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -790,23 +867,49 @@ export default function MerchantStoreDetail() {
 
                 <div style={row}>
                   <div style={label}>Store name</div>
-                  <input className="pvInput" value={fields?.name ?? norm(store.name)} onChange={(e) => setField("name", e.target.value)} placeholder="e.g., Main Store" style={input} autoComplete="off" />
+                  <input
+                    className="pvInput"
+                    value={fields?.name ?? norm(store.name)}
+                    onChange={(e) => setField("name", e.target.value)}
+                    placeholder="e.g., Main Store"
+                    style={input}
+                    autoComplete="off"
+                  />
                 </div>
 
                 <div style={row}>
                   <div style={label}>Address1</div>
-                  <input className="pvInput" value={fields?.address1 ?? norm(store.address1)} onChange={(e) => setField("address1", e.target.value)} placeholder="Street address" style={input} autoComplete="off" />
+                  <input
+                    className="pvInput"
+                    value={fields?.address1 ?? norm(store.address1)}
+                    onChange={(e) => setField("address1", e.target.value)}
+                    placeholder="Street address"
+                    style={input}
+                    autoComplete="off"
+                  />
                 </div>
 
                 <div style={grid3}>
                   <div style={cell}>
                     <div style={label}>City</div>
-                    <input className="pvInput" value={fields?.city ?? norm(store.city)} onChange={(e) => setField("city", e.target.value)} placeholder="City" style={input} autoComplete="off" />
+                    <input
+                      className="pvInput"
+                      value={fields?.city ?? norm(store.city)}
+                      onChange={(e) => setField("city", e.target.value)}
+                      placeholder="City"
+                      style={input}
+                      autoComplete="off"
+                    />
                   </div>
 
                   <div style={cell}>
                     <div style={label}>State</div>
-                    <select value={String(fields?.state ?? store.state ?? "").toUpperCase()} onChange={(e) => setField("state", String(e.target.value || "").toUpperCase())} style={input} autoComplete="address-level1">
+                    <select
+                      value={String(fields?.state ?? store.state ?? "").toUpperCase()}
+                      onChange={(e) => setField("state", String(e.target.value || "").toUpperCase())}
+                      style={input}
+                      autoComplete="address-level1"
+                    >
                       <option value="">Select a state…</option>
                       {US_STATES.map((opt) => (
                         <option key={opt.abbr} value={opt.abbr}>
@@ -818,24 +921,52 @@ export default function MerchantStoreDetail() {
 
                   <div style={cell}>
                     <div style={label}>Postal</div>
-                    <input className="pvInput" value={fields?.postal ?? norm(store.postal)} onChange={(e) => setField("postal", normalizeZip5(e.target.value))} placeholder="e.g., 94586" style={input} inputMode="numeric" autoComplete="postal-code" maxLength={5} />
+                    <input
+                      className="pvInput"
+                      value={fields?.postal ?? norm(store.postal)}
+                      onChange={(e) => setField("postal", normalizeZip5(e.target.value))}
+                      placeholder="e.g., 94586"
+                      style={input}
+                      inputMode="numeric"
+                      autoComplete="postal-code"
+                      maxLength={5}
+                    />
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "rgba(0,0,0,0.01)" }}>
-                  <div style={{ fontWeight: 900, marginBottom: 8 }}>Location phone</div>
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: 12,
+                    borderRadius: 14,
+                    border: "1px solid rgba(0,0,0,0.12)",
+                    background: "rgba(0,0,0,0.01)",
+                  }}
+                >
+                  <div style={{ fontWeight: 900, marginBottom: 8, color: COLORS.text }}>Location phone</div>
 
                   <div style={row}>
                     <div style={label}>Location phone</div>
 
                     <div style={{ position: "relative", display: "flex", alignItems: "stretch" }}>
-                      <button type="button" ref={storePrefixBtnRef} onClick={() => setOpenPrefix((cur) => (cur === "store" ? null : "store"))} style={phonePrefixBtn(openPrefix === "store")} title="Select country">
+                      <button
+                        type="button"
+                        ref={storePrefixBtnRef}
+                        onClick={() => setOpenPrefix((cur) => (cur === "store" ? null : "store"))}
+                        style={phonePrefixBtn(openPrefix === "store")}
+                        title="Select country"
+                      >
                         {getPhoneCountryMeta(fields?.phoneCountry).dial} ▾
                       </button>
 
                       <input
                         className="pvInput"
-                        style={{ ...input, borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: "none" }}
+                        style={{
+                          ...input,
+                          borderTopLeftRadius: 0,
+                          borderBottomLeftRadius: 0,
+                          borderLeft: "none",
+                        }}
                         value={formatNanp10(fields?.phoneRaw)}
                         placeholder="(415) 555-1212"
                         inputMode="numeric"
@@ -864,11 +995,19 @@ export default function MerchantStoreDetail() {
                   </div>
                 </div>
 
-                <div style={{ marginBottom: 12, padding: 12, borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "rgba(0,0,0,0.01)" }}>
-                  <div style={{ fontWeight: 900, marginBottom: 8 }}>Primary contact</div>
+                <div
+                  style={{
+                    marginBottom: 12,
+                    padding: 12,
+                    borderRadius: 14,
+                    border: "1px solid rgba(0,0,0,0.12)",
+                    background: "rgba(0,0,0,0.01)",
+                  }}
+                >
+                  <div style={{ fontWeight: 900, marginBottom: 8, color: COLORS.text }}>Primary contact</div>
 
-                  <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)", lineHeight: 1.5 }}>
-                    The primary contact for this location is managed from the 
+                  <div style={{ fontSize: 13, color: COLORS.neutral, lineHeight: 1.5 }}>
+                    The primary contact for this location is managed from the{" "}
                     <strong>Team &amp; Access</strong> panel for the store.
                   </div>
 
@@ -881,7 +1020,7 @@ export default function MerchantStoreDetail() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
@@ -916,24 +1055,7 @@ const grid3 = {
   minWidth: 0,
 };
 
-const grid2 = {
-  display: "grid",
-  gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-  gap: 12,
-  marginBottom: 10,
-  minWidth: 0,
-};
-
 const cell = { minWidth: 0 };
-
-const actionsRow = {
-  marginTop: 10,
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  gap: 10,
-  flexWrap: "wrap",
-};
 
 const errorBox = {
   background: COLORS.dangerBg,
