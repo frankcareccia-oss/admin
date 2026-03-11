@@ -69,7 +69,7 @@ export default function MerchantDetail() {
   if (loading) {
     return (
       <PageContainer size="page">
-        <div style={{ padding: 16 }}>Loadingâ€¦</div>
+        <div style={{ padding: 16 }}>Loading...</div>
       </PageContainer>
     );
   }
@@ -117,7 +117,7 @@ export default function MerchantDetail() {
     <PageContainer size="page">
       <div style={{ marginBottom: 10 }}>
         <Link to="/merchants" style={{ textDecoration: "none" }}>
-          â† Back to Merchants
+          Back to Merchants
         </Link>
       </div>
 
@@ -125,7 +125,7 @@ export default function MerchantDetail() {
         title={merchant.name}
         subtitle={
           <span>
-            Merchant ID: <code>{merchant.id}</code> â€¢ Status: <code>{merchant.status}</code>
+            Status: <code>{merchant.status}</code>
           </span>
         }
         right={
@@ -203,7 +203,7 @@ export default function MerchantDetail() {
           </div>
 
           <button type="submit" disabled={busy} style={styles.saveBtn}>
-            {busy ? "Savingâ€¦" : "Save"}
+            {busy ? "Saving..." : "Save"}
           </button>
         </form>
 
