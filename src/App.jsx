@@ -259,6 +259,25 @@ function RequirePosSession({ children }) {
   return children;
 }
 
+// Resolve human-readable page name for Support panel
+function resolvePageName(pathname) {
+  try {
+    if (!pathname) return 'Unknown';
+    if (pathname.startsWith('/merchants')) return 'Merchants';
+    if (pathname.startsWith('/merchant/users')) return 'Merchant Team';
+    if (pathname.startsWith('/merchant/stores')) return 'Merchant Stores';
+    if (pathname.startsWith('/merchant/invoices')) return 'Merchant Invoice Detail';
+    if (pathname.startsWith('/admin/invoices/')) return 'Admin Invoice Detail';
+    if (pathname.startsWith('/admin/invoices')) return 'Admin Invoice List';
+    if (pathname.startsWith('/admin/billing-policy')) return 'Billing Policy';
+    if (pathname.startsWith('/merchant/pos')) return 'POS';
+    if (pathname.startsWith('/login')) return 'Login';
+    return 'App';
+  } catch {
+    return 'Unknown';
+  }
+}
+
 function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -672,7 +691,7 @@ function Layout({ children }) {
   deviceTrustedLoading={deviceTrustedLoading}
   pathname={location.pathname}
   apiBase={API_BASE}
-  context={{ page: "Layout", merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
+  context={{ page: resolvePageName(location.pathname), merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
   meFn={me}
           />
       </div>

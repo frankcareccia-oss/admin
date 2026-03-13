@@ -140,8 +140,10 @@ export default function Merchants() {
     });
 
     try {
+      
       const rows = await listMerchants({ status });
-      setMerchants(Array.isArray(rows) ? rows : []);
+      const items = Array.isArray(rows?.items) ? rows.items : [];
+      setMerchants(items);
 
       pvUiHook("admin.merchants.list_load_succeeded.ui", {
         tc: "TC-MER-UI-02",

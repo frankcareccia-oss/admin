@@ -1093,7 +1093,7 @@ export async function merchantCreateUser(
   if (phoneRaw !== undefined) body.phoneRaw = phoneRaw === null ? null : String(phoneRaw).trim() || null;
   if (phoneCountry !== undefined) body.phoneCountry = phoneCountry === null ? null : String(phoneCountry).trim() || null;
 
-  return apiFetch("/merchant/users", {
+  return request("/merchant/users", {
     method: "POST",
     auth: "jwt",
     body,

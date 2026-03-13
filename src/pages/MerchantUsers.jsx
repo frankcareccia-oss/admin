@@ -24,9 +24,10 @@ import {
 const ROLE_OPTIONS = [
   { value: "owner", label: "Merchant Owner" },
   { value: "merchant_admin", label: "Merchant Admin" },
+  { value: "ap_clerk", label: "AP Clerk" },
+  { value: "merchant_employee", label: "Merchant Employee" },
   { value: "store_admin", label: "Store Admin" },
   { value: "store_subadmin", label: "Store Sub-admin" },
-  { value: "pos_employee", label: "POS Employee" },
 ];
 
 const STATUS_OPTIONS = [
@@ -186,7 +187,7 @@ const styles = {
     borderRadius: 14,
     padding: 14,
     background: TOKENS.surface,
-    boxShadow: "0 1px 0 rgba(0,0,0,0.03)",
+    boxShadow: "0 3px 10px rgba(0,0,0,0.10)",
   },
 
   editCard: {
@@ -392,7 +393,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
   // Create form fields (preserved)
   const [email, setEmail] = React.useState("");
-  const [role, setRole] = React.useState("merchant_admin");
+  const [role, setRole] = React.useState("");
   const [status, setStatus] = React.useState("active");
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
@@ -424,6 +425,7 @@ export default function MerchantUsers({ readOnly = false }) {
       firstName: String(editDraft.firstName ?? expandedMu.firstName ?? "").trim(),
       lastName: String(editDraft.lastName ?? expandedMu.lastName ?? "").trim(),
       phoneRaw: String(editDraft.phoneRaw ?? expandedMu.phoneRaw ?? "").trim(),
+      email: String(editDraft.email ?? expandedMu.email ?? expandedMu.user?.email ?? "").trim(),
     };
     const b = {
       role: String(expandedMu.role ?? "").trim(),
@@ -432,6 +434,7 @@ export default function MerchantUsers({ readOnly = false }) {
       firstName: String(expandedMu.firstName ?? "").trim(),
       lastName: String(expandedMu.lastName ?? "").trim(),
       phoneRaw: String(expandedMu.phoneRaw ?? "").trim(),
+      email: String(expandedMu.email ?? expandedMu.user?.email ?? "").trim(),
     };
     return JSON.stringify(a) !== JSON.stringify(b);
   }
@@ -483,21 +486,6 @@ export default function MerchantUsers({ readOnly = false }) {
     return true;
   }
 
-  function focusRow(userId) {
-    try {
-      if (!userId) return;
-      // allow DOM to settle
-      setTimeout(() => {
-        const el = document.getElementById(`mu-row-${userId}`);
-        if (el && typeof el.scrollIntoView === "function") {
-          el.scrollIntoView({ block: "center", behavior: "smooth" });
-        }
-      }, 50);
-    } catch {
-      // never throw
-    }
-  }
-
   function toggleCreatePanel() {
     if (!guardDiscardIfDirty()) return;
 
@@ -508,6 +496,9 @@ export default function MerchantUsers({ readOnly = false }) {
 
     const next = !showCreate;
     setShowCreate(next);
+    if (next) {
+      setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
+    }
     pvUiHook("merchant.users.create_panel_toggle.ui", { stable: "merchant:users:create_panel_toggle", open: next });
   }
 
@@ -564,9 +555,27 @@ export default function MerchantUsers({ readOnly = false }) {
     setErr("");
     setResult(null);
 
+    const fn = String(firstName || "").trim();
+    if (!fn) {
+      setErr("First name is required.");
+      return;
+    }
+
+    const ln = String(lastName || "").trim();
+    if (!ln) {
+      setErr("Last name is required.");
+      return;
+    }
+
     const em = normEmail(email);
     if (!em) {
       setErr("Email is required.");
+      return;
+    }
+
+    const roleNorm = String(role || "").trim();
+    if (!roleNorm) {
+      setErr("Select a role.");
       return;
     }
 
@@ -579,17 +588,17 @@ export default function MerchantUsers({ readOnly = false }) {
     const body = {
       merchantId: ctx.merchantId,
       email: em,
-      role,
+      role: roleNorm,
       status,
-      firstName: normOptionalText(firstName),
-      lastName: normOptionalText(lastName),
+      firstName: normOptionalText(fn),
+      lastName: normOptionalText(ln),
       phoneCountry: normOptionalText(phoneCountry)?.toUpperCase() || "US",
       phoneRaw: normPhoneDigits(phoneRaw),
     };
 
     setBusy(true);
     try {
-      pvUiHook("merchant.users.create_clicked.ui", { stable: "merchant:users:create", merchantId: ctx.merchantId, role, status });
+      pvUiHook("merchant.users.create_clicked.ui", { stable: "merchant:users:create", merchantId: ctx.merchantId, role: roleNorm, status });
       const r = await merchantCreateUser(body);
       setResult(r);
       pvUiHook("merchant.users.create_ok.ui", { stable: "merchant:users:create_ok", merchantId: ctx.merchantId });
@@ -599,7 +608,7 @@ export default function MerchantUsers({ readOnly = false }) {
       setLastName("");
       setPhoneRaw("");
       setPhoneCountry("US");
-      setRole("merchant_admin");
+      setRole("");
       setStatus("active");
       setShowCreate(false);
 
@@ -682,6 +691,7 @@ export default function MerchantUsers({ readOnly = false }) {
       setBusy(false);
     }
   }
+
   function clearFilters() {
     setQ("");
     setRoleFilter("all");
@@ -725,6 +735,14 @@ export default function MerchantUsers({ readOnly = false }) {
     });
   }, [items, q, roleFilter, statusFilter]);
 
+
+  const createRoleSelected = String(role || "").trim();
+  const createCanSave =
+    !busy &&
+    Boolean(String(firstName || "").trim()) &&
+    Boolean(String(lastName || "").trim()) &&
+    Boolean(normEmail(email)) &&
+    Boolean(createRoleSelected);
 
   const merchantCtx = resolveMerchantContextFromMe(profile);
   const merchantLabel = merchantCtx?.merchantName || "your merchant";
@@ -784,12 +802,106 @@ export default function MerchantUsers({ readOnly = false }) {
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
+{showCreate && !readOnly && (
+            <div style={styles.card}>
+              <div style={styles.cardTitleRow}>
+                <div>
+                  <div style={styles.cardTitle}>{`Add Employee to ${merchantLabel}`}</div>
+                  <div style={styles.cardHelp}>{`Add a new employee to ${merchantLabel} and choose their role. POS Employees are assigned later from a store’s Team & Access page.`}</div>
+                </div>
+              </div>
+
+              <form onSubmit={onCreate}>
+                <div style={styles.grid3}>
+                  <div>
+                    <label style={styles.label}>First name</label>
+                    <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={styles.input} disabled={busy} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Last name</label>
+                    <input value={lastName} onChange={(e) => setLastName(e.target.value)} style={styles.input} disabled={busy} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Phone</label>
+                    <div style={styles.phoneFieldRow}>
+                      <select value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value)} style={styles.phonePrefixSelect} disabled={busy}>
+                        {PHONE_COUNTRY_OPTIONS.map((c) => (
+                          <option key={c.value} value={c.value}>
+                            {c.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={formatPhone(phoneRaw) === "—" ? "" : formatPhone(phoneRaw)}
+                        onChange={(e) => setPhoneRaw(normPhoneDigits(e.target.value) ?? "")}
+                        style={styles.phoneInput}
+                        disabled={busy}
+                        placeholder="(415) 555-1212"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ height: 12 }} />
+
+                <div style={styles.grid3}>
+                  <div>
+                    <label style={styles.label}>Role</label>
+                    <select value={role} onChange={(e) => setRole(e.target.value)} style={styles.select} disabled={busy}>
+                      <option value="">Select role</option>
+                      {ROLE_OPTIONS.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={styles.label}>Email</label>
+                    <input value={email} onChange={(e) => setEmail(e.target.value)} style={styles.input} disabled={busy} />
+                  </div>
+                  <div>
+                    <label style={styles.label}>Status</label>
+                    <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select} disabled={busy}>
+                      {STATUS_OPTIONS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 10 }}>
+                  First name, last name, email, and role are required. POS Employee is assigned later from a store’s Team & Access page.
+                </div>
+
+                <div style={styles.formActions}>
+                  <button
+                    type="submit"
+                    disabled={!createCanSave}
+                    style={{ ...styles.btnPrimary, ...(!createCanSave ? styles.btnPrimaryDisabled : null) }}
+                  >
+                    {busy ? "Saving…" : "Save Employee"}
+                  </button>
+
+                  <button type="button" onClick={toggleCreatePanel} disabled={busy} style={styles.btnGhost}>
+                    Close
+                  </button>
+
+                  <span style={{ fontSize: 12, color: TOKENS.muted }}>
+                    {storeAssignmentTip}
+                  </span>
+                </div>
+              </form>
+            </div>
+          )}
           <div style={styles.card}>
             <div style={styles.cardTitleRow}>
               <div>
                 <div style={styles.cardTitle}>Team Members</div>
                 <div style={styles.cardHelp}>
-                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page.
+                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page. POS Employee is assigned at the store level, not as a merchant role.
                 </div>
               </div>
             </div>
@@ -850,221 +962,219 @@ export default function MerchantUsers({ readOnly = false }) {
               <div style={{ fontSize: 13, color: TOKENS.muted }}>Loading…</div>
             ) : (
               <>
-              {expandedMu && (
-              <div style={{ marginTop: 12 }}>
-                <div style={styles.editCard}>
-                                  <div style={styles.cardTitleRow}>
-                                    <div>
-                                      <div style={styles.cardTitle}>Edit Employee</div>
-                                      <div style={styles.cardHelp}>
-                                        {displayName(expandedMu) !== "—" ? displayName(expandedMu) : (expandedMu?.email || expandedMu?.user?.email || "—")}
-                                      </div>
-                                      <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
-                                        Changes apply to this merchant-level employee.
-                                      </div>
-                                    </div>
-                                  </div>
+                {expandedMu && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={styles.editCard}>
+                      <div style={styles.cardTitleRow}>
+                        <div>
+                          <div style={styles.cardTitle}>Edit Employee</div>
+                          <div style={styles.cardHelp}>
+                            {displayName(expandedMu) !== "—" ? displayName(expandedMu) : (expandedMu?.email || expandedMu?.user?.email || "—")}
+                          </div>
+                          <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
+                            Changes apply to this merchant-level employee.
+                          </div>
+                        </div>
+                      </div>
 
-                                  <div style={styles.grid3}>
-                                    <div>
-                                      <label style={styles.label}>Email</label>
-                                      <input
-                                        value={editDraft?.email ?? expandedMu?.email ?? expandedMu?.user?.email ?? ""}
-                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), email: e.target.value }))}
-                                        style={styles.input}
-                                        disabled={busy}
-                                      />
-                                    </div>
-                                    <div>
-                                      <label style={styles.label}>Role</label>
-                                      <select
-                                        value={editDraft?.role ?? ""}
-                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), role: e.target.value }))}
-                                        style={styles.select}
-                                        disabled={busy}
-                                      >
-                                        {ROLE_OPTIONS.map((r) => (
-                                          <option key={r.value} value={r.value}>
-                                            {r.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
+                      <div style={styles.grid3}>
+                        <div>
+                          <label style={styles.label}>First name</label>
+                          <input
+                            value={editDraft?.firstName ?? ""}
+                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), firstName: e.target.value }))}
+                            style={styles.input}
+                            disabled={busy}
+                          />
+                        </div>
+                        <div>
+                          <label style={styles.label}>Last name</label>
+                          <input
+                            value={editDraft?.lastName ?? ""}
+                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), lastName: e.target.value }))}
+                            style={styles.input}
+                            disabled={busy}
+                          />
+                        </div>
+                        <div>
+                          <label style={styles.label}>Phone</label>
+                          <div style={styles.phoneFieldRow}>
+                            <select
+                              value={editDraft?.phoneCountry ?? "US"}
+                              onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneCountry: e.target.value }))}
+                              style={styles.phonePrefixSelect}
+                              disabled={busy}
+                            >
+                              {PHONE_COUNTRY_OPTIONS.map((c) => (
+                                <option key={c.value} value={c.value}>
+                                  {c.label}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              value={formatPhone(editDraft?.phoneRaw ?? "") === "—" ? "" : formatPhone(editDraft?.phoneRaw ?? "")}
+                              onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneRaw: normPhoneDigits(e.target.value) ?? "" }))}
+                              style={styles.phoneInput}
+                              disabled={busy}
+                              placeholder="(415) 555-1212"
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-                                    <div>
-                                      <label style={styles.label}>Status</label>
-                                      <select
-                                        value={editDraft?.status ?? "active"}
-                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), status: e.target.value }))}
-                                        style={styles.select}
-                                        disabled={busy}
-                                      >
-                                        {STATUS_OPTIONS.map((s) => (
-                                          <option key={s.value} value={s.value}>
-                                            {s.label}
-                                          </option>
-                                        ))}
-                                      </select>
-                                    </div>
+                      <div style={{ height: 12 }} />
 
-                                  </div>
+                      <div style={styles.grid3}>
+                        <div>
+                          <label style={styles.label}>Role</label>
+                          <select
+                            value={editDraft?.role ?? ""}
+                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), role: e.target.value }))}
+                            style={styles.select}
+                            disabled={busy}
+                          >
+                            {ROLE_OPTIONS.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                                  <div style={{ height: 12 }} />
+                        <div>
+                          <label style={styles.label}>Email</label>
+                          <input
+                            value={editDraft?.email ?? expandedMu?.email ?? expandedMu?.user?.email ?? ""}
+                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), email: e.target.value }))}
+                            style={styles.input}
+                            disabled={busy}
+                          />
+                        </div>
 
-                                  <div style={styles.grid3}>
-                                    <div>
-                                      <label style={styles.label}>First name</label>
-                                      <input
-                                        value={editDraft?.firstName ?? ""}
-                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), firstName: e.target.value }))}
-                                        style={styles.input}
-                                        disabled={busy}
-                                      />
-                                    </div>
-                                    <div>
-                                      <label style={styles.label}>Last name</label>
-                                      <input
-                                        value={editDraft?.lastName ?? ""}
-                                        onChange={(e) => setEditDraft((d) => ({ ...(d || {}), lastName: e.target.value }))}
-                                        style={styles.input}
-                                        disabled={busy}
-                                      />
-                                    </div>
-                                    <div>
-                                      <label style={styles.label}>Phone</label>
-                                      <div style={styles.phoneFieldRow}>
-                                        <select
-                                          value={editDraft?.phoneCountry ?? "US"}
-                                          onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneCountry: e.target.value }))}
-                                          style={styles.phonePrefixSelect}
-                                          disabled={busy}
-                                        >
-                                          {PHONE_COUNTRY_OPTIONS.map((c) => (
-                                            <option key={c.value} value={c.value}>
-                                              {c.label}
-                                            </option>
-                                          ))}
-                                        </select>
-                                        <input
-                                          value={formatPhone(editDraft?.phoneRaw ?? "") === "—" ? "" : formatPhone(editDraft?.phoneRaw ?? "")}
-                                          onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneRaw: normPhoneDigits(e.target.value) ?? "" }))}
-                                          style={styles.phoneInput}
-                                          disabled={busy}
-                                          placeholder="(415) 555-1212"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
+                        <div>
+                          <label style={styles.label}>Status</label>
+                          <select
+                            value={editDraft?.status ?? "active"}
+                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), status: e.target.value }))}
+                            style={styles.select}
+                            disabled={busy}
+                          >
+                            {STATUS_OPTIONS.map((s) => (
+                              <option key={s.value} value={s.value}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
 
-                                  {Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1 ? (
-                                    <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 8 }}>
-                                      This employee is the contact for multiple stores. Manage changes from the store pages.
-                                    </div>
-                                  ) : null}
+                      {Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1 ? (
+                        <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 8 }}>
+                          This employee is the contact for multiple stores. Manage changes from the store pages.
+                        </div>
+                      ) : null}
 
-                                  <div style={styles.formActions}>
-                                    <button
-                                      type="button"
-                                      onClick={() => onSaveEdit(expandedMu)}
-                                      disabled={busy}
-                                      style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}
-                                    >
-                                      {busy ? "Saving…" : "Save"}
-                                    </button>
+                      <div style={styles.formActions}>
+                        <button
+                          type="button"
+                          onClick={() => onSaveEdit(expandedMu)}
+                          disabled={busy}
+                          style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}
+                        >
+                          {busy ? "Saving…" : "Save"}
+                        </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (!guardDiscardIfDirty()) return;
-                                        setExpandedId(null);
-                                        setEditDraft(null);
-                                      }}
-                                      disabled={busy}
-                                      style={styles.btnGhost}
-                                    >
-                                      Close
-                                    </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!guardDiscardIfDirty()) return;
+                            setExpandedId(null);
+                            setEditDraft(null);
+                          }}
+                          disabled={busy}
+                          style={styles.btnGhost}
+                        >
+                          Close
+                        </button>
 
-                                    {isEditDirty(expandedMu) && <span style={{ fontSize: 12, color: TOKENS.muted }}>Unsaved changes</span>}
-                                  </div>
-                                </div>
-              </div>
-            )}
-<div style={styles.tableWrap}>
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}></th>
-                      <th style={styles.th}>Name</th>
-                      <th style={styles.th}>Phone</th>
-                      <th style={styles.th}>Email</th>
-                      <th style={styles.th}>Role</th>
-                      <th style={styles.th}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((mu) => {
-                      const id = resolveUserId(mu);
-                      const isOpen = expandedId && id && expandedId === id;
-                      const st = String(mu?.status || "active");
-                      return (
-                        <React.Fragment key={id || mu?.email || Math.random()}>
-                          <tr id={id ? `mu-row-${id}` : undefined} style={isOpen ? styles.activeRow : undefined}>
-                            <td style={{ ...styles.td, width: 42 }}>
-                              <button
-                                type="button"
-                                onClick={() => toggleExpand(mu)}
-                                style={styles.caretBtn}
-                                aria-label={isOpen ? "Collapse row" : "Expand row"}
-                              >
-                                {isOpen ? "▾" : "▸"}
-                              </button>
-                            </td>
-                            <td style={styles.td}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                <span style={{ fontWeight: 800 }}>{displayName(mu)}</span>
-                                {mu?.isPrimaryContact ? (
-                                  <span style={{ ...styles.pill, ...styles.contactPill }} title={mu?.primaryContactStoreNames || "Primary contact"}>
-                                    Primary contact
-                                  </span>
-                                ) : null}
-                              </div>
-                              {mu?.primaryContactStoreNames ? (
-                                <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
-                                  {mu.primaryContactStoreNames}
-                                </div>
-                              ) : null}
-                            </td>
-                            <td style={styles.td}>{displayPhone(mu)}</td>
-                            <td style={styles.td}>
-                              <div style={{ fontWeight: 700 }}>{mu?.email || mu?.user?.email || "—"}</div>
-                            </td>
-                            <td style={styles.td}>
-                              <span style={styles.pill}>{displayRoleLabel(mu?.role)}</span>
-                            </td>
-                            <td style={styles.td}>
-                              <span style={{ ...styles.pill, ...(st === "active" ? styles.statusOk : styles.statusErr) }}>
-                                {displayStatusLabel(mu?.status || "active")}
-                              </span>
-                            </td>
+                        {isEditDirty(expandedMu) && <span style={{ fontSize: 12, color: TOKENS.muted }}>Unsaved changes</span>}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                          </tr>
-
-                          
-                        </React.Fragment>
-                      );
-                    })}
-
-                    {filtered.length === 0 && (
+                <div style={styles.tableWrap}>
+                  <table style={styles.table}>
+                    <thead>
                       <tr>
-                        <td style={styles.td} colSpan={6}>
-                          <div style={{ fontSize: 13, color: TOKENS.muted }}>No team members match your filters.</div>
-                        </td>
+                        <th style={styles.th}></th>
+                        <th style={styles.th}>Name</th>
+                        <th style={styles.th}>Phone</th>
+                        <th style={styles.th}>Email</th>
+                        <th style={styles.th}>Role</th>
+                        <th style={styles.th}>Status</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {filtered.map((mu) => {
+                        const id = resolveUserId(mu);
+                        const isOpen = expandedId && id && expandedId === id;
+                        const st = String(mu?.status || "active");
+                        return (
+                          <React.Fragment key={id || mu?.email || Math.random()}>
+                            <tr id={id ? `mu-row-${id}` : undefined} style={isOpen ? styles.activeRow : undefined}>
+                              <td style={{ ...styles.td, width: 42 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(mu)}
+                                  style={styles.caretBtn}
+                                  aria-label={isOpen ? "Collapse row" : "Expand row"}
+                                >
+                                  {isOpen ? "▾" : "▸"}
+                                </button>
+                              </td>
+                              <td style={styles.td}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ fontWeight: 800 }}>{displayName(mu)}</span>
+                                  {mu?.isPrimaryContact ? (
+                                    <span style={{ ...styles.pill, ...styles.contactPill }} title={mu?.primaryContactStoreNames || "Primary contact"}>
+                                      Primary contact
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {mu?.primaryContactStoreNames ? (
+                                  <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
+                                    {mu.primaryContactStoreNames}
+                                  </div>
+                                ) : null}
+                              </td>
+                              <td style={styles.td}>{displayPhone(mu)}</td>
+                              <td style={styles.td}>
+                                <div style={{ fontWeight: 700 }}>{mu?.email || mu?.user?.email || "—"}</div>
+                              </td>
+                              <td style={styles.td}>
+                                <span style={styles.pill}>{displayRoleLabel(mu?.role)}</span>
+                              </td>
+                              <td style={styles.td}>
+                                <span style={{ ...styles.pill, ...(st === "active" ? styles.statusOk : styles.statusErr) }}>
+                                  {displayStatusLabel(mu?.status || "active")}
+                                </span>
+                              </td>
+                            </tr>
+                          </React.Fragment>
+                        );
+                      })}
+
+                      {filtered.length === 0 && (
+                        <tr>
+                          <td style={styles.td} colSpan={6}>
+                            <div style={{ fontSize: 13, color: TOKENS.muted }}>No team members match your filters.</div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </>
             )}
 
@@ -1072,92 +1182,7 @@ export default function MerchantUsers({ readOnly = false }) {
             {result && <div style={styles.okBox}>Created employee successfully.</div>}
           </div>
 
-          {showCreate && !readOnly && (
-            <div style={styles.card}>
-              <div style={styles.cardTitleRow}>
-                <div>
-                  <div style={styles.cardTitle}>{`Create ${merchantLabel} Employee`}</div>
-                  <div style={styles.cardHelp}>{`Create an employee account for ${merchantLabel} and choose their role.`}</div>
-                </div>
-              </div>
-
-              <form onSubmit={onCreate}>
-                <div style={styles.grid3}>
-                  <div>
-                    <label style={styles.label}>Email</label>
-                    <input value={email} onChange={(e) => setEmail(e.target.value)} style={styles.input} disabled={busy} />
                   </div>
-                  <div>
-                    <label style={styles.label}>Role</label>
-                    <select value={role} onChange={(e) => setRole(e.target.value)} style={styles.select} disabled={busy}>
-                      {ROLE_OPTIONS.map((r) => (
-                        <option key={r.value} value={r.value}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={styles.label}>Status</label>
-                    <select value={status} onChange={(e) => setStatus(e.target.value)} style={styles.select} disabled={busy}>
-                      {STATUS_OPTIONS.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ height: 12 }} />
-
-                <div style={styles.grid3}>
-                  <div>
-                    <label style={styles.label}>First name</label>
-                    <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={styles.input} disabled={busy} />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Last name</label>
-                    <input value={lastName} onChange={(e) => setLastName(e.target.value)} style={styles.input} disabled={busy} />
-                  </div>
-                  <div>
-                    <label style={styles.label}>Phone</label>
-                    <div style={styles.phoneFieldRow}>
-                      <select value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value)} style={styles.phonePrefixSelect} disabled={busy}>
-                        {PHONE_COUNTRY_OPTIONS.map((c) => (
-                          <option key={c.value} value={c.value}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        value={formatPhone(phoneRaw) === "—" ? "" : formatPhone(phoneRaw)}
-                        onChange={(e) => setPhoneRaw(normPhoneDigits(e.target.value) ?? "")}
-                        style={styles.phoneInput}
-                        disabled={busy}
-                        placeholder="(415) 555-1212"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div style={styles.formActions}>
-                  <button type="submit" disabled={busy} style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}>
-                    {busy ? "Saving…" : "Save Employee"}
-                  </button>
-
-                  <button type="button" onClick={toggleCreatePanel} disabled={busy} style={styles.btnGhost}>
-                    Close
-                  </button>
-
-                  <span style={{ fontSize: 12, color: TOKENS.muted }}>
-                    {storeAssignmentTip}
-                  </span>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
       </PageContainer>
     </div>
   );

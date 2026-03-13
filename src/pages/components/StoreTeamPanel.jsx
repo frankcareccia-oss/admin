@@ -84,12 +84,18 @@ function roleLabel(v) {
     case "admin":
       return "Store Admin";
     case "subadmin":
-      return "Store Subadmin";
+      return "Store Sub-admin";
     case "pos_employee":
       return "POS Employee";
     default:
       return v || "—";
   }
+}
+
+function statusLabel(v) {
+  const s = String(v || "").trim().toLowerCase();
+  if (!s) return "—";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 /* ------------------------------------------------------------- */
@@ -547,7 +553,7 @@ export default function StoreTeamPanel({
                       color: TOKENS.muted,
                     }}
                   >
-                    {roleLabel(t.permissionLevel)} · {String(t.status || "—").toLowerCase()}
+                    {roleLabel(t.permissionLevel)} · {statusLabel(t.status)}
                   </div>
                 </div>
 

@@ -19,15 +19,25 @@ import {
  * - Informational only (must not modify app state)
  * - Never show sensitive data (no full JWT, no full device id, no tokens)
  */
-export default function SupportInfo({ context = {} }) {
+export default function SupportInfo({
+  context = {},
+  authed,
+  systemRole,
+  merchantRole,
+  merchantRolePath,
+  deviceTrusted,
+  deviceTrustedLoading,
+  pathname,
+  apiBase,
+}) {
   const [open, setOpen] = React.useState(false);
   const [email, setEmail] = React.useState("");
   const [emailErr, setEmailErr] = React.useState("");
   const [copied, setCopied] = React.useState(false);
 
   const route = `${window.location.pathname}${window.location.search || ""}`;
-  const sysRole = String(getSystemRole() || "").trim() || "—";
-  const jwtPresent = Boolean(String(getAccessToken() || "").trim());
+  const sysRole = String(systemRole || getSystemRole() || "").trim() || "—";
+  const jwtPresent = typeof authed === "boolean" ? authed : Boolean(String(getAccessToken() || "").trim());
   const deviceId = String(getDeviceId() || "");
   const deviceShort = deviceId ? `${deviceId.slice(0, 8)}…` : "—";
 
@@ -68,8 +78,10 @@ export default function SupportInfo({ context = {} }) {
     (typeof pvSupportGetRecentApiEvents === "function" ? pvSupportGetRecentApiEvents(10) : []) || [];
 
   const page = context?.page ? String(context.page) : "—";
-  const merchantId = context?.merchantId != null ? String(context.merchantId) : "—";
-  const storeId = context?.storeId != null ? String(context.storeId) : "—";
+  const merchantId = context?.merchantId != null && String(context.merchantId).trim() ? String(context.merchantId) : "—";
+  const storeId = context?.storeId != null && String(context.storeId).trim() ? String(context.storeId) : "—";
+  const invoiceId = context?.invoiceId != null && String(context.invoiceId).trim() ? String(context.invoiceId) : "—";
+
   const deviceVerificationRequired =
     context?.deviceVerificationRequired === true
       ? "Yes"
@@ -83,12 +95,10 @@ export default function SupportInfo({ context = {} }) {
   function asText(v) {
     try {
       if (v == null) return "—";
-      if (typeof v === "string") return v || "—";
+      if (typeof v === "string") return v.trim() || "—";
       if (typeof v === "number" || typeof v === "boolean") return String(v);
       if (typeof v === "object") {
-        // common support error shape
         if (typeof v.message === "string" && v.message) return v.message;
-        // avoid crashing UI; last resort
         return JSON.stringify(v);
       }
       return String(v);
@@ -97,9 +107,32 @@ export default function SupportInfo({ context = {} }) {
     }
   }
 
+  function asYesNoUnknown(v, { loading = false } = {}) {
+    if (loading) return "Loading…";
+    if (v === true) return "Yes";
+    if (v === false) return "No";
+    return "—";
+  }
+
+  function compactRoute(v) {
+    try {
+      const s = String(v || "").trim();
+      if (!s) return "—";
+      return s;
+    } catch {
+      return "—";
+    }
+  }
+
   const lastErrorText = asText(lastError);
   const lastSuccessText = asText(lastSuccessTs);
-
+  const merchantRoleText = asText(merchantRole);
+  const merchantRolePathText = asText(merchantRolePath);
+  const deviceTrustedText = asYesNoUnknown(deviceTrusted, { loading: Boolean(deviceTrustedLoading) });
+  const deviceTrustLoadingText = asYesNoUnknown(Boolean(deviceTrustedLoading));
+  const pathnameText = compactRoute(pathname || window.location.pathname);
+  const routeText = compactRoute(route);
+  const apiBaseText = asText(apiBase || API_BASE);
 
   function valueStyle() {
     return {
@@ -118,6 +151,17 @@ export default function SupportInfo({ context = {} }) {
 
   function sectionTitleStyle() {
     return { fontWeight: 900, color: "#0B2A33", margin: "12px 0 8px" };
+  }
+
+  function actionPillStyle() {
+    return {
+      border: "1px solid rgba(0,0,0,0.10)",
+      background: "#FFFFFF",
+      borderRadius: 999,
+      padding: "6px 10px",
+      fontWeight: 800,
+      cursor: "pointer",
+    };
   }
 
   function row(k, v, { warn = false } = {}) {
@@ -146,19 +190,25 @@ export default function SupportInfo({ context = {} }) {
       ts: now,
       session: {
         systemRole: sysRole,
+        merchantRole: merchantRoleText,
+        merchantRolePath: merchantRolePathText,
         email: email || "—",
-        route,
+        route: routeText,
+        pathname: pathnameText,
         page,
         merchantId,
         storeId,
+        invoiceId,
       },
       auth: {
         jwtPresent,
         deviceIdShort: deviceShort,
+        deviceTrusted: deviceTrustedText,
+        deviceTrustedLoading: deviceTrustLoadingText,
         deviceVerificationRequired,
       },
       env: {
-        API_BASE: API_BASE || "—",
+        API_BASE: apiBaseText,
         build,
         viewport,
         userAgent: uaShort,
@@ -168,7 +218,7 @@ export default function SupportInfo({ context = {} }) {
         lastSuccessTs: lastSuccessText,
         lastRequest: snap?.lastRequest || "—",
       },
-      apiEvents, // last N outbound/inbound events (no bodies/tokens)
+      apiEvents,
     };
   }
 
@@ -181,6 +231,42 @@ export default function SupportInfo({ context = {} }) {
     } catch {
       // clipboard may be denied; do nothing
     }
+  }
+
+  function renderActionRow() {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: 8,
+          alignItems: "center",
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: "1px solid rgba(0,0,0,0.08)",
+          position: "sticky",
+          bottom: 0,
+          background: "#FFFFFF",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onCopy}
+          style={actionPillStyle()}
+          title="Copy diagnostics to clipboard"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          style={actionPillStyle()}
+        >
+          Close ▼
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -223,14 +309,7 @@ export default function SupportInfo({ context = {} }) {
               <button
                 type="button"
                 onClick={onCopy}
-                style={{
-                  border: "1px solid rgba(0,0,0,0.10)",
-                  background: "#FFFFFF",
-                  borderRadius: 999,
-                  padding: "6px 10px",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
+                style={actionPillStyle()}
                 title="Copy diagnostics to clipboard"
               >
                 {copied ? "Copied" : "Copy"}
@@ -239,14 +318,7 @@ export default function SupportInfo({ context = {} }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                style={{
-                  border: "1px solid rgba(0,0,0,0.10)",
-                  background: "#FFFFFF",
-                  borderRadius: 999,
-                  padding: "6px 10px",
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
+                style={actionPillStyle()}
               >
                 Close ▼
               </button>
@@ -260,10 +332,18 @@ export default function SupportInfo({ context = {} }) {
           <div style={sectionTitleStyle()}>Session / Identity</div>
           {row("systemRole", sysRole)}
           {row("email (/me)", email || "—", { warn: Boolean(emailErr) })}
-          {row("route", route)}
+          {row("route", routeText)}
+          {row("pathname", pathnameText)}
           {row("page", page)}
           {row("merchantId", merchantId)}
           {row("storeId", storeId)}
+          {row("invoiceId", invoiceId)}
+
+          <div style={sectionTitleStyle()}>Permissions / Context</div>
+          {row("merchantRole", merchantRoleText)}
+          {row("merchantRolePath", merchantRolePathText)}
+          {row("deviceTrusted", deviceTrustedText)}
+          {row("deviceTrustedLoading", deviceTrustLoadingText)}
 
           <div style={sectionTitleStyle()}>Auth / Device</div>
           {row("JWT present?", jwtPresent ? "Yes" : "No")}
@@ -271,7 +351,7 @@ export default function SupportInfo({ context = {} }) {
           {row("Device verification required?", deviceVerificationRequired)}
 
           <div style={sectionTitleStyle()}>Environment</div>
-          {row("API_BASE", API_BASE || "—")}
+          {row("API_BASE", apiBaseText)}
           {row("build", build)}
           {row("viewport", viewport)}
           {row("user agent", uaShort)}
@@ -308,6 +388,8 @@ export default function SupportInfo({ context = {} }) {
               </div>
             </>
           ) : null}
+
+          {renderActionRow()}
         </div>
       )}
     </div>
