@@ -28,6 +28,7 @@ import MerchantStores from "./pages/MerchantStores";
 import MerchantStoreDetail from "./pages/MerchantStoreDetail";
 import MerchantStoreEdit from "./pages/MerchantStoreEdit";
 import MerchantStoreCreate from "./pages/MerchantStoreCreate";
+import MerchantStoreQrPage from "./pages/MerchantStoreQrPage";
 
 import MerchantInvoiceDetail from "./pages/MerchantInvoiceDetail";
 import MerchantPortalInvoices from "./pages/MerchantPortalInvoices";
@@ -772,6 +773,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantStoreDetail />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/merchant/stores/:storeId/qr"
+            element={
+              <RequireAuth>
+                <MerchantStoreQrPage />
               </RequireAuth>
             }
           />

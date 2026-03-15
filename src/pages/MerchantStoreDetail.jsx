@@ -1,6 +1,6 @@
 // admin/src/pages/MerchantStoreDetail.jsx
 import React from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { listMerchantStores, me, merchantUpdateStoreProfile } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import StoreTeamPanel from "./components/StoreTeamPanel";
@@ -345,6 +345,7 @@ function useQuery() {
 
 export default function MerchantStoreDetail() {
   const { storeId } = useParams();
+  const navigate = useNavigate();
   const q = useQuery();
 
   const [store, setStore] = React.useState(null);
@@ -730,9 +731,17 @@ export default function MerchantStoreDetail() {
             Team & Access
           </Link>
 
-          <button type="button" onClick={load} disabled={loading} style={loading ? mutedPillDisabled : mutedPill}>
-            {loading ? "Loading..." : "Refresh"}
-          </button>
+<button
+  type="button"
+  onClick={() => navigate(`/merchant/stores/${store.id}/qr`)}
+  style={mutedPill}
+>
+  Generate QR
+</button>
+
+<button type="button" onClick={load} disabled={loading} style={loading ? mutedPillDisabled : mutedPill}>
+  {loading ? "Loading..." : "Refresh"}
+</button>
         </div>
       </div>
 

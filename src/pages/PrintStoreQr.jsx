@@ -1,19 +1,25 @@
-// src/pages/PrintStoreQr.jsx
+// admin/src/pages/PrintStoreQr.jsx
 import React from "react";
-import { Link, useParams } from "react-router-dom";
-import { getStore, getStoreQrPngUrl } from "../api/client";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { getStore } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 
+const PRINT_STATE_KEY_PREFIX = "pv:store-qr-print:";
+
 export default function PrintStoreQr() {
   const { storeId } = useParams();
+  const location = useLocation();
 
   const [store, setStore] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
-
-  const qrPngUrl = getStoreQrPngUrl(storeId);
+  const [qrImageDataUrl, setQrImageDataUrl] = React.useState(location.state?.qrImageDataUrl || null);
+  const [printMeta, setPrintMeta] = React.useState({
+    storeName: location.state?.storeName || null,
+    merchantName: location.state?.merchantName || null,
+  });
 
   React.useEffect(() => {
     let cancelled = false;
@@ -21,9 +27,28 @@ export default function PrintStoreQr() {
     async function load() {
       setLoading(true);
       setError(null);
+
       try {
         const s = await getStore(storeId);
         if (!cancelled) setStore(s);
+
+        if (!location.state?.qrImageDataUrl) {
+          try {
+            const raw = sessionStorage.getItem(`${PRINT_STATE_KEY_PREFIX}${storeId}`);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (!cancelled) {
+                setQrImageDataUrl(parsed?.qrImageDataUrl || null);
+                setPrintMeta({
+                  storeName: parsed?.storeName || null,
+                  merchantName: parsed?.merchantName || null,
+                });
+              }
+            }
+          } catch (_) {
+            // Ignore storage failures.
+          }
+        }
       } catch (err) {
         if (!cancelled) setError(err?.message || String(err));
       } finally {
@@ -35,7 +60,7 @@ export default function PrintStoreQr() {
     return () => {
       cancelled = true;
     };
-  }, [storeId]);
+  }, [storeId, location.state]);
 
   const addressLine = [
     store?.address1,
@@ -50,6 +75,7 @@ export default function PrintStoreQr() {
   }
 
   const merchantLink = store?.merchantId ? `/merchants/${store.merchantId}` : "/merchants";
+  const resolvedStoreName = printMeta.storeName || store?.name || "Store";
 
   return (
     <PageContainer size="page">
@@ -81,6 +107,7 @@ export default function PrintStoreQr() {
           padding: 18px;
           border: 1px solid rgba(0,0,0,0.10);
           border-radius: 14px;
+          min-height: 456px;
         }
 
         .pv-qr {
@@ -108,10 +135,6 @@ export default function PrintStoreQr() {
           gap: 10px;
           flex-wrap: wrap;
           align-items: center;
-        }
-
-        .pv-link {
-          textDecoration: none;
         }
 
         .pv-btn {
@@ -158,10 +181,10 @@ export default function PrintStoreQr() {
           @page { size: letter; margin: 0.25in; }
 
           .pv-qr { width: 5.0in; height: 5.0in; }
+          .pv-qr-box { min-height: auto; border: none; padding: 0; }
         }
       `}</style>
 
-      {/* Breadcrumbs / quick links */}
       <div className="pv-actions-row" style={{ marginBottom: 10 }}>
         <Link to={`/stores/${storeId}`} style={{ textDecoration: "none", fontWeight: 800 }}>
           ← Back to Store
@@ -173,11 +196,14 @@ export default function PrintStoreQr() {
           ← Back to Merchant
         </Link>
 
-        <span style={{ color: "rgba(0,0,0,0.35)" }}>•</span>
-
-        <a href={qrPngUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 800 }}>
-          Open PNG
-        </a>
+        {qrImageDataUrl ? (
+          <>
+            <span style={{ color: "rgba(0,0,0,0.35)" }}>•</span>
+            <a href={qrImageDataUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 800 }}>
+              Open PNG
+            </a>
+          </>
+        ) : null}
       </div>
 
       <PageHeader
@@ -185,14 +211,14 @@ export default function PrintStoreQr() {
         subtitle={
           store ? (
             <span style={{ color: "rgba(0,0,0,0.75)" }}>
-              {store.name} • Store ID: <code>{storeId}</code>
+              {resolvedStoreName} • Store ID: <code>{storeId}</code>
             </span>
           ) : (
             <span style={{ color: "rgba(0,0,0,0.65)" }}>Printable QR sheet for in-store signage.</span>
           )
         }
         right={
-          <button className="pv-btn" onClick={onPrint} disabled={loading || !!error}>
+          <button className="pv-btn" onClick={onPrint} disabled={loading || !!error || !qrImageDataUrl}>
             Print
           </button>
         }
@@ -206,9 +232,15 @@ export default function PrintStoreQr() {
 
       {error ? <div className="pv-error">{error}</div> : null}
 
-      {!loading && !error ? (
+      {!loading && !error && !qrImageDataUrl ? (
+        <div className="pv-error">
+          No QR image is available for this print view yet. Go back to the QR generator page, generate the QR, then use the Print QR button from there.
+        </div>
+      ) : null}
+
+      {!loading && !error && qrImageDataUrl ? (
         <div className="pv-sheet">
-          <h1 className="pv-title">{store?.name || "Store"}</h1>
+          <h1 className="pv-title">{resolvedStoreName}</h1>
           <div className="pv-sub">
             {addressLine || " "}
             <div style={{ marginTop: 6, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
@@ -217,7 +249,7 @@ export default function PrintStoreQr() {
           </div>
 
           <div className="pv-qr-box">
-            <img className="pv-qr" src={qrPngUrl} alt="Store QR" />
+            <img className="pv-qr" src={qrImageDataUrl} alt="Store QR" />
           </div>
 
           <div className="pv-instructions">Scan to check in</div>
