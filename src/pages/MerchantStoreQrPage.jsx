@@ -1,256 +1,386 @@
-/**
- * Module: MerchantStoreQrPage
- * Description: React page responsible for generating and displaying
- * a QR code for a merchant store and providing print/open actions.
- */
-
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-
-const STORAGE_KEY_PREFIX = "merchant-store-qr:";
-
-function findJwtInStorage() {
-  const directKeys = [
-    "token",
-    "authToken",
-    "accessToken",
-    "jwt",
-    "bearerToken",
-    "perkvaletToken",
-    "perkvaletAuthToken",
-  ];
-
-  for (const key of directKeys) {
-    const localValue = localStorage.getItem(key);
-    if (typeof localValue === "string" && localValue.trim()) return localValue.trim();
-
-    const sessionValue = sessionStorage.getItem(key);
-    if (typeof sessionValue === "string" && sessionValue.trim()) return sessionValue.trim();
-  }
-
-  const scanStorage = (storageObj) => {
-    for (let i = 0; i < storageObj.length; i += 1) {
-      const key = storageObj.key(i);
-      const raw = storageObj.getItem(key);
-      if (!raw || typeof raw !== "string") continue;
-
-      if (raw.split(".").length === 3 && raw.length > 40) {
-        return raw;
-      }
-
-      try {
-        const parsed = JSON.parse(raw);
-        const queue = [parsed];
-
-        while (queue.length) {
-          const cur = queue.shift();
-          if (!cur || typeof cur !== "object") continue;
-
-          for (const [k, v] of Object.entries(cur)) {
-            if (
-              typeof v === "string" &&
-              /token|jwt|accessToken|authToken/i.test(k) &&
-              v.trim()
-            ) {
-              return v.trim();
-            }
-
-            if (typeof v === "string" && v.split(".").length === 3 && v.length > 40) {
-              return v;
-            }
-
-            if (v && typeof v === "object") {
-              queue.push(v);
-            }
-          }
-        }
-      } catch {
-        // ignore non-JSON values
-      }
-    }
-
-    return "";
-  };
-
-  return scanStorage(localStorage) || scanStorage(sessionStorage) || "";
-}
-
-function getApiPath(path) {
-  const base = (import.meta.env.VITE_API_BASE_URL || "").trim();
-
-  if (!base) return path;
-  if (base.endsWith("/") && path.startsWith("/")) return `${base.slice(0, -1)}${path}`;
-  if (!base.endsWith("/") && !path.startsWith("/")) return `${base}/${path}`;
-  return `${base}${path}`;
-}
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { generateMerchantStoreQr } from "../api/client";
+import ReplaceQrCard from "../components/qr/ReplaceQrCard";
+import { printQrSheet } from "../utils/qrPrintSheet";
 
 export default function MerchantStoreQrPage() {
   const { storeId } = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const hasStartedRef = useRef(false);
-
-  const merchantIdFromState = location.state?.merchantId ?? null;
-  const merchantNameFromState = location.state?.merchantName ?? "";
-  const storeNameFromState = location.state?.storeName ?? "";
-
-  const storageKey = useMemo(() => `${STORAGE_KEY_PREFIX}${storeId}`, [storeId]);
 
   const [loading, setLoading] = useState(true);
+  const [regenerating, setRegenerating] = useState(false);
   const [error, setError] = useState("");
   const [qrPayload, setQrPayload] = useState(null);
 
-  useEffect(() => {
-    if (!storeId || hasStartedRef.current) return;
-    hasStartedRef.current = true;
+  const [showReplaceCard, setShowReplaceCard] = useState(false);
+  const [replaceReason, setReplaceReason] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [justReplaced, setJustReplaced] = useState(false);
+  const [highlightPrint, setHighlightPrint] = useState(false);
+  const [helperMessage, setHelperMessage] = useState("");
 
-    const generateQr = async () => {
-      setLoading(true);
-      setError("");
+  async function loadQr({ regen = false } = {}) {
+    if (!storeId) {
+      setError("Missing storeId");
+      setLoading(false);
+      setRegenerating(false);
+      return;
+    }
+
+    if (regen) setRegenerating(true);
+    else setLoading(true);
+
+    setError("");
+
+    try {
+      const data = await generateMerchantStoreQr(storeId);
+      setQrPayload(data);
 
       try {
-        const token = findJwtInStorage();
-        const response = await fetch(getApiPath(`/merchant/stores/${storeId}/qr/generate`), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          credentials: "include",
-        });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(data?.error || data?.message || `QR generation failed (${response.status})`);
-        }
-
-        const normalized = {
-          ...data,
-          merchantId: data?.merchantId ?? merchantIdFromState ?? null,
-          merchantName: data?.merchantName ?? merchantNameFromState ?? "",
-          storeName: data?.storeName ?? storeNameFromState ?? "",
-          storeId: Number(storeId),
-        };
-
-        setQrPayload(normalized);
-        sessionStorage.setItem(storageKey, JSON.stringify(normalized));
-      } catch (err) {
-        setError(err?.message || "Failed to fetch");
-      } finally {
-        setLoading(false);
+        console.log(
+          JSON.stringify({
+            pvUiHook: regen
+              ? "merchant.store.qr.regenerated.ui"
+              : "merchant.store.qr.loaded.ui",
+            ts: new Date().toISOString(),
+            stable: regen
+              ? "merchant:store:qr:regenerated"
+              : "merchant:store:qr:loaded",
+            storeId: Number(storeId),
+            ok: Boolean(data?.ok),
+          })
+        );
+      } catch {
+        // ignore
       }
-    };
+    } catch (err) {
+      const msg = err?.message || "QR generation failed";
+      setError(msg);
 
-    generateQr();
-  }, [merchantIdFromState, merchantNameFromState, storageKey, storeId, storeNameFromState]);
+      try {
+        console.log(
+          JSON.stringify({
+            pvUiHook: regen
+              ? "merchant.store.qr.regenerate_failed.ui"
+              : "merchant.store.qr.load_failed.ui",
+            ts: new Date().toISOString(),
+            stable: regen
+              ? "merchant:store:qr:regenerate_failed"
+              : "merchant:store:qr:load_failed",
+            storeId: Number(storeId),
+            error: msg,
+          })
+        );
+      } catch {
+        // ignore
+      }
+    } finally {
+      setLoading(false);
+      setRegenerating(false);
+    }
+  }
 
-  const resolvedMerchantId = qrPayload?.merchantId ?? merchantIdFromState ?? null;
-  const backToStoreHref = `/merchant/stores/${storeId}`;
-  const backToMerchantHref = resolvedMerchantId ? `/merchants/${resolvedMerchantId}` : null;
-  const openPngHref = qrPayload?.qrImageDataUrl || qrPayload?.qrUrl || "";
+  useEffect(() => {
+    try {
+      console.log(
+        JSON.stringify({
+          pvUiHook: "merchant.store.qr.page_loaded.ui",
+          ts: new Date().toISOString(),
+          stable: "merchant:store:qr:page_loaded",
+          storeId: Number(storeId),
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    loadQr({ regen: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId]);
+
+  const storeLabel = useMemo(
+    () => qrPayload?.storeName || (storeId ? `Store #${storeId}` : "Store"),
+    [qrPayload, storeId]
+  );
+
+  const merchantLabel = qrPayload?.merchantName || "";
+  const qrImageSrc = qrPayload?.qrImageDataUrl || "";
 
   const handlePrint = () => {
-    if (!qrPayload) return;
+    try {
+      console.log(
+        JSON.stringify({
+          pvUiHook: justReplaced
+            ? "merchant.store.qr.print_new_clicked.ui"
+            : "merchant.store.qr.print_clicked.ui",
+          ts: new Date().toISOString(),
+          stable: justReplaced
+            ? "merchant:store:qr:print_new_clicked"
+            : "merchant:store:qr:print_clicked",
+          storeId: Number(storeId),
+          hasQr: Boolean(qrImageSrc),
+        })
+      );
+    } catch {
+      // ignore
+    }
 
-    navigate(`/stores/${storeId}/print-qr`, {
-      state: {
-        qrImageDataUrl: qrPayload.qrImageDataUrl,
-        qrUrl: qrPayload.qrUrl,
-        qrToken: qrPayload.qrToken,
-        merchantId: qrPayload.merchantId ?? merchantIdFromState ?? null,
-        merchantName: qrPayload.merchantName ?? merchantNameFromState ?? "",
-        storeName: qrPayload.storeName ?? storeNameFromState ?? "",
-        storeId: Number(storeId),
-      },
+    if (!qrImageSrc) return;
+
+    printQrSheet({
+      qrImage: qrImageSrc,
+      storeName: storeLabel,
+      merchantName: merchantLabel,
     });
   };
 
+  const handleOpenReplaceCard = () => {
+    setShowReplaceCard(true);
+    setReplaceReason("");
+    setSuccessMessage("");
+    setJustReplaced(false);
+    setHighlightPrint(false);
+    setHelperMessage("");
+
+    try {
+      console.log(
+        JSON.stringify({
+          pvUiHook: "merchant.store.qr.replace_card_opened.ui",
+          ts: new Date().toISOString(),
+          stable: "merchant:store:qr:replace_card_opened",
+          storeId: Number(storeId),
+        })
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleCancelReplace = () => {
+    setShowReplaceCard(false);
+    setReplaceReason("");
+
+    try {
+      console.log(
+        JSON.stringify({
+          pvUiHook: "merchant.store.qr.replace_card_cancelled.ui",
+          ts: new Date().toISOString(),
+          stable: "merchant:store:qr:replace_card_cancelled",
+          storeId: Number(storeId),
+        })
+      );
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleReplaceDecision = async () => {
+    try {
+      console.log(
+        JSON.stringify({
+          pvUiHook: "merchant.store.qr.replace_reason_selected.ui",
+          ts: new Date().toISOString(),
+          stable: "merchant:store:qr:replace_reason_selected",
+          storeId: Number(storeId),
+          reason: replaceReason || null,
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    if (!replaceReason) return;
+
+    if (replaceReason === "damaged_prints") {
+      setShowReplaceCard(false);
+      setReplaceReason("");
+      setHighlightPrint(true);
+      setHelperMessage(
+        "Use Print to create another copy of the current active store QR."
+      );
+
+      try {
+        console.log(
+          JSON.stringify({
+            pvUiHook: "merchant.store.qr.print_guidance_shown.ui",
+            ts: new Date().toISOString(),
+            stable: "merchant:store:qr:print_guidance_shown",
+            storeId: Number(storeId),
+          })
+        );
+      } catch {
+        // ignore
+      }
+
+      return;
+    }
+
+    try {
+      console.log(
+        JSON.stringify({
+          pvUiHook: "merchant.store.qr.replace_confirmed.ui",
+          ts: new Date().toISOString(),
+          stable: "merchant:store:qr:replace_confirmed",
+          storeId: Number(storeId),
+          reason: replaceReason || null,
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    setShowReplaceCard(false);
+    setReplaceReason("");
+    setHighlightPrint(false);
+    setHelperMessage("");
+
+    await loadQr({ regen: true });
+
+    setSuccessMessage(
+      "A new store QR is now active. Replace all previously printed QR copies at this store."
+    );
+    setJustReplaced(true);
+  };
+
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="flex items-center gap-3 text-sm mb-4 flex-wrap">
-        <Link to={backToStoreHref} className="text-indigo-600 hover:underline">
+    <div className="mx-auto w-full max-w-[1100px] px-6 py-8 pb-32">
+      <div className="mb-4">
+        <Link
+          to={`/merchant/stores/${storeId}`}
+          className="inline-flex items-center text-sm font-medium text-teal-700 hover:text-teal-800 hover:underline"
+        >
           ← Back to Store
         </Link>
-
-        {backToMerchantHref ? (
-          <>
-            <span className="text-gray-400">•</span>
-            <Link to={backToMerchantHref} className="text-indigo-600 hover:underline">
-              ← Back to Merchant
-            </Link>
-          </>
-        ) : null}
-
-        {openPngHref ? (
-          <>
-            <span className="text-gray-400">•</span>
-            <a href={openPngHref} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">
-              Open PNG
-            </a>
-          </>
-        ) : null}
       </div>
 
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight mb-3">Store QR Generator</h1>
-          <p className="text-xl text-gray-700">
-            Generate the active scan QR for <strong>this store</strong>.
-          </p>
-        </div>
-
-        {!loading && !error && qrPayload ? (
-          <button
-            type="button"
-            onClick={handlePrint}
-            className="inline-flex items-center rounded-xl border border-black px-5 py-3 text-lg font-semibold hover:bg-gray-50"
-          >
-            Print
-          </button>
-        ) : null}
+      <div className="mb-6">
+        <h1 className="text-5xl font-bold tracking-tight text-slate-800">
+          Store QR
+        </h1>
+        <p className="mt-3 max-w-4xl text-lg leading-8 text-slate-600">
+          Print this QR code and place it near the POS so customers can scan,
+          check in, and access available rewards and offers.
+        </p>
       </div>
 
-      {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-          <p className="text-gray-700 font-medium">Generating QR…</p>
+      {successMessage ? (
+        <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
+          <p className="text-sm font-medium text-emerald-800">{successMessage}</p>
         </div>
       ) : null}
 
-      {!loading && error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
-          <p className="text-red-700 font-medium">{error}</p>
+      {helperMessage ? (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 shadow-sm">
+          <p className="text-sm font-medium text-sky-900">{helperMessage}</p>
         </div>
       ) : null}
 
       {!loading && !error && qrPayload ? (
-        <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <div className="mb-4">
-            <h2 className="text-2xl font-bold">
-              {qrPayload.storeName || storeNameFromState || `Store #${storeId}`}
+        justReplaced ? (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="inline-flex min-h-[48px] items-center rounded-full border border-slate-800 bg-white px-5 py-2.5 text-base font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50"
+              >
+                Print New QR
+              </button>
+            </div>
+            
+          </div>
+        ) : (
+          <div className="mb-6 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className={`inline-flex min-h-[48px] items-center rounded-full px-5 py-2.5 text-base font-semibold shadow-sm transition ${
+                highlightPrint
+                  ? "border border-slate-900 bg-white text-slate-900 ring-2 ring-teal-200"
+                  : "border border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
+              }`}
+            >
+              Print
+            </button>
+
+            <button
+              type="button"
+              onClick={handleOpenReplaceCard}
+              className="inline-flex min-h-[48px] items-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-base font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              Replace QR
+            </button>
+          </div>
+        )
+      ) : null}
+
+      {showReplaceCard ? (
+        <ReplaceQrCard
+          replaceReason={replaceReason}
+          setReplaceReason={setReplaceReason}
+          onCancel={handleCancelReplace}
+          onContinue={handleReplaceDecision}
+          regenerating={regenerating}
+        />
+      ) : null}
+
+      {loading ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-sm font-medium text-slate-700">Generating QR...</p>
+        </div>
+      ) : null}
+
+      {!loading && error ? (
+        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm">
+          <p className="text-sm font-medium text-red-700">{error}</p>
+        </div>
+      ) : null}
+
+      {!loading && !error && qrPayload && !showReplaceCard ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 border-b border-slate-100 pb-4">
+            <h2 className="text-3xl font-semibold tracking-tight text-slate-800">
+              {storeLabel}
             </h2>
 
-            {qrPayload.merchantName || merchantNameFromState ? (
-              <p className="text-gray-600 mt-1">{qrPayload.merchantName || merchantNameFromState}</p>
+            {merchantLabel ? (
+              <p className="mt-2 text-base text-slate-600">{merchantLabel}</p>
             ) : null}
-
-            <p className="text-sm text-gray-500 mt-2">Store ID: {storeId}</p>
           </div>
 
-          {qrPayload.qrImageDataUrl ? (
-            <div className="rounded-2xl border border-gray-200 p-6 w-fit bg-white">
-              <img
-                src={qrPayload.qrImageDataUrl}
-                alt="Store QR code"
-                className="block max-w-full h-auto"
-                style={{ width: 420, height: 420, objectFit: "contain" }}
-              />
+          <div className="grid gap-6 lg:grid-cols-[460px_minmax(0,1fr)] lg:items-start">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              {qrImageSrc ? (
+                <img
+                  src={qrImageSrc}
+                  alt={`QR code for ${storeLabel}`}
+                  className="block h-auto max-w-full"
+                  style={{ width: 420, height: 420, objectFit: "contain" }}
+                />
+              ) : (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-sm font-medium text-amber-800">
+                    QR generated, but no image payload was returned.
+                  </p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-amber-800">QR generated, but no image payload was returned.</p>
+
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                  Placement Guidance
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-700">
+                  Place this printed QR near the register or customer checkout area
+                  where it is easy to see and scan. Reprint this same code if
+                  signage is damaged or additional copies are needed. Replace the
+                  QR only when you intend to invalidate all previously printed
+                  copies for this store.
+                </p>
+              </div>
             </div>
-          )}
+          </div>
         </div>
       ) : null}
     </div>

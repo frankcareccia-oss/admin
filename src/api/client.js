@@ -980,6 +980,20 @@ export async function merchantUpdateStoreStatus(storeId, { status } = {}) {
   });
 }
 
+/* ================================================================
+   Merchant Store QR
+================================================================ */
+
+export async function generateMerchantStoreQr(storeId) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/qr/generate`);
+  return request(`/merchant/stores/${storeId}/qr/generate`, {
+    method: "POST",
+    auth: "jwt",
+  });
+}
+
+
+
 export async function merchantUpdateStoreProfile(
   storeId,
   {
