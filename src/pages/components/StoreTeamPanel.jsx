@@ -39,6 +39,7 @@ const TOKENS = {
   tealHover: "#277D79",
   errBg: "rgba(255,0,0,0.06)",
   errBorder: "rgba(255,0,0,0.15)",
+  flashBg: "rgba(47,143,139,0.08)",
 };
 
 /* ------------------------------------------------------------- */
@@ -81,12 +82,15 @@ function inputStyle() {
 
 function roleLabel(v) {
   switch (String(v || "").toLowerCase()) {
+    case "store_admin":
     case "admin":
       return "Store Admin";
+    case "store_subadmin":
     case "subadmin":
-      return "Store Sub-admin";
+      return "Store Subadmin";
+    case "pos_access":
     case "pos_employee":
-      return "POS Employee";
+      return "POS Access";
     default:
       return v || "—";
   }
@@ -108,10 +112,9 @@ function adaptMerchantUser(mu) {
   return {
     merchantUserId: String(
       mu?.merchantUserId ??
-      mu?.id ??
-      mu?.userId ??
-      mu?.merchantUser?.id ??
-      ""
+        mu?.id ??
+        mu?.merchantUser?.id ??
+        ""
     ),
     userId: String(mu?.userId ?? user?.id ?? ""),
     status: String(mu?.status ?? ""),
@@ -136,10 +139,10 @@ function adaptStoreUser(su) {
     storeUserId: String(su?.id ?? su?.storeUserId ?? ""),
     merchantUserId: String(
       mu?.id ??
-      mu?.merchantUserId ??
-      su?.merchantUserId ??
-      su?.merchant_user_id ??
-      ""
+        mu?.merchantUserId ??
+        su?.merchantUserId ??
+        su?.merchant_user_id ??
+        ""
     ),
     userId: String(mu?.userId ?? user?.id ?? su?.userId ?? ""),
     permissionLevel: String(su?.permissionLevel ?? su?.permission_level ?? ""),
@@ -171,6 +174,7 @@ export default function StoreTeamPanel({
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
+  const [flash, setFlash] = React.useState("");
 
   const [merchantId, setMerchantId] = React.useState(null);
 
@@ -185,6 +189,18 @@ export default function StoreTeamPanel({
   );
 
   const cancelledRef = React.useRef(false);
+  const flashTimerRef = React.useRef(null);
+
+  function showFlash(message) {
+    setFlash(message);
+    if (flashTimerRef.current) {
+      clearTimeout(flashTimerRef.current);
+    }
+    flashTimerRef.current = setTimeout(() => {
+      setFlash("");
+      flashTimerRef.current = null;
+    }, 2000);
+  }
 
   /* --------------------------------------------------------- */
   /* Load data                                                 */
@@ -257,6 +273,10 @@ export default function StoreTeamPanel({
     load();
     return () => {
       cancelledRef.current = true;
+      if (flashTimerRef.current) {
+        clearTimeout(flashTimerRef.current);
+        flashTimerRef.current = null;
+      }
     };
   }, [storeId, load]);
 
@@ -315,6 +335,26 @@ export default function StoreTeamPanel({
       .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
   }, [users, assignedMerchantUserIds]);
 
+  function actionPillStyle({ danger = false, disabled = false } = {}) {
+    return {
+      fontSize: 12,
+      fontWeight: 700,
+      lineHeight: 1,
+      padding: "7px 12px",
+      minHeight: 32,
+      borderRadius: 999,
+      border: danger ? "1px solid rgba(160,0,0,0.25)" : `1px solid ${TOKENS.border}`,
+      color: danger ? "rgba(160,0,0,0.9)" : TOKENS.text,
+      background: "#fff",
+      cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.55 : 1,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      whiteSpace: "nowrap",
+    };
+  }
+
   /* --------------------------------------------------------- */
   /* Assign                                                    */
   /* --------------------------------------------------------- */
@@ -324,15 +364,9 @@ export default function StoreTeamPanel({
 
     try {
       setBusy(true);
+      setErr("");
 
       await merchantAssignStoreTeamMember(storeId, {
-        merchantUserId: pickId,
-        permissionLevel: pickPerm,
-      });
-
-      pvUiHook("merchant.store.team.assign", {
-        stable: "merchant:store:team",
-        storeId,
         merchantUserId: pickId,
         permissionLevel: pickPerm,
       });
@@ -341,6 +375,9 @@ export default function StoreTeamPanel({
       setPickPerm("");
 
       await load();
+      showFlash("Employee assigned");
+    } catch (e) {
+      setErr(e?.message || "Failed to assign employee.");
     } finally {
       setBusy(false);
     }
@@ -355,16 +392,26 @@ export default function StoreTeamPanel({
 
     try {
       setBusy(true);
+      setErr("");
+
+      const isPrimary = String(storeUserId) === String(primaryId);
+      if (isPrimary) {
+        await merchantUpdateStoreProfile(storeId, {
+          primaryContactStoreUserId: null,
+        });
+        setPrimaryId("");
+        onPrimaryContactChanged &&
+          onPrimaryContactChanged({
+            primaryContactStoreUserId: null,
+          });
+      }
 
       await merchantRemoveStoreTeamMember(storeUserId);
 
-      pvUiHook("merchant.store.team.remove", {
-        stable: "merchant:store:team",
-        storeUserId,
-        storeId,
-      });
-
       await load();
+      showFlash("Employee removed");
+    } catch (e) {
+      setErr(e?.message || "Failed to remove employee.");
     } finally {
       setBusy(false);
     }
@@ -376,28 +423,64 @@ export default function StoreTeamPanel({
 
   async function setPrimary(storeUserId) {
     try {
+      setBusy(true);
+      setErr("");
+
       await merchantUpdateStoreProfile(storeId, {
         primaryContactStoreUserId: Number(storeUserId),
       });
 
       setPrimaryId(String(storeUserId));
 
-      pvUiHook("merchant.store.team.primary_set", {
-        stable: "merchant:store:team",
-        storeId,
-        storeUserId,
-      });
-
       onPrimaryContactChanged &&
         onPrimaryContactChanged({
           primaryContactStoreUserId: Number(storeUserId),
         });
+
+      await load();
+      showFlash("Primary contact updated");
     } catch (e) {
+      setErr(e?.message || "Failed to set primary contact.");
       pvUiHook("merchant.store.team.primary_fail", {
         stable: "merchant:store:team",
         storeId,
         error: e?.message,
       });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetPrimary() {
+    if (!primaryId) return;
+    if (!window.confirm("Remove this primary contact?")) return;
+
+    try {
+      setBusy(true);
+      setErr("");
+
+      await merchantUpdateStoreProfile(storeId, {
+        primaryContactStoreUserId: null,
+      });
+
+      setPrimaryId("");
+
+      onPrimaryContactChanged &&
+        onPrimaryContactChanged({
+          primaryContactStoreUserId: null,
+        });
+
+      await load();
+      showFlash("Primary contact cleared");
+    } catch (e) {
+      setErr(e?.message || "Failed to reset primary contact.");
+      pvUiHook("merchant.store.team.primary_reset_fail", {
+        stable: "merchant:store:team",
+        storeId,
+        error: e?.message,
+      });
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -432,6 +515,22 @@ export default function StoreTeamPanel({
         background: TOKENS.cardBg,
       }}
     >
+      {flash ? (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: "8px 10px",
+            borderRadius: 10,
+            background: TOKENS.flashBg,
+            color: TOKENS.teal,
+            fontSize: 12,
+            fontWeight: 700,
+          }}
+        >
+          {flash}
+        </div>
+      ) : null}
+
       {err ? (
         <div
           style={{
@@ -467,6 +566,7 @@ export default function StoreTeamPanel({
               value={pickId}
               onChange={(e) => setPickId(e.target.value)}
               style={{ ...inputStyle(), minWidth: 250 }}
+              disabled={busy}
             >
               <option value="">Select employee</option>
               {assignableUsers.map((u) => (
@@ -480,11 +580,12 @@ export default function StoreTeamPanel({
               value={pickPerm}
               onChange={(e) => setPickPerm(e.target.value)}
               style={{ ...inputStyle(), minWidth: 160 }}
+              disabled={busy}
             >
               <option value="">Role</option>
-              <option value="admin">Store Admin</option>
-              <option value="subadmin">Store Subadmin</option>
-              <option value="pos_employee">POS Employee</option>
+              <option value="store_admin">Store Admin</option>
+              <option value="store_subadmin">Store Subadmin</option>
+              <option value="pos_access">POS Access</option>
             </select>
 
             <button
@@ -495,6 +596,7 @@ export default function StoreTeamPanel({
                 color: "#fff",
                 border: 0,
                 borderRadius: 12,
+                minHeight: 40,
                 padding: "10px 18px",
                 fontWeight: 800,
                 cursor: busy || !pickId || !pickPerm ? "not-allowed" : "pointer",
@@ -529,17 +631,18 @@ export default function StoreTeamPanel({
                   justifyContent: "space-between",
                   alignItems: "center",
                   gap: 16,
-                  padding: "14px 0",
+                  padding: "15px 0",
                   borderBottom: `1px solid ${TOKENS.divider}`,
+                  opacity: isActive ? 1 : 0.6,
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: TOKENS.text }}>
+                  <div style={{ fontWeight: 900, fontSize: 16, color: TOKENS.text, marginBottom: 2 }}>
                     {nameOf(t)}
                   </div>
                   <div
                     style={{
-                      marginTop: 4,
+                      marginTop: 6,
                       fontSize: 13,
                       color: TOKENS.muted,
                     }}
@@ -548,7 +651,7 @@ export default function StoreTeamPanel({
                   </div>
                   <div
                     style={{
-                      marginTop: 4,
+                      marginTop: 6,
                       fontSize: 12,
                       color: TOKENS.muted,
                     }}
@@ -557,34 +660,52 @@ export default function StoreTeamPanel({
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    justifyContent: "flex-end",
+                  }}
+                >
                   {isPrimary ? (
-                    <span
-                      style={{
-                        background: TOKENS.teal,
-                        color: "#fff",
-                        padding: "5px 10px",
-                        borderRadius: 999,
-                        fontSize: 12,
-                        fontWeight: 800,
-                      }}
-                    >
-                      Primary Contact
-                    </span>
+                    <>
+                      <span
+                        style={{
+                          background: TOKENS.teal,
+                          color: "#fff",
+                          padding: "6px 12px",
+                          minHeight: 32,
+                          borderRadius: 999,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Primary Contact
+                      </span>
+
+                      {canManage ? (
+                        <button
+                          onClick={resetPrimary}
+                          disabled={busy || !primaryId}
+                          style={actionPillStyle({ disabled: busy || !primaryId })}
+                        >
+                          Reset Primary
+                        </button>
+                      ) : null}
+                    </>
                   ) : (
                     isActive &&
                     canManage && (
                       <button
                         onClick={() => setPrimary(t.storeUserId)}
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          padding: "6px 10px",
-                          borderRadius: 10,
-                          border: `1px solid ${TOKENS.border}`,
-                          background: "#fff",
-                          cursor: "pointer",
-                        }}
+                        disabled={busy}
+                        style={actionPillStyle({ disabled: busy })}
                       >
                         Set Primary
                       </button>
@@ -594,16 +715,8 @@ export default function StoreTeamPanel({
                   {canManage ? (
                     <button
                       onClick={() => removeMember(t.storeUserId)}
-                      style={{
-                        fontSize: 12,
-                        fontWeight: 700,
-                        padding: "6px 10px",
-                        borderRadius: 10,
-                        border: "1px solid rgba(160,0,0,0.25)",
-                        color: "rgba(160,0,0,0.9)",
-                        background: "#fff",
-                        cursor: "pointer",
-                      }}
+                      disabled={busy}
+                      style={actionPillStyle({ danger: true, disabled: busy })}
                     >
                       Remove
                     </button>
