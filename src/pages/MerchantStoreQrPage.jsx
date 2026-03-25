@@ -196,7 +196,7 @@ export default function MerchantStoreQrPage() {
       setReplaceReason("");
       setHighlightPrint(true);
       setHelperMessage(
-        "Use Print to create another copy of the current active store QR."
+        "Use Print QR to create another copy of the current active store QR."
       );
 
       try {
@@ -247,20 +247,22 @@ export default function MerchantStoreQrPage() {
       <div className="mb-4">
         <Link
           to={`/merchant/stores/${storeId}`}
-          className="inline-flex items-center text-sm font-medium text-teal-700 hover:text-teal-800 hover:underline"
+          className="inline-flex items-center text-sm font-bold text-teal-700 hover:text-teal-800 hover:underline"
         >
           ← Back to Store
         </Link>
       </div>
 
       <div className="mb-6">
-        <h1 className="text-5xl font-bold tracking-tight text-slate-800">
-          Store QR
+        <h1 className="text-4xl font-bold tracking-tight text-slate-800">
+          {storeLabel}
         </h1>
-        <p className="mt-3 max-w-4xl text-lg leading-8 text-slate-600">
-          Print this QR code and place it near the POS so customers can scan,
-          check in, and access available rewards and offers.
+        <p className="mt-2 text-sm text-slate-500">
+          Scan to check in and access offers
         </p>
+        {merchantLabel ? (
+          <p className="mt-3 text-lg leading-7 text-slate-600">{merchantLabel}</p>
+        ) : null}
       </div>
 
       {successMessage ? (
@@ -287,7 +289,6 @@ export default function MerchantStoreQrPage() {
                 Print New QR
               </button>
             </div>
-            
           </div>
         ) : (
           <div className="mb-6 flex flex-wrap gap-3">
@@ -300,7 +301,7 @@ export default function MerchantStoreQrPage() {
                   : "border border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
               }`}
             >
-              Print
+              Print QR
             </button>
 
             <button
@@ -308,7 +309,7 @@ export default function MerchantStoreQrPage() {
               onClick={handleOpenReplaceCard}
               className="inline-flex min-h-[48px] items-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-base font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
             >
-              Replace QR
+              Replace
             </button>
           </div>
         )
@@ -338,16 +339,6 @@ export default function MerchantStoreQrPage() {
 
       {!loading && !error && qrPayload && !showReplaceCard ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="mb-6 border-b border-slate-100 pb-4">
-            <h2 className="text-3xl font-semibold tracking-tight text-slate-800">
-              {storeLabel}
-            </h2>
-
-            {merchantLabel ? (
-              <p className="mt-2 text-base text-slate-600">{merchantLabel}</p>
-            ) : null}
-          </div>
-
           <div className="grid gap-6 lg:grid-cols-[460px_minmax(0,1fr)] lg:items-start">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               {qrImageSrc ? (
@@ -372,10 +363,10 @@ export default function MerchantStoreQrPage() {
                   Placement Guidance
                 </h3>
                 <p className="mt-3 text-sm leading-6 text-slate-700">
-                  Place this printed QR near the register or customer checkout area
-                  where it is easy to see and scan. Reprint this same code if
-                  signage is damaged or additional copies are needed. Replace the
-                  QR only when you intend to invalidate all previously printed
+                  Place this printed QR near the register or checkout area where
+                  it is easy to see and scan. Reprint this same code if signage
+                  is damaged or additional copies are needed. Replace the QR
+                  only when you intend to invalidate all previously printed
                   copies for this store.
                 </p>
               </div>

@@ -19,7 +19,7 @@ function pvUiHook(event, fields = {}) {
       })
     );
   } catch {
-    // never break UI for logging
+      // never break UI for logging
   }
 }
 
@@ -66,7 +66,7 @@ const infoCell = { minWidth: 220, flex: "1 1 220px" };
 const breadcrumbLink = {
   textDecoration: "none",
   color: COLORS.primary,
-  fontWeight: 700,
+  fontWeight: 800,
 };
 
 const sep = { color: "rgba(0,0,0,0.35)" };
@@ -81,7 +81,7 @@ const tabPill = {
   textDecoration: "none",
   color: "inherit",
   background: "rgba(0,0,0,0.02)",
-  fontWeight: 800,
+  fontWeight: 900,
 };
 
 const tabPillActive = {
@@ -94,8 +94,8 @@ const primaryPill = {
   padding: "10px 16px",
   borderRadius: 999,
   border: "1px solid rgba(0,0,0,0.18)",
-  background: "rgba(0,0,0,0.08)",
-  color: "rgba(0,0,0,0.85)",
+  background: COLORS.primary,
+  color: "white",
   fontWeight: 900,
   cursor: "pointer",
 };
@@ -677,13 +677,50 @@ export default function MerchantStoreDetail() {
 
   return (
     <PageContainer size="wide">
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 22, fontWeight: 900, color: COLORS.text }}>Store</div>
-        <div style={{ fontSize: 13, color: COLORS.neutral, marginTop: 4 }}>
-          Manage store profile, contact details, and team access.
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+          <Link to="/merchant/stores" style={breadcrumbLink}>
+            ← My Stores
+          </Link>
+          <span style={sep}>›</span>
+          <span style={{ fontSize: 13, color: COLORS.neutral }}>Store</span>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: COLORS.text }}>
+              {displayName}
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.neutral, marginTop: 4 }}>
+              Manage store profile, contact details, and team access.
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => navigate(`/merchant/stores/${store.id}/qr`)}
+              style={primaryPill}
+            >
+              QR Code
+            </button>
+
+            <button type="button" onClick={load} disabled={loading} style={loading ? mutedPillDisabled : mutedPill}>
+              {loading ? "Loading..." : "Refresh"}
+            </button>
+          </div>
         </div>
       </div>
-<div
+
+      <div
         style={{
           marginBottom: 14,
           display: "flex",
@@ -694,17 +731,10 @@ export default function MerchantStoreDetail() {
         }}
       >
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <Link to="/merchant/stores" style={breadcrumbLink}>
-            ← Back to My Stores
-          </Link>
-
           {tab === "team" ? (
-            <>
-              <span style={sep}>·</span>
-              <Link to={`/merchant/stores/${store.id}`} style={breadcrumbLink}>
-                Store settings
-              </Link>
-            </>
+            <Link to={`/merchant/stores/${store.id}`} style={breadcrumbLink}>
+              Store settings
+            </Link>
           ) : null}
         </div>
 
@@ -730,32 +760,6 @@ export default function MerchantStoreDetail() {
           >
             Team & Access
           </Link>
-
-<button
-  type="button"
-  onClick={() => navigate(`/merchant/stores/${store.id}/qr`)}
-  style={mutedPill}
->
-  Generate QR
-</button>
-
-<button type="button" onClick={load} disabled={loading} style={loading ? mutedPillDisabled : mutedPill}>
-  {loading ? "Loading..." : "Refresh"}
-</button>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          gap: 12,
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 6, color: COLORS.text }}>{displayName}</h2>
         </div>
       </div>
 
@@ -839,7 +843,7 @@ export default function MerchantStoreDetail() {
                     type="button"
                     onClick={save}
                     disabled={!dirty || saving}
-                    style={!dirty || saving ? mutedPillDisabled : mutedPill}
+                    style={!dirty || saving ? primaryPillDisabled : primaryPill}
                   >
                     Save
                   </button>
