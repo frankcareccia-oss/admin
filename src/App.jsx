@@ -29,6 +29,7 @@ import MerchantStoreDetail from "./pages/MerchantStoreDetail";
 import MerchantStoreEdit from "./pages/MerchantStoreEdit";
 import MerchantStoreCreate from "./pages/MerchantStoreCreate";
 import MerchantStoreQrPage from "./pages/MerchantStoreQrPage";
+import AdminMerchantOwnershipChange from "./pages/AdminMerchantOwnershipChange";
 
 import MerchantInvoiceDetail from "./pages/MerchantInvoiceDetail";
 import MerchantPortalInvoices from "./pages/MerchantPortalInvoices";
@@ -497,7 +498,7 @@ function Layout({ children }) {
       window.removeEventListener("storage", onStorage);
       try {
         if (bc) bc.close();
-      } catch {}
+      } catch { }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
@@ -683,18 +684,18 @@ function Layout({ children }) {
           {children}
         </main>
 
-          <SupportInfo
-  authed={authed}
-  systemRole={sysRole}
-  merchantRole={merchantRole}
-  merchantRolePath={merchantRolePath}
-  deviceTrusted={deviceTrusted}
-  deviceTrustedLoading={deviceTrustedLoading}
-  pathname={location.pathname}
-  apiBase={API_BASE}
-  context={{ page: resolvePageName(location.pathname), merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
-  meFn={me}
-          />
+        <SupportInfo
+          authed={authed}
+          systemRole={sysRole}
+          merchantRole={merchantRole}
+          merchantRolePath={merchantRolePath}
+          deviceTrusted={deviceTrusted}
+          deviceTrustedLoading={deviceTrustedLoading}
+          pathname={location.pathname}
+          apiBase={API_BASE}
+          context={{ page: resolvePageName(location.pathname), merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
+          meFn={me}
+        />
       </div>
     </MerchantCtx.Provider>
   );
@@ -890,6 +891,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminMerchantUsers />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchants/:merchantId/ownership"
+            element={
+              <RequireAuth>
+                <AdminMerchantOwnershipChange />
               </RequireAuth>
             }
           />

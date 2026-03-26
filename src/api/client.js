@@ -1252,6 +1252,14 @@ export async function adminCreateMerchantUser(merchantId, { email } = {}) {
   });
 }
 
+export async function adminTransferOwnership(payload) {
+  return request(`/admin/merchant/ownership-transfer`, {
+    method: "POST",
+    auth: "auto",
+    body: payload,
+  });
+}
+
 export async function adminGetMerchantBillingPolicy(merchantId) {
   return request(`/admin/merchants/${merchantId}/billing-policy`, { auth: "auto" });
 }

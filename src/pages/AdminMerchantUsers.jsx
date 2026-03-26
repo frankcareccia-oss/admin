@@ -1,17 +1,26 @@
-// admin/src/pages/AdminMerchantUsers.jsx
+/**
+ * Module: admin/src/pages/AdminMerchantUsers.jsx
+ *
+ * Admin merchant users page (pv_admin)
+ *
+ * Responsibilities:
+ *  - Read-only listing of merchant users for pv_admin
+ *  - Lazy-load row detail diagnostics
+ *  - Recovery path for merchants:
+ *      - zero users  -> create first 'owner' access
+ *      - existing users -> refresh / replace / create 'owner' access
+ */
+
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   adminListMerchantUsers,
   adminGetMerchantUser,
+  adminCreateMerchantUser,
   getMerchant,
   getSystemRole,
 } from "../api/client";
 
-/**
- * pvUiHook: structured UI events for QA/docs/chatbot.
- * Must never throw.
- */
 function pvUiHook(event, fields = {}) {
   try {
     console.log(
@@ -43,7 +52,6 @@ async function copyToClipboard(text) {
     await navigator.clipboard.writeText(text);
     return;
   }
-  // Fallback
   const ta = document.createElement("textarea");
   ta.value = text;
   ta.setAttribute("readonly", "");
@@ -56,6 +64,51 @@ async function copyToClipboard(text) {
   if (!ok) throw new Error("Copy failed");
 }
 
+function prettyRole(role) {
+  const v = String(role || "").trim().toLowerCase();
+  if (!v) return "—";
+  if (v === "merchant_admin") return "'Owner'";
+  if (v === "merchant_employee") return "Staff";
+  if (v === "ap_clerk") return "Billing";
+  return role;
+}
+
+function prettyStatus(status) {
+  const v = String(status || "").trim().toLowerCase();
+  if (!v) return "—";
+  return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+function userDisplayLabel(mu) {
+  const email =
+    mu?.email ||
+    mu?.user?.email ||
+    mu?.contactEmail ||
+    mu?.userEmail ||
+    "";
+
+  const firstName = mu?.firstName || mu?.user?.firstName || "";
+  const lastName = mu?.lastName || mu?.user?.lastName || "";
+  const full = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  if (full && email) return `${full} — ${email}`;
+  return full || email || "—";
+}
+
+function userEmail(mu) {
+  return (
+    mu?.email ||
+    mu?.user?.email ||
+    mu?.contactEmail ||
+    mu?.userEmail ||
+    ""
+  );
+}
+
+function merchantUserIdOf(mu) {
+  return mu?.merchantUserId ?? mu?.id ?? null;
+}
+
 export default function AdminMerchantUsers() {
   const { merchantId } = useParams();
 
@@ -65,19 +118,32 @@ export default function AdminMerchantUsers() {
   const [merchant, setMerchant] = React.useState(null);
   const [items, setItems] = React.useState([]);
 
+  // ownership access state
+  const [existingAccessEmail, setExistingAccessEmail] = React.useState("");
+  const [otherPersonEmail, setOtherPersonEmail] = React.useState("");
+  const [manualEmail, setManualEmail] = React.useState("");
+  const [createBusy, setCreateBusy] = React.useState(false);
+  const [createMsg, setCreateMsg] = React.useState("");
+  const [createResult, setCreateResult] = React.useState(null);
+  const [actionMode, setActionMode] = React.useState("create");
+
   // expanded rows + per-row lazy detail caches
   const [expandedById, setExpandedById] = React.useState({});
   const [detailById, setDetailById] = React.useState({});
   const [detailBusyById, setDetailBusyById] = React.useState({});
   const [detailErrById, setDetailErrById] = React.useState({});
 
-  // “Advanced” diagnostics toggle per row (raw JSON view + copy)
+  // diagnostics toggle per row
   const [diagEnabledById, setDiagEnabledById] = React.useState({});
   const [copyStateById, setCopyStateById] = React.useState({}); // idle | copied | failed
 
-  async function load() {
+  async function load({ preserveCreateFeedback = false } = {}) {
     setLoading(true);
     setErr("");
+    if (!preserveCreateFeedback) {
+      setCreateMsg("");
+      setCreateResult(null);
+    }
 
     const sysRole = getSystemRole();
     if (sysRole !== "pv_admin") {
@@ -100,23 +166,22 @@ export default function AdminMerchantUsers() {
     try {
       pvUiHook("screen.enter", { screen: "AdminMerchantUsers", merchantId: mid });
 
-      // Merchant header (optional but useful)
       try {
         const m = await getMerchant(mid);
         setMerchant(m || null);
       } catch {
-        // non-fatal; still show list
         setMerchant(null);
       }
 
       const res = await adminListMerchantUsers(mid);
 
-      // Backend returns an array; be defensive if wrapped in {items}
       const list = Array.isArray(res)
         ? res
         : Array.isArray(res?.items)
-        ? res.items
-        : [];
+          ? res.items
+          : Array.isArray(res?.users)
+            ? res.users
+            : [];
 
       setItems(list);
 
@@ -147,16 +212,151 @@ export default function AdminMerchantUsers() {
   async function onRefresh() {
     setBusy(true);
     try {
-      await load();
+      await load({ preserveCreateFeedback: true });
     } finally {
       setBusy(false);
     }
   }
 
+  const existingOwnerOptions = React.useMemo(() => {
+    return items
+      .filter((mu) => String(mu?.role || "").toLowerCase() === "merchant_admin")
+      .map((mu) => {
+        const email = userEmail(mu);
+        return {
+          email,
+          label: userDisplayLabel(mu),
+        };
+      })
+      .filter((x) => x.email)
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [items]);
+
+  const otherEligibleOptions = React.useMemo(() => {
+    const map = new Map();
+
+    for (const mu of items) {
+      const email = userEmail(mu);
+      if (!email) continue;
+
+      const label = userDisplayLabel(mu);
+      if (!map.has(email)) {
+        map.set(email, { email, label });
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [items]);
+
+  const usingManualEmail = otherPersonEmail === "__manual__";
+
+  function selectedEmailForMode(mode) {
+    if (mode === "resend") {
+      return String(existingAccessEmail || "").trim().toLowerCase();
+    }
+
+    if (usingManualEmail) {
+      return String(manualEmail || "").trim().toLowerCase();
+    }
+
+    return String(otherPersonEmail || "").trim().toLowerCase();
+  }
+
+  async function runOwnershipAction(mode) {
+    const mid = Number(merchantId);
+    const email = selectedEmailForMode(mode);
+
+    if (!mid) {
+      setCreateMsg("Invalid merchantId.");
+      return;
+    }
+
+    if (!email) {
+      if (mode === "resend") {
+        setCreateMsg("Choose an existing 'owner' access path first.");
+      } else {
+        setCreateMsg("Choose another person or enter a different email first.");
+      }
+      return;
+    }
+
+    setActionMode(mode);
+    setCreateBusy(true);
+    setCreateMsg("");
+    setCreateResult(null);
+
+    try {
+      const res = await adminCreateMerchantUser(mid, { email, mode });
+
+      const result = {
+        email,
+        createdUser: Boolean(res?.createdUser),
+        tempPassword: String(res?.tempPassword || ""),
+        userId: res?.userId ?? null,
+        membership: res?.membership ?? null,
+        mode,
+      };
+
+      setCreateResult(result);
+
+      if (mode === "replace") {
+        setCreateMsg(
+          result.createdUser
+            ? `New 'owner' access created for ${email}.`
+            : `Existing account linked for 'owner' access: ${email}.`
+        );
+      } else if (mode === "resend") {
+        setCreateMsg(
+          result.createdUser
+            ? `Access prepared for ${email}.`
+            : `Access refreshed for 'owner' account: ${email}.`
+        );
+      } else {
+        setCreateMsg(
+          result.createdUser
+            ? `New 'owner' access created for ${email}.`
+            : `Existing account linked for 'owner' access: ${email}.`
+        );
+      }
+
+      pvUiHook("admin.merchant.users.recovery_create_succeeded.ui", {
+        stable: "admin.merchant:users:recovery_create",
+        merchantId: mid,
+        email,
+        createdUser: result.createdUser,
+        hasTempPassword: Boolean(result.tempPassword),
+        mode,
+      });
+
+      if (mode === "resend") {
+        setExistingAccessEmail(email);
+      } else if (usingManualEmail) {
+        setManualEmail("");
+        setOtherPersonEmail("");
+      } else {
+        setOtherPersonEmail(email);
+      }
+
+      await load({ preserveCreateFeedback: true });
+    } catch (e) {
+      const msg = e?.message || "Failed to update 'owner' access";
+      setCreateMsg(msg);
+      setCreateResult(null);
+
+      pvUiHook("admin.merchant.users.recovery_create_failed.ui", {
+        stable: "admin.merchant:users:recovery_create",
+        merchantId: mid,
+        email,
+        error: msg,
+        mode,
+      });
+    } finally {
+      setCreateBusy(false);
+    }
+  }
+
   async function ensureDetailLoaded(merchantUserId) {
     if (!merchantUserId) return;
-
-    // already loaded
     if (detailById[merchantUserId]) return;
 
     setDetailBusyById((p) => ({ ...p, [merchantUserId]: true }));
@@ -187,7 +387,7 @@ export default function AdminMerchantUsers() {
   }
 
   function toggleExpand(mu) {
-    const merchantUserId = mu?.id ?? null;
+    const merchantUserId = merchantUserIdOf(mu);
     if (!merchantUserId) return;
 
     setExpandedById((prev) => {
@@ -203,7 +403,6 @@ export default function AdminMerchantUsers() {
       return { ...prev, [merchantUserId]: next };
     });
 
-    // lazy load detail on first expand
     if (!expandedById[merchantUserId] && !detailById[merchantUserId]) {
       ensureDetailLoaded(merchantUserId);
     }
@@ -245,7 +444,6 @@ export default function AdminMerchantUsers() {
         bytes: JSON.stringify(payload).length,
       });
 
-      // auto-reset indicator
       window.setTimeout(() => {
         setCopyStateById((p) => ({ ...p, [merchantUserId]: "idle" }));
       }, 1500);
@@ -264,13 +462,63 @@ export default function AdminMerchantUsers() {
     }
   }
 
+  async function onCopyTempPassword() {
+    if (!createResult?.tempPassword) return;
+    try {
+      await copyToClipboard(createResult.tempPassword);
+      setCreateMsg(`Temporary password copied for ${createResult.email}.`);
+    } catch {
+      setCreateMsg("Failed to copy temporary password.");
+    }
+  }
+
   const mid = Number(merchantId) || null;
   const merchantName = merchant?.name || "";
+  const hasUsers = items.length > 0;
+
+  const recoveryTitle = hasUsers
+    ? `Manage 'Owner' Access for ${merchantName || "Organization"}`
+    : `Create 'Owner' Access for ${merchantName || "Organization"}`;
+
+  const recoveryHelp = hasUsers
+    ? "Select an existing account below, or choose another existing person. Use a different email only when needed."
+    : "This organization has no users yet. Choose a person if available, or use a different email to create the first 'owner' access path.";
+
+  const currentOwner = React.useMemo(() => {
+    return (
+      items.find(
+        (mu) =>
+          String(mu?.role || "").toLowerCase() === "merchant_admin" &&
+          String(mu?.status || "").toLowerCase() === "active"
+      ) || null
+    );
+  }, [items]);
+
+  const previousOwnerItems = React.useMemo(() => {
+    const currentId = merchantUserIdOf(currentOwner);
+    const currentEmail = String(userEmail(currentOwner) || "").trim().toLowerCase();
+
+    return items.filter((mu) => {
+      if (String(mu?.role || "").toLowerCase() !== "merchant_admin") return false;
+
+      const muId = merchantUserIdOf(mu);
+      const muEmail = String(userEmail(mu) || "").trim().toLowerCase();
+
+      if (currentId && muId && currentId === muId) return false;
+      if (!currentId && currentEmail && muEmail === currentEmail) return false;
+
+      return true;
+    });
+  }, [items, currentOwner]);
+
+  const currentOwnerExpanded = currentOwner
+    ? Boolean(expandedById[merchantUserIdOf(currentOwner)])
+    : false;
 
   return (
     <div style={styles.page}>
       <div style={styles.frame}>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 8 }}>
           <Link to={`/merchants/${mid || ""}`} style={styles.link}>
             ← Back to Merchant
           </Link>
@@ -278,12 +526,10 @@ export default function AdminMerchantUsers() {
 
         <div style={styles.headerRow}>
           <div>
-            <h2 style={{ marginTop: 0, marginBottom: 6 }}>Team</h2>
-            <div style={{ color: TOKENS.muted }}>
-              Read-only view (pv_admin)
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, color: TOKENS.muted }}>
-              Merchant: <code style={styles.code}>{merchantName || "—"}</code>
+            <h2 style={{ marginTop: 0, marginBottom: 4 }}>Ownership</h2>
+            <div style={{ color: TOKENS.muted }}>Read-only view (pv_admin)</div>
+            <div style={{ marginTop: 6, fontSize: 12, color: TOKENS.muted }}>
+              Organization: <code style={styles.code}>{merchantName || "—"}</code>
             </div>
           </div>
 
@@ -294,12 +540,197 @@ export default function AdminMerchantUsers() {
 
         {err ? <div style={styles.errBox}>{err}</div> : null}
 
-        <div style={{ marginTop: 14, ...styles.card }}>
+        <div style={{ marginTop: 10, ...styles.recoveryCard }}>
+          <div style={styles.recoveryTitle}>{recoveryTitle}</div>
+          <div style={styles.recoveryHelp}>{recoveryHelp}</div>
+
+          <div style={styles.recoveryLayout}>
+            <div style={styles.recoveryField}>
+              <label style={styles.recoveryLabel}>Select Existing 'Owner' Access</label>
+              <select
+                value={existingAccessEmail}
+                onChange={(e) => setExistingAccessEmail(e.target.value)}
+                style={styles.recoverySelect}
+                disabled={createBusy}
+              >
+                <option value="">Choose existing 'owner' access…</option>
+                {existingOwnerOptions.map((opt) => (
+                  <option key={opt.email} value={opt.email}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.recoveryField}>
+              <label style={styles.recoveryLabel}>Choose Another Person</label>
+              <select
+                value={otherPersonEmail}
+                onChange={(e) => setOtherPersonEmail(e.target.value)}
+                style={styles.recoverySelect}
+                disabled={createBusy}
+              >
+                <option value="">Choose another existing person…</option>
+                {otherEligibleOptions.map((opt) => (
+                  <option key={opt.email} value={opt.email}>
+                    {opt.label}
+                  </option>
+                ))}
+                <option value="__manual__">Use a different email…</option>
+              </select>
+            </div>
+
+            {usingManualEmail ? (
+              <div style={{ ...styles.recoveryField, gridColumn: "1 / span 2" }}>
+                <label style={styles.recoveryLabel}>Different Email</label>
+                <input
+                  value={manualEmail}
+                  onChange={(e) => setManualEmail(e.target.value)}
+                  placeholder="owner@company.com"
+                  autoComplete="off"
+                  style={styles.recoveryInput}
+                  disabled={createBusy}
+                />
+              </div>
+            ) : null}
+
+            <div style={styles.recoveryActionsRow}>
+              <button
+                type="button"
+                style={styles.recoveryBtn}
+                disabled={createBusy || !selectedEmailForMode("create")}
+                onClick={() => runOwnershipAction("create")}
+              >
+                {createBusy && actionMode === "create" ? "Working..." : "Create New"}
+              </button>
+
+              <button
+                type="button"
+                style={styles.recoveryBtn}
+                disabled={createBusy || !selectedEmailForMode("replace")}
+                onClick={() => runOwnershipAction("replace")}
+              >
+                {createBusy && actionMode === "replace" ? "Working..." : "Replace Access"}
+              </button>
+
+              <Link
+                to={`/merchants/${mid}/ownership`}
+                style={styles.changeOwnerLink}
+              >
+                Change 'Owner'…
+              </Link>
+            </div>
+          </div>
+
+          {createMsg ? (
+            <div
+              style={
+                createMsg.toLowerCase().includes("failed") ||
+                  createMsg.toLowerCase().includes("error")
+                  ? styles.errBox
+                  : styles.okBox
+              }
+            >
+              {createMsg}
+            </div>
+          ) : null}
+
+          {createResult?.createdUser && createResult?.tempPassword ? (
+            <div style={styles.passwordCard}>
+              <div style={styles.passwordTitle}>Temporary Password</div>
+              <div style={styles.passwordHelp}>
+                Save this now. It may not be shown again.
+              </div>
+
+              <div style={styles.passwordRow}>
+                <code style={styles.passwordCode}>{createResult.tempPassword}</code>
+                <button
+                  type="button"
+                  onClick={onCopyTempPassword}
+                  style={styles.copyBtn}
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div style={styles.passwordMeta}>
+                Email: <code style={styles.code}>{createResult.email}</code>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ marginTop: 10, ...styles.card }}>
+          <div style={styles.cardTop}>
+            <div style={{ fontWeight: 900 }}>Current Owner</div>
+            <div style={{ fontSize: 12, color: TOKENS.muted }}>
+              Use caret to view details
+            </div>
+          </div>
+
+          {!loading && !currentOwner ? (
+            <div style={styles.emptyBox}>No active current owner found.</div>
+          ) : currentOwner ? (
+            <>
+              <div style={styles.currentOwnerCard}>
+                <div style={styles.currentOwnerMain}>
+                  <div style={styles.currentOwnerName}>
+                    {userDisplayLabel(currentOwner)}
+                  </div>
+                </div>
+
+                <div style={styles.currentOwnerActions}>
+                  {merchantUserIdOf(currentOwner) ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleExpand(currentOwner);
+                      }}
+                      style={styles.caretBtn}
+                      aria-label={currentOwnerExpanded ? "Collapse details" : "Expand details"}
+                      title={currentOwnerExpanded ? "Collapse details" : "Expand details"}
+                    >
+                      {currentOwnerExpanded ? "▼" : "▶"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {currentOwnerExpanded ? (
+                <div style={styles.currentOwnerDetailWrap}>
+                  {Boolean(detailBusyById[merchantUserIdOf(currentOwner)]) ? (
+                    <div style={{ color: TOKENS.muted }}>Loading details…</div>
+                  ) : String(detailErrById[merchantUserIdOf(currentOwner)] || "") ? (
+                    <div style={styles.detailErrBox}>
+                      {String(detailErrById[merchantUserIdOf(currentOwner)] || "")}
+                    </div>
+                  ) : detailById[merchantUserIdOf(currentOwner)] ? (
+                    <DetailBlock
+                      merchantId={mid}
+                      merchantUserId={merchantUserIdOf(currentOwner)}
+                      detail={detailById[merchantUserIdOf(currentOwner)]}
+                      diagEnabled={Boolean(diagEnabledById[merchantUserIdOf(currentOwner)])}
+                      copyState={copyStateById[merchantUserIdOf(currentOwner)] || "idle"}
+                      onToggleDiagnostics={toggleDiagnostics}
+                      onCopyDiagnostics={onCopyDiagnostics}
+                    />
+                  ) : (
+                    <div style={{ color: TOKENS.muted }}>No detail loaded.</div>
+                  )}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+
+        <div style={{ marginTop: 10, ...styles.card }}>
           <div style={styles.cardTop}>
             <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-              <div style={{ fontWeight: 900 }}>Users</div>
+              <div style={{ fontWeight: 900 }}>Previous Owner Access</div>
               <div style={{ color: TOKENS.muted }}>
-                ({items.length} user{items.length === 1 ? "" : "s"})
+                ({previousOwnerItems.length} record{previousOwnerItems.length === 1 ? "" : "s"})
               </div>
             </div>
 
@@ -308,33 +739,24 @@ export default function AdminMerchantUsers() {
             </div>
           </div>
 
-          {/* scroll only inside this area */}
           <div style={styles.scrollArea}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ textAlign: "left" }}>
                   <th style={th}>User</th>
-                  <th style={th}>Tenant Role</th>
-                  <th style={th}>Membership Status</th>
-                  <th style={{ ...th, width: 36 }}></th>
+                  <th style={th}>Access Type</th>
+                  <th style={th}>Status</th>
+                  <th style={{ ...th, width: 56 }}></th>
                 </tr>
               </thead>
 
               <tbody>
-                {items.map((mu, idx) => {
+                {previousOwnerItems.map((mu, idx) => {
                   const rowKey =
-                    mu?.id ?? mu?.user?.id ?? mu?.user?.email ?? mu?.contactEmail ?? idx;
+                    mu?.merchantUserId ?? mu?.id ?? mu?.userId ?? mu?.email ?? idx;
 
-                  const merchantUserId = mu?.id ?? null;
-
-                  const emailLabel =
-                    mu?.user?.email ||
-                    mu?.contactEmail ||
-                    mu?.email ||
-                    mu?.userEmail ||
-                    "—";
-
-                  const userStatus = mu?.user?.status || "";
+                  const merchantUserId = merchantUserIdOf(mu);
+                  const emailLabel = userEmail(mu) || "—";
                   const role = mu?.role || "—";
                   const status = mu?.status || "—";
 
@@ -342,33 +764,21 @@ export default function AdminMerchantUsers() {
                   const d = merchantUserId ? detailById[merchantUserId] : null;
                   const dBusy = merchantUserId ? Boolean(detailBusyById[merchantUserId]) : false;
                   const dErr = merchantUserId ? String(detailErrById[merchantUserId] || "") : "";
-
                   const diagEnabled = merchantUserId ? Boolean(diagEnabledById[merchantUserId]) : false;
                   const copyState = merchantUserId ? (copyStateById[merchantUserId] || "idle") : "idle";
-
                   const expandable = Boolean(merchantUserId);
 
                   return (
                     <React.Fragment key={String(rowKey)}>
                       <tr style={styles.row}>
-                        <td style={td}>
-                          <div style={{ fontWeight: 700, color: TOKENS.navy }}>{emailLabel}</div>
-                          {userStatus ? (
-                            <div style={{ fontSize: 12, color: TOKENS.muted }}>
-                              userStatus: <code style={styles.code}>{userStatus}</code>
-                            </div>
-                          ) : null}
+                        <td style={tdUser}>
+                          <div style={{ fontWeight: 800, color: TOKENS.navy }}>{emailLabel}</div>
                         </td>
 
-                        <td style={td}>
-                          <code style={styles.code}>{role}</code>
-                        </td>
+                        <td style={tdText}>{prettyRole(role)}</td>
 
-                        <td style={td}>
-                          <code style={styles.code}>{status}</code>
-                        </td>
+                        <td style={tdText}>{prettyStatus(status)}</td>
 
-                        {/* Dedicated RIGHT action column */}
                         <td style={styles.caretTd}>
                           {expandable ? (
                             <button
@@ -396,81 +806,15 @@ export default function AdminMerchantUsers() {
                             ) : dErr ? (
                               <div style={styles.detailErrBox}>{dErr}</div>
                             ) : d ? (
-                              <div style={styles.detailWrap}>
-                                {/* Human summary */}
-                                <div style={styles.detailGrid}>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>Email:</b>
-                                    <span style={styles.value}>{d.user?.email || "—"}</span>
-                                  </div>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>User status:</b>
-                                    <span style={styles.value}>{d.user?.status || "—"}</span>
-                                  </div>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>Role:</b>
-                                    <span style={styles.value}>{d.role || "—"}</span>
-                                  </div>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>Membership:</b>
-                                    <span style={styles.value}>{d.status || "—"}</span>
-                                  </div>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>Status reason:</b>
-                                    <span style={styles.value}>{d.statusReason || "—"}</span>
-                                  </div>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>Created:</b>
-                                    <span style={styles.value}>{fmt(d.createdAt)}</span>
-                                  </div>
-                                  <div style={styles.detailRow}>
-                                    <b style={styles.label}>Updated:</b>
-                                    <span style={styles.value}>{fmt(d.updatedAt)}</span>
-                                  </div>
-                                </div>
-
-                                {/* Advanced (support-friendly) */}
-                                <div style={styles.diagBar}>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      toggleDiagnostics(merchantUserId);
-                                    }}
-                                    style={diagEnabled ? styles.diagChipOn : styles.diagChip}
-                                    aria-pressed={diagEnabled}
-                                    title="Support: enable advanced diagnostics"
-                                  >
-                                    Advanced {diagEnabled ? "▾" : "▸"}
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      onCopyDiagnostics(merchantUserId);
-                                    }}
-                                    disabled={!d}
-                                    style={styles.copyBtn}
-                                    title="Copy diagnostics payload for support/chatbot"
-                                  >
-                                    {copyState === "copied"
-                                      ? "Copied"
-                                      : copyState === "failed"
-                                      ? "Copy failed"
-                                      : "Copy diagnostics"}
-                                  </button>
-                                </div>
-
-                                {/* Raw JSON (only when Advanced enabled) */}
-                                {diagEnabled ? (
-                                  <pre style={styles.detailPre}>
-                                    {JSON.stringify(d, null, 2)}
-                                  </pre>
-                                ) : null}
-                              </div>
+                              <DetailBlock
+                                merchantId={mid}
+                                merchantUserId={merchantUserId}
+                                detail={d}
+                                diagEnabled={diagEnabled}
+                                copyState={copyState}
+                                onToggleDiagnostics={toggleDiagnostics}
+                                onCopyDiagnostics={onCopyDiagnostics}
+                              />
                             ) : (
                               <div style={{ color: TOKENS.muted }}>No detail loaded.</div>
                             )}
@@ -481,10 +825,10 @@ export default function AdminMerchantUsers() {
                   );
                 })}
 
-                {!loading && items.length === 0 && !err ? (
+                {!loading && previousOwnerItems.length === 0 && !err ? (
                   <tr>
                     <td colSpan={4} style={{ padding: 14, color: TOKENS.muted }}>
-                      No users found.
+                      No previous owner access records found.
                     </td>
                   </tr>
                 ) : null}
@@ -492,13 +836,95 @@ export default function AdminMerchantUsers() {
             </table>
           </div>
 
-          <div style={{ marginTop: 10, fontSize: 12, color: TOKENS.muted }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: TOKENS.muted }}>
             Screen <code style={styles.code}>AdminMerchantUsers</code> · Role{" "}
             <code style={styles.code}>pv_admin</code> · MerchantId{" "}
             <code style={styles.code}>{mid || "—"}</code>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailBlock({
+  detail,
+  merchantUserId,
+  diagEnabled,
+  copyState,
+  onToggleDiagnostics,
+  onCopyDiagnostics,
+}) {
+  return (
+    <div style={styles.detailWrap}>
+      <div style={styles.detailGrid}>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Email:</b>
+          <span style={styles.value}>{detail.user?.email || "—"}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>User status:</b>
+          <span style={styles.value}>{detail.user?.status || "—"}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Access type:</b>
+          <span style={styles.value}>{prettyRole(detail.role || "—")}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Status:</b>
+          <span style={styles.value}>{prettyStatus(detail.status || "—")}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Status reason:</b>
+          <span style={styles.value}>{detail.statusReason || "—"}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Created:</b>
+          <span style={styles.value}>{fmt(detail.createdAt)}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Updated:</b>
+          <span style={styles.value}>{fmt(detail.updatedAt)}</span>
+        </div>
+      </div>
+
+      <div style={styles.diagBar}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleDiagnostics(merchantUserId);
+          }}
+          style={diagEnabled ? styles.diagChipOn : styles.diagChip}
+          aria-pressed={diagEnabled}
+          title="Support: enable advanced diagnostics"
+        >
+          Advanced {diagEnabled ? "▾" : "▸"}
+        </button>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onCopyDiagnostics(merchantUserId);
+          }}
+          disabled={!detail}
+          style={styles.copyBtn}
+          title="Copy diagnostics payload for support/chatbot"
+        >
+          {copyState === "copied"
+            ? "Copied"
+            : copyState === "failed"
+              ? "Copy failed"
+              : "Copy diagnostics"}
+        </button>
+      </div>
+
+      {diagEnabled ? (
+        <pre style={styles.detailPre}>{JSON.stringify(detail, null, 2)}</pre>
+      ) : null}
     </div>
   );
 }
@@ -511,20 +937,19 @@ const TOKENS = {
   border: "rgba(0,0,0,0.10)",
   divider: "rgba(0,0,0,0.06)",
   teal: "#2F8F8B",
-  tealHover: "#277D79",
 };
 
 const styles = {
   page: {
     background: TOKENS.pageBg,
     color: TOKENS.navy,
-    height: "calc(100vh - 140px)", // keeps frame static; content scrolls inside card
-    overflow: "hidden",
+    height: "calc(100vh - 140px)",
+    overflow: "auto",
+    paddingBottom: 20,
   },
   frame: {
-    maxWidth: 980,
-    height: "100%",
-    overflow: "hidden",
+    maxWidth: 1040,
+    minHeight: "100%",
   },
 
   headerRow: {
@@ -541,6 +966,131 @@ const styles = {
     fontWeight: 700,
   },
 
+  recoveryCard: {
+    border: `1px solid ${TOKENS.border}`,
+    borderRadius: 14,
+    padding: 14,
+    background: TOKENS.surface,
+  },
+  recoveryTitle: {
+    fontWeight: 900,
+    fontSize: 16,
+    marginBottom: 6,
+  },
+  recoveryHelp: {
+    color: TOKENS.muted,
+    fontSize: 14,
+    lineHeight: 1.35,
+    marginBottom: 10,
+  },
+
+  recoveryLayout: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    alignItems: "end",
+  },
+  recoveryField: {
+    minWidth: 0,
+  },
+  recoveryLabel: {
+    display: "block",
+    fontSize: 12,
+    color: TOKENS.muted,
+    marginBottom: 6,
+  },
+  recoverySelect: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    color: TOKENS.navy,
+    fontSize: 14,
+  },
+  recoveryInput: {
+    width: "100%",
+    boxSizing: "border-box",
+    padding: "10px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    color: TOKENS.navy,
+    fontSize: 14,
+  },
+  recoveryActionsRow: {
+    gridColumn: "1 / span 2",
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(160px, 1fr))",
+    gap: 12,
+    alignItems: "center",
+    marginTop: 2,
+  },
+  recoveryBtn: {
+    padding: "10px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "white",
+    cursor: "pointer",
+    fontWeight: 900,
+    color: TOKENS.navy,
+    whiteSpace: "nowrap",
+    minHeight: 44,
+  },
+  changeOwnerLink: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    padding: "0 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,0,0,0.18)",
+    textDecoration: "none",
+    color: TOKENS.navy,
+    background: "white",
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+
+  passwordCard: {
+    marginTop: 12,
+    border: "1px solid rgba(47,143,139,0.30)",
+    background: "rgba(47,143,139,0.08)",
+    borderRadius: 12,
+    padding: 12,
+  },
+  passwordTitle: {
+    fontWeight: 900,
+    marginBottom: 4,
+  },
+  passwordHelp: {
+    fontSize: 12,
+    color: TOKENS.muted,
+    marginBottom: 10,
+  },
+  passwordRow: {
+    display: "flex",
+    gap: 10,
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  passwordCode: {
+    display: "inline-block",
+    padding: "10px 12px",
+    borderRadius: 10,
+    background: "white",
+    border: "1px solid rgba(0,0,0,0.14)",
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+    fontSize: 13,
+  },
+  passwordMeta: {
+    marginTop: 10,
+    fontSize: 12,
+    color: TOKENS.muted,
+  },
+
   card: {
     border: `1px solid ${TOKENS.border}`,
     borderRadius: 14,
@@ -548,7 +1098,6 @@ const styles = {
     background: TOKENS.surface,
     display: "flex",
     flexDirection: "column",
-    height: "calc(100% - 70px)",
     minHeight: 0,
   },
 
@@ -561,7 +1110,7 @@ const styles = {
 
   refreshBtn: {
     padding: "10px 12px",
-    borderRadius: 10,
+    borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.18)",
     background: "white",
     cursor: "pointer",
@@ -570,7 +1119,7 @@ const styles = {
   },
 
   errBox: {
-    marginTop: 14,
+    marginTop: 12,
     background: "rgba(255,0,0,0.06)",
     border: "1px solid rgba(255,0,0,0.15)",
     padding: 10,
@@ -579,57 +1128,94 @@ const styles = {
     color: TOKENS.navy,
   },
 
-  // The ONLY vertical scroll area on this screen:
+  okBox: {
+    marginTop: 12,
+    background: "rgba(47,143,139,0.10)",
+    border: "1px solid rgba(47,143,139,0.30)",
+    padding: 10,
+    borderRadius: 12,
+    whiteSpace: "pre-wrap",
+    color: TOKENS.navy,
+  },
+
+  emptyBox: {
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 12,
+    border: `1px solid ${TOKENS.divider}`,
+    background: "rgba(11,42,51,0.03)",
+    color: TOKENS.muted,
+  },
+
+  currentOwnerCard: {
+    marginTop: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    border: `1px solid ${TOKENS.divider}`,
+    borderRadius: 12,
+    padding: 14,
+    background: "rgba(11,42,51,0.03)",
+  },
+
+  currentOwnerMain: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    minWidth: 0,
+  },
+
+  currentOwnerName: {
+    fontWeight: 700,
+    fontSize: 15,
+    color: TOKENS.navy,
+    wordBreak: "break-word",
+  },
+
+    currentOwnerActions: {
+    flexShrink: 0,
+  },
+
+  currentOwnerDetailWrap: {
+    marginTop: 10,
+    padding: 12,
+    background: "rgba(11,42,51,0.03)",
+    border: `1px solid ${TOKENS.divider}`,
+    borderRadius: 12,
+  },
+
   scrollArea: {
     marginTop: 10,
     overflowY: "auto",
-    overflowX: "auto",
+    overflowX: "hidden",
     borderRadius: 12,
     border: `1px solid ${TOKENS.divider}`,
-    flex: 1,
-    minHeight: 0,
+    maxHeight: 360,
   },
 
-  row: {
-    // Keep row look neutral; caret button is the explicit affordance
-  },
+  row: {},
 
   caretTd: {
     padding: 12,
     borderBottom: `1px solid ${TOKENS.divider}`,
-    width: 44,
+    width: 56,
     textAlign: "right",
-    paddingRight: 10,
+    paddingRight: 14,
   },
 
   caretBtn: {
     border: "1px solid rgba(0,0,0,0.14)",
     background: "white",
     borderRadius: 10,
-    width: 28,
-    height: 28,
+    width: 40,
+    height: 40,
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
     color: TOKENS.muted,
-    fontSize: 12,
-  },
-
-  statusCell: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    width: "100%",
-  },
-
-  caretRight: {
-    display: "inline-block",
-    minWidth: 14,
-    textAlign: "right",
-    color: TOKENS.muted,
-    fontSize: 12,
+    fontSize: 14,
   },
 
   detailCell: {
@@ -730,13 +1316,23 @@ const styles = {
 };
 
 const th = {
-  padding: 12,
+  padding: 14,
   borderBottom: `1px solid ${TOKENS.border}`,
   color: TOKENS.navy,
   background: "rgba(11,42,51,0.06)",
+  fontSize: 14,
+  fontWeight: 900,
 };
 
-const td = {
-  padding: 12,
+const tdUser = {
+  padding: 14,
   borderBottom: `1px solid ${TOKENS.divider}`,
+  fontSize: 14,
+};
+
+const tdText = {
+  padding: 14,
+  borderBottom: `1px solid ${TOKENS.divider}`,
+  fontSize: 14,
+  color: TOKENS.navy,
 };
