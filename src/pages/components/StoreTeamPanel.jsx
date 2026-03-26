@@ -65,7 +65,10 @@ function fullName(firstName, lastName) {
 }
 
 function nameOf(u) {
-  return fullName(u?.firstName, u?.lastName) || u?.email || "—";
+  const name = fullName(u?.firstName, u?.lastName);
+  if (name) return name;
+  if (u?.email) return u.email;
+  return "";
 }
 
 function inputStyle() {
@@ -622,6 +625,9 @@ export default function StoreTeamPanel({
           {resolvedTeam.map((t) => {
             const isPrimary = String(t.storeUserId) === String(primaryId);
             const isActive = String(t.status || "").toLowerCase() === "active";
+            const phoneVal = fmtPhone(t.phone);
+            const showPhone = phoneVal && phoneVal !== "—";
+            const displayName = nameOf(t) || t.email || "User";
 
             return (
               <div
@@ -638,7 +644,7 @@ export default function StoreTeamPanel({
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 900, fontSize: 16, color: TOKENS.text, marginBottom: 2 }}>
-                    {nameOf(t)}
+                    {displayName}
                   </div>
                   <div
                     style={{
@@ -647,7 +653,9 @@ export default function StoreTeamPanel({
                       color: TOKENS.muted,
                     }}
                   >
-                    {[fmtPhone(t.phone), t.email].filter(Boolean).join(" • ")}
+                    {showPhone && t.email
+                      ? `${phoneVal} • ${t.email}`
+                      : t.email || (showPhone ? phoneVal : "")}
                   </div>
                   <div
                     style={{
