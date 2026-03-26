@@ -15,7 +15,6 @@ import {
   adminGetMerchantUser,
 } from "../api/client";
 
-
 // PV Admin UI Contract v1.0 (LOCKED)
 // Landscape: Model B (single scroll)
 // Row Pattern: B (inline expand)
@@ -24,10 +23,8 @@ import {
 const ROLE_OPTIONS = [
   { value: "owner", label: "Merchant Owner" },
   { value: "merchant_admin", label: "Merchant Admin" },
-  { value: "ap_clerk", label: "AP Clerk" },
-  { value: "merchant_employee", label: "Merchant Employee" },
-  { value: "store_admin", label: "Store Admin" },
-  { value: "store_subadmin", label: "Store Sub-admin" },
+  { value: "ap_clerk", label: "AP Clerk" }, // changed for v2.00 contract
+  { value: "merchant_employee", label: "Merchant Employee" }, // changed for v2.00 contract
 ];
 
 const STATUS_OPTIONS = [
@@ -52,7 +49,6 @@ function displayRoleLabel(value) {
 function displayStatusLabel(value) {
   return STATUS_LABEL_BY_VALUE[String(value || "").trim()] || "—";
 }
-
 
 const PHONE_COUNTRY_OPTIONS = [
   { value: "US", label: "+1", name: "United States" },
@@ -79,7 +75,6 @@ function pvUiHook(event, fields = {}) {
   }
 }
 
-
 function normOptionalText(v) {
   if (v === undefined) return undefined;
   if (v === null) return null;
@@ -87,12 +82,10 @@ function normOptionalText(v) {
   return s ? s : null;
 }
 
-
 function normEmail(v) {
   const s = String(v || "").trim().toLowerCase();
   return s || "";
 }
-
 
 function normPhoneDigits(v, maxLen = 20) {
   if (v === undefined) return undefined;
@@ -100,7 +93,6 @@ function normPhoneDigits(v, maxLen = 20) {
   const digits = String(v || "").replace(/\D+/g, "");
   return digits ? digits.slice(0, maxLen) : null;
 }
-
 
 function resolveMerchantContextFromMe(meRes) {
   const membership = Array.isArray(meRes?.memberships) ? meRes.memberships[0] : null;
@@ -121,7 +113,6 @@ function resolveMerchantContextFromMe(meRes) {
 
   return { merchantId, merchantName, tenantRole, membership };
 }
-
 
 const TOKENS = {
   pageBg: "#FEFCF7",
@@ -357,9 +348,68 @@ function resolveUserId(mu) {
   return mu?.userId ?? mu?.user?.id ?? mu?.id ?? null;
 }
 
+function resolvePrimaryContactStoreId(mu) {
+  if (Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length === 1) {
+    return String(mu.primaryContactStores[0].storeId);
+  }
+  if (Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length > 1) {
+    return "__MULTI__";
+  }
+  return "";
+}
+
+function resolveEmail(mu) {
+  return String(mu?.email ?? mu?.user?.email ?? mu?.userEmail ?? "").trim();
+}
+
+function resolveFirstName(mu) {
+  return String(mu?.firstName ?? mu?.user?.firstName ?? "").trim();
+}
+
+function resolveLastName(mu) {
+  return String(mu?.lastName ?? mu?.user?.lastName ?? "").trim();
+}
+
+function resolvePhoneCountry(mu) {
+  return String(mu?.phoneCountry ?? mu?.user?.phoneCountry ?? "US").trim() || "US";
+}
+
+function resolvePhoneRaw(mu) {
+  return String(mu?.phoneRaw ?? mu?.user?.phoneRaw ?? "").trim();
+}
+
+function normalizeMerchantUserRow(mu) {
+  return {
+    ...mu,
+    userId: resolveUserId(mu),
+    email: resolveEmail(mu),
+    firstName: resolveFirstName(mu),
+    lastName: resolveLastName(mu),
+    phoneCountry: resolvePhoneCountry(mu),
+    phoneRaw: resolvePhoneRaw(mu),
+    primaryContactStoreId: resolvePrimaryContactStoreId(mu),
+  };
+}
+
+function buildMerchantUserEditSnapshot(mu) {
+  const normalized = normalizeMerchantUserRow(mu);
+  return {
+    userId: resolveUserId(normalized),
+    merchantUserId: normalized?.id ?? normalized?.merchantUserId ?? null,
+    email: resolveEmail(normalized),
+    role: String(normalized?.role ?? "merchant_admin"),
+    status: String(normalized?.status ?? "active"),
+    firstName: resolveFirstName(normalized),
+    lastName: resolveLastName(normalized),
+    phoneCountry: resolvePhoneCountry(normalized),
+    phoneRaw: resolvePhoneRaw(normalized),
+    primaryContactStoreId: String(normalized?.primaryContactStoreId ?? ""),
+  };
+}
+
 function displayName(mu) {
-  const fn = (mu?.firstName || mu?.user?.firstName || "").trim();
-  const ln = (mu?.lastName || mu?.user?.lastName || "").trim();
+  const fn = String(mu?.firstName || "").trim();
+  const ln = String(mu?.lastName || "").trim();
   const full = [fn, ln].filter(Boolean).join(" ").trim();
   return full || "—";
 }
@@ -377,8 +427,13 @@ function formatPhone(raw) {
 }
 
 function displayPhone(mu) {
-  const raw = (mu?.phoneRaw || mu?.user?.phoneRaw || "").trim();
+  const raw = String(mu?.phoneRaw || "").trim();
   return formatPhone(raw);
+}
+
+function areEditSnapshotsEqual(a, b) {
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export default function MerchantUsers({ readOnly = false }) {
@@ -404,6 +459,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
   // Expand/edit (Pattern B)
   const [expandedId, setExpandedId] = React.useState(null);
+  const [editOriginal, setEditOriginal] = React.useState(null);
   const [editDraft, setEditDraft] = React.useState(null);
 
   // Filters/search
@@ -413,30 +469,22 @@ export default function MerchantUsers({ readOnly = false }) {
 
   const expandedMu = React.useMemo(() => {
     if (!expandedId) return null;
-    return items.find((x) => resolveUserId(x) === expandedId) || null;
+    return items.find((x) => String(resolveUserId(x)) === String(expandedId)) || null;
   }, [items, expandedId]);
 
-  function isEditDirty(expandedMu) {
-    if (!expandedMu || !editDraft) return false;
-    const a = {
-      role: String(editDraft.role ?? expandedMu.role ?? "").trim(),
-      status: String(editDraft.status ?? expandedMu.status ?? "active").trim(),
-      phoneCountry: String(editDraft.phoneCountry ?? expandedMu.phoneCountry ?? "US").trim(),
-      firstName: String(editDraft.firstName ?? expandedMu.firstName ?? "").trim(),
-      lastName: String(editDraft.lastName ?? expandedMu.lastName ?? "").trim(),
-      phoneRaw: String(editDraft.phoneRaw ?? expandedMu.phoneRaw ?? "").trim(),
-      email: String(editDraft.email ?? expandedMu.email ?? expandedMu.user?.email ?? "").trim(),
-    };
-    const b = {
-      role: String(expandedMu.role ?? "").trim(),
-      status: String(expandedMu.status ?? "active").trim(),
-      phoneCountry: String(expandedMu.phoneCountry ?? "US").trim(),
-      firstName: String(expandedMu.firstName ?? "").trim(),
-      lastName: String(expandedMu.lastName ?? "").trim(),
-      phoneRaw: String(expandedMu.phoneRaw ?? "").trim(),
-      email: String(expandedMu.email ?? expandedMu.user?.email ?? "").trim(),
-    };
-    return JSON.stringify(a) !== JSON.stringify(b);
+  function clearEditState() {
+    setExpandedId(null);
+    setEditOriginal(null);
+    setEditDraft(null);
+  }
+
+  function patchEditDraft(patch) {
+    setEditDraft((prev) => ({ ...(prev || {}), ...patch }));
+  }
+
+  function isEditDirty() {
+    if (!editOriginal || !editDraft) return false;
+    return !areEditSnapshotsEqual(editOriginal, editDraft);
   }
 
   async function load() {
@@ -463,7 +511,9 @@ export default function MerchantUsers({ readOnly = false }) {
         merchantListUsers({ merchantId: ctx.merchantId }),
         listMerchantStores(),
       ]);
-      setItems(Array.isArray(list) ? list : list?.items || []);
+
+      const rawItems = Array.isArray(list) ? list : list?.items || [];
+      setItems(rawItems.map(normalizeMerchantUserRow));
       setMerchantStores(Array.isArray(storesRes?.items) ? storesRes.items : []);
     } catch (e) {
       setErr(e?.message || "Failed to load team members.");
@@ -479,7 +529,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
   function guardDiscardIfDirty() {
     if (busy) return false;
-    if (expandedMu && isEditDirty(expandedMu)) {
+    if (expandedMu && isEditDirty()) {
       const ok = window.confirm("You have unsaved edits. Discard changes?");
       if (!ok) return false;
     }
@@ -490,8 +540,7 @@ export default function MerchantUsers({ readOnly = false }) {
     if (!guardDiscardIfDirty()) return;
 
     if (expandedId) {
-      setExpandedId(null);
-      setEditDraft(null);
+      clearEditState();
     }
 
     const next = !showCreate;
@@ -522,30 +571,19 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
-    const next = expandedId === id ? null : id;
-    setExpandedId(next);
+    const isClosing = String(expandedId) === String(id);
+    if (isClosing) {
+      clearEditState();
+      pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: false });
+      return;
+    }
 
-    setEditDraft(
-      next
-        ? {
-            email: mu.email ?? mu.user?.email ?? "",
-            role: mu.role ?? "merchant_admin",
-            status: mu.status ?? "active",
-            firstName: mu.firstName ?? mu.user?.firstName ?? "",
-            lastName: mu.lastName ?? mu.user?.lastName ?? "",
-            phoneCountry: mu.phoneCountry ?? mu.user?.phoneCountry ?? "US",
-            phoneRaw: mu.phoneRaw ?? mu.user?.phoneRaw ?? "",
-            primaryContactStoreId:
-              Array.isArray(mu.primaryContactStores) && mu.primaryContactStores.length === 1
-                ? String(mu.primaryContactStores[0].storeId)
-                : Array.isArray(mu.primaryContactStores) && mu.primaryContactStores.length > 1
-                  ? "__MULTI__"
-                  : "",
-          }
-        : null
-    );
+    const snapshot = buildMerchantUserEditSnapshot(mu);
+    setExpandedId(id);
+    setEditOriginal({ ...snapshot });
+    setEditDraft({ ...snapshot });
 
-    pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: Boolean(next) });
+    pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: true });
   }
 
   async function onCreate(e) {
@@ -622,7 +660,7 @@ export default function MerchantUsers({ readOnly = false }) {
   }
 
   async function onSaveEdit(expandedMu) {
-    if (!expandedMu) return;
+    if (!expandedMu || !editDraft) return;
     if (readOnly) return;
 
     const ctx = resolveMerchantContextFromMe(profile);
@@ -639,8 +677,7 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
-    const draft = editDraft || {};
-    const nextEmail = normEmail(draft.email ?? expandedMu.email ?? expandedMu.user?.email ?? "");
+    const nextEmail = normEmail(editDraft.email);
     if (!nextEmail) {
       setErr("Email is required.");
       return;
@@ -648,12 +685,12 @@ export default function MerchantUsers({ readOnly = false }) {
 
     const fields = {
       email: nextEmail,
-      role: String(draft.role ?? expandedMu.role ?? "").trim(),
-      status: String(draft.status ?? expandedMu.status ?? "active").trim(),
-      firstName: normOptionalText(draft.firstName),
-      lastName: normOptionalText(draft.lastName),
-      phoneCountry: normOptionalText(draft.phoneCountry)?.toUpperCase() || "US",
-      phoneRaw: normPhoneDigits(draft.phoneRaw),
+      role: String(editDraft.role || "").trim(),
+      status: String(editDraft.status || "active").trim(),
+      firstName: normOptionalText(editDraft.firstName),
+      lastName: normOptionalText(editDraft.lastName),
+      phoneCountry: normOptionalText(editDraft.phoneCountry)?.toUpperCase() || "US",
+      phoneRaw: normPhoneDigits(editDraft.phoneRaw),
     };
 
     setBusy(true);
@@ -664,7 +701,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
       const assignedStores = Array.isArray(expandedMu?.stores) ? expandedMu.stores : [];
       const currentPrimary = Array.isArray(expandedMu?.primaryContactStores) ? expandedMu.primaryContactStores : [];
-      const desiredStoreIdRaw = draft.primaryContactStoreId;
+      const desiredStoreIdRaw = editDraft.primaryContactStoreId;
 
       if (desiredStoreIdRaw !== "__MULTI__") {
         if (desiredStoreIdRaw) {
@@ -684,6 +721,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
       pvUiHook("merchant.users.row_save_ok.ui", { stable: "merchant:users:row_save_ok", merchantId, userId });
       await load();
+      clearEditState();
     } catch (e) {
       setErr(e?.message || "Failed to save changes.");
       pvUiHook("merchant.users.row_save_fail.ui", { stable: "merchant:users:row_save_fail", message: String(e?.message || "") });
@@ -711,13 +749,9 @@ export default function MerchantUsers({ readOnly = false }) {
 
       const parts = [
         mu?.email,
-        mu?.user?.email,
         mu?.firstName,
-        mu?.user?.firstName,
         mu?.lastName,
-        mu?.user?.lastName,
         mu?.phoneRaw,
-        mu?.user?.phoneRaw,
         mu?.role,
         mu?.status,
       ]
@@ -735,7 +769,6 @@ export default function MerchantUsers({ readOnly = false }) {
     });
   }, [items, q, roleFilter, statusFilter]);
 
-
   const createRoleSelected = String(role || "").trim();
   const createCanSave =
     !busy &&
@@ -750,7 +783,6 @@ export default function MerchantUsers({ readOnly = false }) {
     merchantStores.length === 1
       ? "After creating the employee, assign them to your store from that store’s Team & Access page."
       : "After creating the employee, assign them to a store from that store’s Team & Access page.";
-
 
   return (
     <div style={styles.page}>
@@ -802,12 +834,12 @@ export default function MerchantUsers({ readOnly = false }) {
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
-{showCreate && !readOnly && (
+          {showCreate && !readOnly && (
             <div style={styles.card}>
               <div style={styles.cardTitleRow}>
                 <div>
                   <div style={styles.cardTitle}>{`Add Employee to ${merchantLabel}`}</div>
-                  <div style={styles.cardHelp}>{`Add a new employee to ${merchantLabel} and choose their role. POS Employees are assigned later from a store’s Team & Access page.`}</div>
+                  <div style={styles.cardHelp}>{`Add a new employee to ${merchantLabel} and choose their role. Assign them to a store and grant POS access from that store’s Team & Access page.`}</div> {/* changed for v2.00 contract */}
                 </div>
               </div>
 
@@ -873,7 +905,7 @@ export default function MerchantUsers({ readOnly = false }) {
                 </div>
 
                 <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 10 }}>
-                  First name, last name, email, and role are required. POS Employee is assigned later from a store’s Team & Access page.
+                  First name, last name, email, and role are required. Store access and POS permissions are assigned later from the store’s Team & Access page. {/* changed for v2.00 contract */}
                 </div>
 
                 <div style={styles.formActions}>
@@ -901,7 +933,7 @@ export default function MerchantUsers({ readOnly = false }) {
               <div>
                 <div style={styles.cardTitle}>Team Members</div>
                 <div style={styles.cardHelp}>
-                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page. POS Employee is assigned at the store level, not as a merchant role.
+                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page. Store permissions, including POS access, are assigned at the store level, not as a merchant role. {/* changed for v2.00 contract */}
                 </div>
               </div>
             </div>
@@ -962,14 +994,14 @@ export default function MerchantUsers({ readOnly = false }) {
               <div style={{ fontSize: 13, color: TOKENS.muted }}>Loading…</div>
             ) : (
               <>
-                {expandedMu && (
+                {expandedMu && editDraft && (
                   <div style={{ marginTop: 12 }}>
                     <div style={styles.editCard}>
                       <div style={styles.cardTitleRow}>
                         <div>
                           <div style={styles.cardTitle}>Edit Employee</div>
                           <div style={styles.cardHelp}>
-                            {displayName(expandedMu) !== "—" ? displayName(expandedMu) : (expandedMu?.email || expandedMu?.user?.email || "—")}
+                            {displayName(expandedMu) !== "—" ? displayName(expandedMu) : (expandedMu?.email || "—")}
                           </div>
                           <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
                             Changes apply to this merchant-level employee.
@@ -981,8 +1013,8 @@ export default function MerchantUsers({ readOnly = false }) {
                         <div>
                           <label style={styles.label}>First name</label>
                           <input
-                            value={editDraft?.firstName ?? ""}
-                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), firstName: e.target.value }))}
+                            value={editDraft.firstName}
+                            onChange={(e) => patchEditDraft({ firstName: e.target.value })}
                             style={styles.input}
                             disabled={busy}
                           />
@@ -990,8 +1022,8 @@ export default function MerchantUsers({ readOnly = false }) {
                         <div>
                           <label style={styles.label}>Last name</label>
                           <input
-                            value={editDraft?.lastName ?? ""}
-                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), lastName: e.target.value }))}
+                            value={editDraft.lastName}
+                            onChange={(e) => patchEditDraft({ lastName: e.target.value })}
                             style={styles.input}
                             disabled={busy}
                           />
@@ -1000,8 +1032,8 @@ export default function MerchantUsers({ readOnly = false }) {
                           <label style={styles.label}>Phone</label>
                           <div style={styles.phoneFieldRow}>
                             <select
-                              value={editDraft?.phoneCountry ?? "US"}
-                              onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneCountry: e.target.value }))}
+                              value={editDraft.phoneCountry}
+                              onChange={(e) => patchEditDraft({ phoneCountry: e.target.value })}
                               style={styles.phonePrefixSelect}
                               disabled={busy}
                             >
@@ -1012,8 +1044,8 @@ export default function MerchantUsers({ readOnly = false }) {
                               ))}
                             </select>
                             <input
-                              value={formatPhone(editDraft?.phoneRaw ?? "") === "—" ? "" : formatPhone(editDraft?.phoneRaw ?? "")}
-                              onChange={(e) => setEditDraft((d) => ({ ...(d || {}), phoneRaw: normPhoneDigits(e.target.value) ?? "" }))}
+                              value={formatPhone(editDraft.phoneRaw) === "—" ? "" : formatPhone(editDraft.phoneRaw)}
+                              onChange={(e) => patchEditDraft({ phoneRaw: normPhoneDigits(e.target.value) ?? "" })}
                               style={styles.phoneInput}
                               disabled={busy}
                               placeholder="(415) 555-1212"
@@ -1028,8 +1060,8 @@ export default function MerchantUsers({ readOnly = false }) {
                         <div>
                           <label style={styles.label}>Role</label>
                           <select
-                            value={editDraft?.role ?? ""}
-                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), role: e.target.value }))}
+                            value={editDraft.role}
+                            onChange={(e) => patchEditDraft({ role: e.target.value })}
                             style={styles.select}
                             disabled={busy}
                           >
@@ -1044,8 +1076,8 @@ export default function MerchantUsers({ readOnly = false }) {
                         <div>
                           <label style={styles.label}>Email</label>
                           <input
-                            value={editDraft?.email ?? expandedMu?.email ?? expandedMu?.user?.email ?? ""}
-                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), email: e.target.value }))}
+                            value={editDraft.email}
+                            onChange={(e) => patchEditDraft({ email: e.target.value })}
                             style={styles.input}
                             disabled={busy}
                           />
@@ -1054,8 +1086,8 @@ export default function MerchantUsers({ readOnly = false }) {
                         <div>
                           <label style={styles.label}>Status</label>
                           <select
-                            value={editDraft?.status ?? "active"}
-                            onChange={(e) => setEditDraft((d) => ({ ...(d || {}), status: e.target.value }))}
+                            value={editDraft.status}
+                            onChange={(e) => patchEditDraft({ status: e.target.value })}
                             style={styles.select}
                             disabled={busy}
                           >
@@ -1088,8 +1120,7 @@ export default function MerchantUsers({ readOnly = false }) {
                           type="button"
                           onClick={() => {
                             if (!guardDiscardIfDirty()) return;
-                            setExpandedId(null);
-                            setEditDraft(null);
+                            clearEditState();
                           }}
                           disabled={busy}
                           style={styles.btnGhost}
@@ -1097,7 +1128,7 @@ export default function MerchantUsers({ readOnly = false }) {
                           Close
                         </button>
 
-                        {isEditDirty(expandedMu) && <span style={{ fontSize: 12, color: TOKENS.muted }}>Unsaved changes</span>}
+                        {isEditDirty() && <span style={{ fontSize: 12, color: TOKENS.muted }}>Unsaved changes</span>}
                       </div>
                     </div>
                   </div>
@@ -1118,7 +1149,7 @@ export default function MerchantUsers({ readOnly = false }) {
                     <tbody>
                       {filtered.map((mu) => {
                         const id = resolveUserId(mu);
-                        const isOpen = expandedId && id && expandedId === id;
+                        const isOpen = expandedId && id && String(expandedId) === String(id);
                         const st = String(mu?.status || "active");
                         return (
                           <React.Fragment key={id || mu?.email || Math.random()}>
@@ -1150,7 +1181,7 @@ export default function MerchantUsers({ readOnly = false }) {
                               </td>
                               <td style={styles.td}>{displayPhone(mu)}</td>
                               <td style={styles.td}>
-                                <div style={{ fontWeight: 700 }}>{mu?.email || mu?.user?.email || "—"}</div>
+                                <div style={{ fontWeight: 700 }}>{mu?.email || "—"}</div>
                               </td>
                               <td style={styles.td}>
                                 <span style={styles.pill}>{displayRoleLabel(mu?.role)}</span>
@@ -1181,8 +1212,7 @@ export default function MerchantUsers({ readOnly = false }) {
             {err && <div style={styles.errBox}>{err}</div>}
             {result && <div style={styles.okBox}>Created employee successfully.</div>}
           </div>
-
-                  </div>
+        </div>
       </PageContainer>
     </div>
   );
