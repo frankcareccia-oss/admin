@@ -1,6 +1,22 @@
-// admin/src/pages/MerchantDetail.jsx
+/**
+ * Module: admin/src/pages/MerchantDetail.jsx
+ *
+ * Merchant Detail page (pv_admin)
+ *
+ * Responsibilities:
+ *  - Load merchant detail
+ *  - Display merchant overview/status
+ *  - Allow pv_admin to update merchant status
+ *  - Navigate back to merchant list after successful status save
+ *
+ * Notes:
+ *  - Fixes stale list-state issue after status mutation
+ *  - Fixes status form layout so Save button does not overlap reason input
+ *  - Preserves existing layout/tabs/store section behavior
+ */
+
 import React from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { getMerchant, updateMerchantStatus } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
@@ -10,6 +26,7 @@ import SectionTabs from "../components/layout/SectionTabs";
 export default function MerchantDetail() {
   const { merchantId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [merchant, setMerchant] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -50,7 +67,7 @@ export default function MerchantDetail() {
         status: newStatus,
         statusReason: statusReason || undefined,
       });
-      await load();
+      navigate("/merchants");
     } catch (e2) {
       setErr(e2?.message || "Failed to update merchant status");
     } finally {
@@ -74,7 +91,7 @@ export default function MerchantDetail() {
     );
   }
 
-  if (err) {
+  if (err && !merchant) {
     return (
       <PageContainer size="page">
         <div
@@ -102,7 +119,6 @@ export default function MerchantDetail() {
 
   const storesCount = (merchant.stores || []).length;
 
-  // Tab actives based on current path
   const path = location.pathname || "";
   const overviewPath = `/merchants/${merchant.id}`;
   const teamPath = `/merchants/${merchant.id}/users`;
@@ -172,12 +188,11 @@ export default function MerchantDetail() {
         />
       </PageHeader>
 
-      {/* Status editor */}
       <div style={styles.card}>
         <div style={styles.cardTitle}>Status</div>
 
         <form onSubmit={onSaveStatus} style={styles.statusForm}>
-          <div>
+          <div style={styles.statusField}>
             <label style={styles.label}>Status</label>
             <select
               value={newStatus}
@@ -191,7 +206,7 @@ export default function MerchantDetail() {
             </select>
           </div>
 
-          <div style={{ minWidth: 360, flex: "1 1 360px" }}>
+          <div style={styles.reasonField}>
             <label style={styles.label}>Status reason (optional)</label>
             <input
               value={statusReason}
@@ -202,28 +217,20 @@ export default function MerchantDetail() {
             />
           </div>
 
-          <button type="submit" disabled={busy} style={styles.saveBtn}>
-            {busy ? "Saving..." : "Save"}
-          </button>
+          <div style={styles.saveCell}>
+            <button type="submit" disabled={busy} style={styles.saveBtn}>
+              {busy ? "Saving..." : "Save"}
+            </button>
+          </div>
         </form>
 
         {err ? (
-          <div
-            style={{
-              marginTop: 10,
-              background: "rgba(255,0,0,0.06)",
-              border: "1px solid rgba(255,0,0,0.15)",
-              padding: 10,
-              borderRadius: 12,
-              whiteSpace: "pre-wrap",
-            }}
-          >
+          <div style={styles.errBox}>
             {err}
           </div>
         ) : null}
       </div>
 
-      {/* Stores list */}
       <div ref={storesRef} style={styles.storesCard}>
         <div style={styles.storesHeader}>
           <div style={{ fontWeight: 800 }}>Stores</div>
@@ -305,12 +312,25 @@ const styles = {
     fontWeight: 800,
     marginBottom: 10,
   },
+
   statusForm: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "180px minmax(260px, 1fr) 120px",
     gap: 12,
-    flexWrap: "wrap",
     alignItems: "end",
   },
+  statusField: {
+    minWidth: 0,
+  },
+  reasonField: {
+    minWidth: 0,
+  },
+  saveCell: {
+    display: "flex",
+    justifyContent: "flex-end",
+    alignItems: "end",
+  },
+
   label: {
     display: "block",
     fontSize: 12,
@@ -318,6 +338,7 @@ const styles = {
     marginBottom: 6,
   },
   select: {
+    width: "100%",
     padding: "10px 12px",
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.18)",
@@ -325,17 +346,31 @@ const styles = {
   },
   input: {
     width: "100%",
+    minWidth: 0,
     padding: "10px 12px",
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.18)",
+    boxSizing: "border-box",
   },
   saveBtn: {
+    width: "100%",
+    minWidth: 96,
     padding: "10px 12px",
     borderRadius: 10,
     border: "1px solid rgba(0,0,0,0.18)",
     background: "white",
     cursor: "pointer",
     fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+
+  errBox: {
+    marginTop: 10,
+    background: "rgba(255,0,0,0.06)",
+    border: "1px solid rgba(255,0,0,0.15)",
+    padding: 10,
+    borderRadius: 12,
+    whiteSpace: "pre-wrap",
   },
 
   storesCard: {
