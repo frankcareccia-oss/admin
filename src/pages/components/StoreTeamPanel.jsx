@@ -4,9 +4,7 @@ import {
   merchantListStoreTeam,
   merchantAssignStoreTeamMember,
   merchantRemoveStoreTeamMember,
-  merchantListUsers,
   merchantSetPrimaryContact,
-  me,
 } from "../../api/client";
 
 /* ------------------------------------------------------------- */
@@ -106,60 +104,27 @@ function statusLabel(v) {
 }
 
 /* ------------------------------------------------------------- */
-/* Shape adapters                                                */
+/* Shape adapter                                                 */
 /* ------------------------------------------------------------- */
 
-function adaptMerchantUser(mu) {
-  const user = mu?.user || mu?.User || mu;
-
+function adaptEmployee(e) {
   return {
-    merchantUserId: String(
-      mu?.merchantUserId ??
-        mu?.id ??
-        mu?.merchantUser?.id ??
-        ""
-    ),
-    userId: String(mu?.userId ?? user?.id ?? ""),
-    status: String(mu?.status ?? ""),
-    firstName: user?.firstName ?? user?.first_name ?? "",
-    lastName: user?.lastName ?? user?.last_name ?? "",
-    email: user?.email ?? mu?.email ?? "",
+    merchantUserId: String(e?.merchantUserId ?? e?.id ?? ""),
+    userId: String(e?.userId ?? ""),
+    email: e?.email ?? "",
+    role: String(e?.role ?? ""),
+    status: String(e?.status ?? ""),
+    firstName: e?.firstName ?? "",
+    lastName: e?.lastName ?? "",
     phone:
-      user?.phoneE164 ??
-      user?.phone_e164 ??
-      user?.phoneRaw ??
-      user?.phone_raw ??
-      mu?.contactPhone ??
+      e?.phoneE164 ??
+      e?.phoneRaw ??
+      e?.phone ??
       "",
-  };
-}
-
-function adaptStoreUser(su) {
-  const mu = su?.merchantUser || su?.merchant_user || su;
-  const user = mu?.user || mu?.User || mu;
-
-  return {
-    storeUserId: String(su?.id ?? su?.storeUserId ?? ""),
-    merchantUserId: String(
-      mu?.id ??
-        mu?.merchantUserId ??
-        su?.merchantUserId ??
-        su?.merchant_user_id ??
-        ""
-    ),
-    userId: String(mu?.userId ?? user?.id ?? su?.userId ?? ""),
-    permissionLevel: String(su?.permissionLevel ?? su?.permission_level ?? ""),
-    status: String(su?.status ?? ""),
-    firstName: user?.firstName ?? user?.first_name ?? "",
-    lastName: user?.lastName ?? user?.last_name ?? "",
-    email: user?.email ?? mu?.email ?? su?.email ?? "",
-    phone:
-      user?.phoneE164 ??
-      user?.phone_e164 ??
-      user?.phoneRaw ??
-      user?.phone_raw ??
-      mu?.contactPhone ??
-      "",
+    assigned: Boolean(e?.assigned),
+    storeUserId: e?.storeUserId == null ? "" : String(e.storeUserId),
+    permissionLevel: String(e?.permissionLevel ?? ""),
+    storeAssignmentStatus: String(e?.storeAssignmentStatus ?? ""),
   };
 }
 
@@ -179,10 +144,7 @@ export default function StoreTeamPanel({
   const [err, setErr] = React.useState("");
   const [flash, setFlash] = React.useState("");
 
-  const [merchantId, setMerchantId] = React.useState(null);
-
-  const [team, setTeam] = React.useState([]);
-  const [users, setUsers] = React.useState([]);
+  const [employees, setEmployees] = React.useState([]);
 
   const [pickId, setPickId] = React.useState("");
   const [pickPerm, setPickPerm] = React.useState("");
@@ -215,47 +177,31 @@ export default function StoreTeamPanel({
     setLoading(true);
     setErr("");
 
-    pvUiHook("merchant.store.team.load_start", { stable: "merchant:store:team", storeId });
+    pvUiHook("merchant.store.team.load_start", {
+      stable: "merchant:store:team",
+      storeId,
+    });
 
     try {
-      let mid = merchantId;
+      const raw = await merchantListStoreTeam(storeId);
 
-      if (!mid) {
-        const prof = await me();
+      const employeeItems = Array.isArray(raw?.employees)
+        ? raw.employees
+        : Array.isArray(raw)
+          ? raw
+          : raw?.items || [];
 
-        mid =
-          prof?.user?.merchantUsers?.[0]?.merchantId ??
-          prof?.merchantId ??
-          null;
-
-        if (mid) setMerchantId(mid);
-      }
-
-      const teamRaw = await merchantListStoreTeam(storeId);
-      const usersRaw = mid
-        ? await merchantListUsers({ merchantId: mid })
-        : [];
-
-      const teamItems = Array.isArray(teamRaw)
-        ? teamRaw
-        : teamRaw?.items || teamRaw?.team || teamRaw?.assigned || [];
-
-      const userItems = Array.isArray(usersRaw)
-        ? usersRaw
-        : usersRaw?.items || usersRaw?.users || [];
-
-      const t = teamItems.map(adaptStoreUser);
-      const u = userItems.map(adaptMerchantUser);
+      const nextEmployees = employeeItems.map(adaptEmployee);
 
       if (!cancelledRef.current) {
-        setTeam(t);
-        setUsers(u);
+        setEmployees(nextEmployees);
       }
 
       pvUiHook("merchant.store.team.load_success", {
         stable: "merchant:store:team",
         storeId,
-        teamCount: t.length,
+        employeeCount: nextEmployees.length,
+        assignedCount: nextEmployees.filter((e) => e.assigned).length,
       });
     } catch (e) {
       const m = e?.message || "Failed to load team";
@@ -269,7 +215,7 @@ export default function StoreTeamPanel({
     } finally {
       if (!cancelledRef.current) setLoading(false);
     }
-  }, [storeId, merchantId]);
+  }, [storeId]);
 
   React.useEffect(() => {
     cancelledRef.current = false;
@@ -288,55 +234,32 @@ export default function StoreTeamPanel({
   }, [primaryContactStoreUserId]);
 
   /* --------------------------------------------------------- */
-  /* Enrich team names from merchant user directory            */
+  /* Derived data                                              */
   /* --------------------------------------------------------- */
 
-  const usersByMerchantUserId = React.useMemo(() => {
-    const map = new Map();
-    for (const u of users) {
-      if (u.merchantUserId) map.set(String(u.merchantUserId), u);
-      if (u.userId) map.set(`user:${String(u.userId)}`, u);
-    }
-    return map;
-  }, [users]);
-
   const resolvedTeam = React.useMemo(() => {
-    return [...team]
-      .map((t) => {
-        const byMerchantUserId = t.merchantUserId ? usersByMerchantUserId.get(String(t.merchantUserId)) : null;
-        const byUserId = t.userId ? usersByMerchantUserId.get(`user:${String(t.userId)}`) : null;
-        const match = byMerchantUserId || byUserId;
-
-        return {
-          ...t,
-          firstName: t.firstName || match?.firstName || "",
-          lastName: t.lastName || match?.lastName || "",
-          email: t.email || match?.email || "",
-          phone: t.phone || match?.phone || "",
-        };
-      })
+    return employees
+      .filter((e) => e.assigned && e.storeUserId)
+      .slice()
       .sort((a, b) => {
         const aPrimary = String(a.storeUserId) === String(primaryId) ? 1 : 0;
         const bPrimary = String(b.storeUserId) === String(primaryId) ? 1 : 0;
         if (aPrimary !== bPrimary) return bPrimary - aPrimary;
 
-        const aActive = String(a.status || "").toLowerCase() === "active" ? 1 : 0;
-        const bActive = String(b.status || "").toLowerCase() === "active" ? 1 : 0;
+        const aActive = String(a.storeAssignmentStatus || a.status || "").toLowerCase() === "active" ? 1 : 0;
+        const bActive = String(b.storeAssignmentStatus || b.status || "").toLowerCase() === "active" ? 1 : 0;
         if (aActive !== bActive) return bActive - aActive;
 
         return nameOf(a).localeCompare(nameOf(b));
       });
-  }, [team, usersByMerchantUserId, primaryId]);
-
-  const assignedMerchantUserIds = React.useMemo(() => {
-    return new Set(resolvedTeam.map((t) => String(t.merchantUserId || "")).filter(Boolean));
-  }, [resolvedTeam]);
+  }, [employees, primaryId]);
 
   const assignableUsers = React.useMemo(() => {
-    return users
-      .filter((u) => u.merchantUserId && !assignedMerchantUserIds.has(String(u.merchantUserId)))
+    return employees
+      .filter((e) => e.merchantUserId && !e.assigned)
+      .slice()
       .sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
-  }, [users, assignedMerchantUserIds]);
+  }, [employees]);
 
   function actionPillStyle({ danger = false, disabled = false } = {}) {
     return {
@@ -624,7 +547,8 @@ export default function StoreTeamPanel({
         <div style={{ borderTop: `1px solid ${TOKENS.divider}` }}>
           {resolvedTeam.map((t) => {
             const isPrimary = String(t.storeUserId) === String(primaryId);
-            const isActive = String(t.status || "").toLowerCase() === "active";
+            const effectiveStatus = t.storeAssignmentStatus || t.status;
+            const isActive = String(effectiveStatus || "").toLowerCase() === "active";
             const phoneVal = fmtPhone(t.phone);
             const showPhone = phoneVal && phoneVal !== "—";
             const displayName = nameOf(t) || t.email || "User";
@@ -664,7 +588,7 @@ export default function StoreTeamPanel({
                       color: TOKENS.muted,
                     }}
                   >
-                    {roleLabel(t.permissionLevel)} · {statusLabel(t.status)}
+                    {roleLabel(t.permissionLevel)} · {statusLabel(effectiveStatus)}
                   </div>
                 </div>
 
