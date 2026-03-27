@@ -194,6 +194,10 @@ const styles = {
   activeRow: {
     background: "rgba(47,143,139,0.04)",
   },
+  savedRow: {
+    background: "rgba(47,143,139,0.12)",
+    transition: "background 180ms ease",
+  },
 
   cardTitleRow: {
     display: "flex",
@@ -436,6 +440,24 @@ function areEditSnapshotsEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function friendlyErrorMessage(error, fallback) {
+  const raw =
+    String(error?.message || error?.error?.message || error || "")
+      .trim();
+
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes("unique constraint") ||
+    lower.includes("already exists") ||
+    lower.includes("duplicate")
+  ) {
+    return "That email address is already in use.";
+  }
+
+  return raw || fallback;
+}
+
 export default function MerchantUsers({ readOnly = false }) {
   const [profile, setProfile] = React.useState(null);
   const [sysRole, setSysRole] = React.useState("");
@@ -445,6 +467,9 @@ export default function MerchantUsers({ readOnly = false }) {
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
   const [result, setResult] = React.useState(null);
+  const editCardRef = React.useRef(null);
+  const [lastSavedUserId, setLastSavedUserId] = React.useState(null);
+  const [flashRowId, setFlashRowId] = React.useState(null);
 
   // Create form fields (preserved)
   const [email, setEmail] = React.useState("");
@@ -471,6 +496,29 @@ export default function MerchantUsers({ readOnly = false }) {
     if (!expandedId) return null;
     return items.find((x) => String(resolveUserId(x)) === String(expandedId)) || null;
   }, [items, expandedId]);
+
+  function scrollEditCardIntoView() {
+    window.requestAnimationFrame(() => {
+      const el = editCardRef.current;
+      if (!el) return;
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      window.setTimeout(() => {
+        const top = window.scrollY - 24;
+        window.scrollTo({ top: Math.max(top, 0), behavior: "auto" });
+      }, 220);
+    });
+  }
+
+  function scrollRowIntoView(userId) {
+    if (!userId) return;
+    window.requestAnimationFrame(() => {
+      const row = document.getElementById(`mu-row-${userId}`);
+      if (!row) return;
+      const top = row.getBoundingClientRect().top + window.scrollY - 140;
+      window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+    });
+  }
 
   function clearEditState() {
     setExpandedId(null);
@@ -527,6 +575,25 @@ export default function MerchantUsers({ readOnly = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
+  React.useEffect(() => {
+    if (!expandedId || !editDraft) return;
+    scrollEditCardIntoView();
+  }, [expandedId, editDraft]);
+
+  React.useEffect(() => {
+    if (!lastSavedUserId) return;
+
+    scrollRowIntoView(lastSavedUserId);
+    setFlashRowId(lastSavedUserId);
+
+    const t = window.setTimeout(() => {
+      setFlashRowId(null);
+      setLastSavedUserId(null);
+    }, 1800);
+
+    return () => window.clearTimeout(t);
+  }, [lastSavedUserId]);
+
   function guardDiscardIfDirty() {
     if (busy) return false;
     if (expandedMu && isEditDirty()) {
@@ -582,6 +649,8 @@ export default function MerchantUsers({ readOnly = false }) {
     setExpandedId(id);
     setEditOriginal({ ...snapshot });
     setEditDraft({ ...snapshot });
+
+    window.setTimeout(scrollEditCardIntoView, 60);
 
     pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: true });
   }
@@ -652,8 +721,12 @@ export default function MerchantUsers({ readOnly = false }) {
 
       await load();
     } catch (e) {
-      setErr(e?.message || "Failed to create user.");
-      pvUiHook("merchant.users.create_fail.ui", { stable: "merchant:users:create_fail", message: String(e?.message || "") });
+      const message = friendlyErrorMessage(e, "Failed to create user.");
+      setErr(message);
+      pvUiHook("merchant.users.create_fail.ui", {
+        stable: "merchant:users:create_fail",
+        message
+      });
     } finally {
       setBusy(false);
     }
@@ -720,11 +793,17 @@ export default function MerchantUsers({ readOnly = false }) {
       }
 
       pvUiHook("merchant.users.row_save_ok.ui", { stable: "merchant:users:row_save_ok", merchantId, userId });
+      setLastSavedUserId(userId);
       await load();
       clearEditState();
     } catch (e) {
-      setErr(e?.message || "Failed to save changes.");
-      pvUiHook("merchant.users.row_save_fail.ui", { stable: "merchant:users:row_save_fail", message: String(e?.message || "") });
+      const message = friendlyErrorMessage(e, "Failed to save changes.");
+      setErr(message);
+
+      pvUiHook("merchant.users.row_save_fail.ui", {
+        stable: "merchant:users:row_save_fail",
+        message
+      });
     } finally {
       setBusy(false);
     }
@@ -839,7 +918,7 @@ export default function MerchantUsers({ readOnly = false }) {
               <div style={styles.cardTitleRow}>
                 <div>
                   <div style={styles.cardTitle}>{`Add Employee to ${merchantLabel}`}</div>
-                  <div style={styles.cardHelp}>{`Add a new employee to ${merchantLabel} and choose their role. Assign them to a store and grant POS access from that store’s Team & Access page.`}</div> {/* changed for v2.00 contract */}
+                  <div style={styles.cardHelp}>{`Add a new employee to ${merchantLabel} and choose their role. Assign them to a store and grant POS access from that store’s Team & Access page.`}</div>
                 </div>
               </div>
 
@@ -905,7 +984,7 @@ export default function MerchantUsers({ readOnly = false }) {
                 </div>
 
                 <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 10 }}>
-                  First name, last name, email, and role are required. Store access and POS permissions are assigned later from the store’s Team & Access page. {/* changed for v2.00 contract */}
+                  First name, last name, email, and role are required. Store access and POS permissions are assigned later from the store’s Team & Access page.
                 </div>
 
                 <div style={styles.formActions}>
@@ -928,12 +1007,13 @@ export default function MerchantUsers({ readOnly = false }) {
               </form>
             </div>
           )}
+
           <div style={styles.card}>
             <div style={styles.cardTitleRow}>
               <div>
                 <div style={styles.cardTitle}>Team Members</div>
                 <div style={styles.cardHelp}>
-                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page. Store permissions, including POS access, are assigned at the store level, not as a merchant role. {/* changed for v2.00 contract */}
+                  View and update your team members here. Store-specific assignment happens from each store’s Team & Access page. Store permissions, including POS access, are assigned at the store level, not as a merchant role.
                 </div>
               </div>
             </div>
@@ -996,12 +1076,12 @@ export default function MerchantUsers({ readOnly = false }) {
               <>
                 {expandedMu && editDraft && (
                   <div style={{ marginTop: 12 }}>
-                    <div style={styles.editCard}>
+                    <div ref={editCardRef} style={styles.editCard}>
                       <div style={styles.cardTitleRow}>
                         <div>
                           <div style={styles.cardTitle}>Edit Employee</div>
                           <div style={styles.cardHelp}>
-                            {displayName(expandedMu) !== "—" ? displayName(expandedMu) : (expandedMu?.email || "—")}
+                            {displayName(expandedMu) !== "—" ? displayName(expandedMu) : expandedMu?.email || "—"}
                           </div>
                           <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 4 }}>
                             Changes apply to this merchant-level employee.
@@ -1110,8 +1190,11 @@ export default function MerchantUsers({ readOnly = false }) {
                         <button
                           type="button"
                           onClick={() => onSaveEdit(expandedMu)}
-                          disabled={busy}
-                          style={{ ...styles.btnPrimary, ...(busy ? styles.btnPrimaryDisabled : null) }}
+                          disabled={busy || !isEditDirty()}
+                          style={{
+                            ...styles.btnPrimary,
+                            ...(busy || !isEditDirty() ? styles.btnPrimaryDisabled : null)
+                          }}
                         >
                           {busy ? "Saving…" : "Save"}
                         </button>
@@ -1130,6 +1213,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
                         {isEditDirty() && <span style={{ fontSize: 12, color: TOKENS.muted }}>Unsaved changes</span>}
                       </div>
+                      {err && <div style={styles.errBox}>{err}</div>}
                     </div>
                   </div>
                 )}
@@ -1151,9 +1235,14 @@ export default function MerchantUsers({ readOnly = false }) {
                         const id = resolveUserId(mu);
                         const isOpen = expandedId && id && String(expandedId) === String(id);
                         const st = String(mu?.status || "active");
+                        const isFlash = flashRowId && String(flashRowId) === String(id);
+
                         return (
                           <React.Fragment key={id || mu?.email || Math.random()}>
-                            <tr id={id ? `mu-row-${id}` : undefined} style={isOpen ? styles.activeRow : undefined}>
+                            <tr
+                              id={id ? `mu-row-${id}` : undefined}
+                              style={isOpen ? styles.activeRow : isFlash ? styles.savedRow : undefined}
+                            >
                               <td style={{ ...styles.td, width: 42 }}>
                                 <button
                                   type="button"
@@ -1209,8 +1298,7 @@ export default function MerchantUsers({ readOnly = false }) {
               </>
             )}
 
-            {err && <div style={styles.errBox}>{err}</div>}
-            {result && <div style={styles.okBox}>Created employee successfully.</div>}
+            {result && <div style={styles.okBox}>Changes saved successfully.</div>}
           </div>
         </div>
       </PageContainer>
