@@ -9,10 +9,6 @@ import {
   merchantUpdateStoreProfile,
   listMerchantStores,
   me,
-  getSystemRole,
-  // NOTE: adminGetMerchantUser is only used in readOnly mode (pv_admin views)
-  // If your client exports it, keep this import; otherwise remove the readOnly detail fetch block.
-  adminGetMerchantUser,
 } from "../api/client";
 
 // PV Admin UI Contract v1.0 (LOCKED)
@@ -460,7 +456,6 @@ function friendlyErrorMessage(error, fallback) {
 
 export default function MerchantUsers({ readOnly = false }) {
   const [profile, setProfile] = React.useState(null);
-  const [sysRole, setSysRole] = React.useState("");
   const [items, setItems] = React.useState([]);
   const [merchantStores, setMerchantStores] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -470,6 +465,21 @@ export default function MerchantUsers({ readOnly = false }) {
   const editCardRef = React.useRef(null);
   const [lastSavedUserId, setLastSavedUserId] = React.useState(null);
   const [flashRowId, setFlashRowId] = React.useState(null);
+
+  function clearFeedback() {
+    setErr("");
+    setResult(null);
+  }
+
+  function resetCreateForm() {
+    setEmail("");
+    setFirstName("");
+    setLastName("");
+    setPhoneRaw("");
+    setPhoneCountry("US");
+    setRole("");
+    setStatus("active");
+  }
 
   // Create form fields (preserved)
   const [email, setEmail] = React.useState("");
@@ -524,9 +534,11 @@ export default function MerchantUsers({ readOnly = false }) {
     setExpandedId(null);
     setEditOriginal(null);
     setEditDraft(null);
+    setErr("");
   }
 
   function patchEditDraft(patch) {
+    setErr("");
     setEditDraft((prev) => ({ ...(prev || {}), ...patch }));
   }
 
@@ -539,18 +551,10 @@ export default function MerchantUsers({ readOnly = false }) {
     setLoading(true);
     setErr("");
     try {
-      const r = await me();
-      setProfile(r);
-      try {
-        setSysRole(getSystemRole());
-      } catch {
-        setSysRole("");
-      }
-
-      pvUiHook("merchant.users.load.ui", { stable: "merchant:users:load", readOnly });
-
       const m = await me();
       setProfile(m);
+
+      pvUiHook("merchant.users.load.ui", { stable: "merchant:users:load", readOnly });
 
       const ctx = resolveMerchantContextFromMe(m);
       if (!ctx?.merchantId) throw new Error("merchantId is required");
@@ -564,7 +568,7 @@ export default function MerchantUsers({ readOnly = false }) {
       setItems(rawItems.map(normalizeMerchantUserRow));
       setMerchantStores(Array.isArray(storesRes?.items) ? storesRes.items : []);
     } catch (e) {
-      setErr(e?.message || "Failed to load team members.");
+      setErr(friendlyErrorMessage(e, "Failed to load team members."));
     } finally {
       setLoading(false);
     }
@@ -575,10 +579,6 @@ export default function MerchantUsers({ readOnly = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
-  React.useEffect(() => {
-    if (!expandedId || !editDraft) return;
-    scrollEditCardIntoView();
-  }, [expandedId, editDraft]);
 
   React.useEffect(() => {
     if (!lastSavedUserId) return;
@@ -606,6 +606,8 @@ export default function MerchantUsers({ readOnly = false }) {
   function toggleCreatePanel() {
     if (!guardDiscardIfDirty()) return;
 
+    clearFeedback();
+
     if (expandedId) {
       clearEditState();
     }
@@ -620,6 +622,8 @@ export default function MerchantUsers({ readOnly = false }) {
 
   function toggleExpand(mu) {
     if (!mu) return;
+
+    clearFeedback();
 
     // contract: mutually exclusive
     if (showCreate) {
@@ -638,14 +642,24 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
-    const isClosing = String(expandedId) === String(id);
-    if (isClosing) {
-      clearEditState();
-      pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: false });
-      return;
-    }
+    const snapshot = {
+      userId: resolveUserId(mu),
+      merchantUserId: mu?.id ?? mu?.merchantUserId ?? null,
+      email: String(mu?.email ?? mu?.user?.email ?? mu?.userEmail ?? "").trim(),
+      role: String(mu?.role ?? "merchant_admin"),
+      status: String(mu?.status ?? "active"),
+      firstName: String(mu?.firstName ?? mu?.user?.firstName ?? "").trim(),
+      lastName: String(mu?.lastName ?? mu?.user?.lastName ?? "").trim(),
+      phoneCountry: String(mu?.phoneCountry ?? mu?.user?.phoneCountry ?? "US").trim() || "US",
+      phoneRaw: String(mu?.phoneRaw ?? mu?.user?.phoneRaw ?? "").trim(),
+      primaryContactStoreId:
+        Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length === 1
+          ? String(mu.primaryContactStores[0].storeId)
+          : Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length > 1
+            ? "__MULTI__"
+            : "",
+    };
 
-    const snapshot = buildMerchantUserEditSnapshot(mu);
     setExpandedId(id);
     setEditOriginal({ ...snapshot });
     setEditDraft({ ...snapshot });
@@ -706,17 +720,11 @@ export default function MerchantUsers({ readOnly = false }) {
     setBusy(true);
     try {
       pvUiHook("merchant.users.create_clicked.ui", { stable: "merchant:users:create", merchantId: ctx.merchantId, role: roleNorm, status });
-      const r = await merchantCreateUser(body);
-      setResult(r);
+      await merchantCreateUser(body);
+      setResult("Created employee successfully.");
       pvUiHook("merchant.users.create_ok.ui", { stable: "merchant:users:create_ok", merchantId: ctx.merchantId });
 
-      setEmail("");
-      setFirstName("");
-      setLastName("");
-      setPhoneRaw("");
-      setPhoneCountry("US");
-      setRole("");
-      setStatus("active");
+      resetCreateForm();
       setShowCreate(false);
 
       await load();
@@ -768,6 +776,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
     setBusy(true);
     setErr("");
+    setResult(null);
     try {
       pvUiHook("merchant.users.row_save.ui", { stable: "merchant:users:row_save", merchantId, userId });
       await merchantUpdateUserProfile(userId, merchantId, fields);
@@ -1238,7 +1247,7 @@ export default function MerchantUsers({ readOnly = false }) {
                         const isFlash = flashRowId && String(flashRowId) === String(id);
 
                         return (
-                          <React.Fragment key={id || mu?.email || Math.random()}>
+                          <React.Fragment key={id || mu?.email || `mu-${displayName(mu)}`}>
                             <tr
                               id={id ? `mu-row-${id}` : undefined}
                               style={isOpen ? styles.activeRow : isFlash ? styles.savedRow : undefined}
@@ -1298,7 +1307,7 @@ export default function MerchantUsers({ readOnly = false }) {
               </>
             )}
 
-            {result && <div style={styles.okBox}>Changes saved successfully.</div>}
+            {result && <div style={styles.okBox}>{result}</div>}
           </div>
         </div>
       </PageContainer>
