@@ -5,7 +5,7 @@ import {
   merchantAssignStoreTeamMember,
   merchantRemoveStoreTeamMember,
   merchantListUsers,
-  merchantUpdateStoreProfile,
+  merchantSetPrimaryContact,
   me,
 } from "../../api/client";
 
@@ -399,7 +399,7 @@ export default function StoreTeamPanel({
 
       const isPrimary = String(storeUserId) === String(primaryId);
       if (isPrimary) {
-        await merchantUpdateStoreProfile(storeId, {
+        await merchantSetPrimaryContact(storeId, {
           primaryContactStoreUserId: null,
         });
         setPrimaryId("");
@@ -429,7 +429,7 @@ export default function StoreTeamPanel({
       setBusy(true);
       setErr("");
 
-      await merchantUpdateStoreProfile(storeId, {
+      await merchantSetPrimaryContact(storeId, {
         primaryContactStoreUserId: Number(storeUserId),
       });
 
@@ -462,7 +462,7 @@ export default function StoreTeamPanel({
       setBusy(true);
       setErr("");
 
-      await merchantUpdateStoreProfile(storeId, {
+      await merchantSetPrimaryContact(storeId, {
         primaryContactStoreUserId: null,
       });
 

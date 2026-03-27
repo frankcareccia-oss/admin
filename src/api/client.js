@@ -1219,6 +1219,32 @@ export async function merchantAssignStoreTeamMember(storeId, { merchantUserId, p
   });
 }
 
+export async function merchantSetPrimaryContact(storeId, { primaryContactStoreUserId } = {}) {
+  assertNotPvAdminForMerchantCall(`/merchant/stores/${storeId}/team/primary-contact`);
+  if (storeId == null) throw new Error("storeId is required");
+
+  const body = {
+    primaryContactStoreUserId:
+      primaryContactStoreUserId === null
+        ? null
+        : Number(primaryContactStoreUserId),
+  };
+
+  pvApiHook("merchant.store.team.primary.api", {
+    storeId,
+    primaryContactStoreUserId: body.primaryContactStoreUserId,
+  });
+
+  return request(
+    `/merchant/stores/${encodeURIComponent(String(storeId))}/team/primary-contact`,
+    {
+      method: "PATCH",
+      auth: "jwt",
+      body,
+    }
+  );
+}
+
 export async function merchantRemoveStoreTeamMember(storeUserId) {
   assertNotPvAdminForMerchantCall(`/merchant/stores/team/${storeUserId}`);
   if (storeUserId == null) throw new Error("storeUserId is required");
@@ -1421,7 +1447,7 @@ function pickFirst(obj, paths) {
       }
       if (ok && cur != null && String(cur).trim() !== "") return cur;
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
