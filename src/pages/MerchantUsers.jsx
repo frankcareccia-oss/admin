@@ -417,9 +417,22 @@ function displayPhone(mu) {
   return formatPhone(raw);
 }
 
+function normalizeSnapshot(s) {
+  return {
+    ...s,
+    email: normEmail(s?.email),
+    role: String(s?.role || "").trim(),
+    status: String(s?.status || "").trim(),
+    firstName: String(s?.firstName || "").trim(),
+    lastName: String(s?.lastName || "").trim(),
+    phoneCountry: String(s?.phoneCountry || "US").trim().toUpperCase(),
+    phoneRaw: normPhoneDigits(s?.phoneRaw),
+  };
+}
+
 function areEditSnapshotsEqual(a, b) {
   if (!a || !b) return false;
-  return JSON.stringify(a) === JSON.stringify(b);
+  return JSON.stringify(normalizeSnapshot(a)) === JSON.stringify(normalizeSnapshot(b));
 }
 
 function friendlyErrorMessage(error, fallback) {
@@ -450,7 +463,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
   // Create form fields
   const [email, setEmail] = React.useState("");
-  const [role, setRole] = React.useState("");
+  const [role, setRole] = React.useState("merchant_employee");
   const [status, setStatus] = React.useState("active");
   const [firstName, setFirstName] = React.useState("");
   const [lastName, setLastName] = React.useState("");
@@ -462,6 +475,11 @@ export default function MerchantUsers({ readOnly = false }) {
   const [expandedId, setExpandedId] = React.useState(null);
   const [editOriginal, setEditOriginal] = React.useState(null);
   const [editDraft, setEditDraft] = React.useState(null);
+
+  const [discardConfirm, setDiscardConfirm] = React.useState({
+    open: false,
+    onConfirm: null,
+  });
 
   // Filters/search
   const [q, setQ] = React.useState("");
@@ -506,8 +524,8 @@ export default function MerchantUsers({ readOnly = false }) {
     window.requestAnimationFrame(() => {
       const row = document.getElementById(`mu-row-${userId}`);
       if (!row) return;
-      const top = row.getBoundingClientRect().top + window.scrollY - 140;
-      window.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+
+      row.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }
 
@@ -559,28 +577,42 @@ export default function MerchantUsers({ readOnly = false }) {
   React.useEffect(() => {
     if (!lastSavedUserId) return;
 
-    scrollRowIntoView(lastSavedUserId);
-    setFlashRowId(lastSavedUserId);
+    const t1 = window.setTimeout(() => {
+      scrollRowIntoView(lastSavedUserId);
+      setFlashRowId(lastSavedUserId);
+    }, 80);
 
-    const t = window.setTimeout(() => {
+    const t2 = window.setTimeout(() => {
       setFlashRowId(null);
       setLastSavedUserId(null);
     }, 1800);
 
-    return () => window.clearTimeout(t);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [lastSavedUserId]);
 
-  function guardDiscardIfDirty() {
+  function guardDiscardIfDirty(nextAction) {
     if (busy) return false;
+
     if (expandedMu && isEditDirty()) {
-      const ok = window.confirm("You have unsaved edits. Discard changes?");
-      if (!ok) return false;
+      setDiscardConfirm({
+        open: true,
+        onConfirm: () => {
+          setDiscardConfirm({ open: false, onConfirm: null });
+          clearEditState();
+          nextAction && nextAction();
+        },
+      });
+      return false;
     }
+
     return true;
   }
 
-  function toggleCreatePanel() {
-    if (!guardDiscardIfDirty()) return;
+  function toggleCreatePanel(force = false) {
+    if (!force && !guardDiscardIfDirty(() => toggleCreatePanel(true))) return;
 
     clearFeedback();
 
@@ -598,8 +630,7 @@ export default function MerchantUsers({ readOnly = false }) {
       open: next,
     });
   }
-
-  function toggleExpand(mu) {
+  function toggleExpand(mu, force = false) {
     if (!mu) return;
 
     clearFeedback();
@@ -612,7 +643,7 @@ export default function MerchantUsers({ readOnly = false }) {
       });
     }
 
-    if (!guardDiscardIfDirty()) return;
+    if (!force && !guardDiscardIfDirty(() => toggleExpand(mu, true))) return;
 
     const id = resolveUserId(mu);
     if (!id) {
@@ -733,18 +764,36 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
+    const fn = String(editDraft.firstName || "").trim();
+    if (!fn) {
+      setErr("First name is required.");
+      return;
+    }
+
+    const ln = String(editDraft.lastName || "").trim();
+    if (!ln) {
+      setErr("Last name is required.");
+      return;
+    }
+
     const nextEmail = normEmail(editDraft.email);
     if (!nextEmail) {
       setErr("Email is required.");
       return;
     }
 
+    const roleNorm = String(editDraft.role || "").trim();
+    if (!roleNorm) {
+      setErr("Role is required.");
+      return;
+    }
+
     const fields = {
-      email: nextEmail,
-      role: String(editDraft.role || "").trim(),
+      ...(nextEmail !== normEmail(editOriginal?.email) ? { email: nextEmail } : {}),
+      role: roleNorm,
       status: String(editDraft.status || "active").trim(),
-      firstName: normOptionalText(editDraft.firstName),
-      lastName: normOptionalText(editDraft.lastName),
+      firstName: normOptionalText(fn),
+      lastName: normOptionalText(ln),
       phoneCountry: normOptionalText(editDraft.phoneCountry)?.toUpperCase() || "US",
       phoneRaw: normPhoneDigits(editDraft.phoneRaw),
     };
@@ -916,7 +965,7 @@ export default function MerchantUsers({ readOnly = false }) {
                         ))}
                       </select>
                       <input
-                        value={formatPhone(phoneRaw) === "—" ? "" : formatPhone(phoneRaw)}
+                        value={phoneRaw || ""}
                         onChange={(e) => setPhoneRaw(normPhoneDigits(e.target.value) ?? "")}
                         style={styles.phoneInput}
                         disabled={busy}
@@ -1097,7 +1146,7 @@ export default function MerchantUsers({ readOnly = false }) {
                               ))}
                             </select>
                             <input
-                              value={formatPhone(editDraft.phoneRaw) === "—" ? "" : formatPhone(editDraft.phoneRaw)}
+                              value={editDraft.phoneRaw || ""}
                               onChange={(e) => patchEditDraft({ phoneRaw: normPhoneDigits(e.target.value) ?? "" })}
                               style={styles.phoneInput}
                               disabled={busy}
@@ -1266,6 +1315,53 @@ export default function MerchantUsers({ readOnly = false }) {
             )}
 
             {result && <div style={styles.okBox}>{result}</div>}
+            {discardConfirm.open && (
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 9999,
+                }}
+              >
+                <div
+                  style={{
+                    background: "white",
+                    borderRadius: 12,
+                    padding: 20,
+                    width: 360,
+                    boxShadow: "0 10px 30px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  <div style={{ fontWeight: 800, marginBottom: 10 }}>
+                    Discard changes?
+                  </div>
+
+                  <div style={{ fontSize: 13, color: TOKENS.muted, marginBottom: 16 }}>
+                    You have unsaved edits. This will discard them.
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                    <button
+                      onClick={() => setDiscardConfirm({ open: false, onConfirm: null })}
+                      style={styles.btnGhost}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      onClick={() => discardConfirm.onConfirm && discardConfirm.onConfirm()}
+                      style={styles.btnPrimary}
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </PageContainer>
