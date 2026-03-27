@@ -6,8 +6,6 @@ import {
   merchantListUsers,
   merchantCreateUser,
   merchantUpdateUserProfile,
-  merchantUpdateStoreProfile,
-  listMerchantStores,
   me,
 } from "../api/client";
 
@@ -19,8 +17,8 @@ import {
 const ROLE_OPTIONS = [
   { value: "owner", label: "Merchant Owner" },
   { value: "merchant_admin", label: "Merchant Admin" },
-  { value: "ap_clerk", label: "AP Clerk" }, // changed for v2.00 contract
-  { value: "merchant_employee", label: "Merchant Employee" }, // changed for v2.00 contract
+  { value: "ap_clerk", label: "AP Clerk" },
+  { value: "merchant_employee", label: "Merchant Employee" },
 ];
 
 const STATUS_OPTIONS = [
@@ -348,16 +346,6 @@ function resolveUserId(mu) {
   return mu?.userId ?? mu?.user?.id ?? mu?.id ?? null;
 }
 
-function resolvePrimaryContactStoreId(mu) {
-  if (Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length === 1) {
-    return String(mu.primaryContactStores[0].storeId);
-  }
-  if (Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length > 1) {
-    return "__MULTI__";
-  }
-  return "";
-}
-
 function resolveEmail(mu) {
   return String(mu?.email ?? mu?.user?.email ?? mu?.userEmail ?? "").trim();
 }
@@ -387,11 +375,10 @@ function normalizeMerchantUserRow(mu) {
     lastName: resolveLastName(mu),
     phoneCountry: resolvePhoneCountry(mu),
     phoneRaw: resolvePhoneRaw(mu),
-    primaryContactStoreId: resolvePrimaryContactStoreId(mu),
   };
 }
 
-function buildMerchantUserEditSnapshot(mu) {
+function buildEditSnapshot(mu) {
   const normalized = normalizeMerchantUserRow(mu);
   return {
     userId: resolveUserId(normalized),
@@ -403,7 +390,6 @@ function buildMerchantUserEditSnapshot(mu) {
     lastName: resolveLastName(normalized),
     phoneCountry: resolvePhoneCountry(normalized),
     phoneRaw: resolvePhoneRaw(normalized),
-    primaryContactStoreId: String(normalized?.primaryContactStoreId ?? ""),
   };
 }
 
@@ -437,10 +423,7 @@ function areEditSnapshotsEqual(a, b) {
 }
 
 function friendlyErrorMessage(error, fallback) {
-  const raw =
-    String(error?.message || error?.error?.message || error || "")
-      .trim();
-
+  const raw = String(error?.message || error?.error?.message || error || "").trim();
   const lower = raw.toLowerCase();
 
   if (
@@ -457,7 +440,6 @@ function friendlyErrorMessage(error, fallback) {
 export default function MerchantUsers({ readOnly = false }) {
   const [profile, setProfile] = React.useState(null);
   const [items, setItems] = React.useState([]);
-  const [merchantStores, setMerchantStores] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
@@ -466,22 +448,7 @@ export default function MerchantUsers({ readOnly = false }) {
   const [lastSavedUserId, setLastSavedUserId] = React.useState(null);
   const [flashRowId, setFlashRowId] = React.useState(null);
 
-  function clearFeedback() {
-    setErr("");
-    setResult(null);
-  }
-
-  function resetCreateForm() {
-    setEmail("");
-    setFirstName("");
-    setLastName("");
-    setPhoneRaw("");
-    setPhoneCountry("US");
-    setRole("");
-    setStatus("active");
-  }
-
-  // Create form fields (preserved)
+  // Create form fields
   const [email, setEmail] = React.useState("");
   const [role, setRole] = React.useState("");
   const [status, setStatus] = React.useState("active");
@@ -489,7 +456,6 @@ export default function MerchantUsers({ readOnly = false }) {
   const [lastName, setLastName] = React.useState("");
   const [phoneCountry, setPhoneCountry] = React.useState("US");
   const [phoneRaw, setPhoneRaw] = React.useState("");
-
   const [showCreate, setShowCreate] = React.useState(false);
 
   // Expand/edit (Pattern B)
@@ -506,6 +472,21 @@ export default function MerchantUsers({ readOnly = false }) {
     if (!expandedId) return null;
     return items.find((x) => String(resolveUserId(x)) === String(expandedId)) || null;
   }, [items, expandedId]);
+
+  function clearFeedback() {
+    setErr("");
+    setResult(null);
+  }
+
+  function resetCreateForm() {
+    setEmail("");
+    setFirstName("");
+    setLastName("");
+    setPhoneRaw("");
+    setPhoneCountry("US");
+    setRole("");
+    setStatus("active");
+  }
 
   function scrollEditCardIntoView() {
     window.requestAnimationFrame(() => {
@@ -550,6 +531,7 @@ export default function MerchantUsers({ readOnly = false }) {
   async function load() {
     setLoading(true);
     setErr("");
+
     try {
       const m = await me();
       setProfile(m);
@@ -559,14 +541,9 @@ export default function MerchantUsers({ readOnly = false }) {
       const ctx = resolveMerchantContextFromMe(m);
       if (!ctx?.merchantId) throw new Error("merchantId is required");
 
-      const [list, storesRes] = await Promise.all([
-        merchantListUsers({ merchantId: ctx.merchantId }),
-        listMerchantStores(),
-      ]);
-
+      const list = await merchantListUsers({ merchantId: ctx.merchantId });
       const rawItems = Array.isArray(list) ? list : list?.items || [];
       setItems(rawItems.map(normalizeMerchantUserRow));
-      setMerchantStores(Array.isArray(storesRes?.items) ? storesRes.items : []);
     } catch (e) {
       setErr(friendlyErrorMessage(e, "Failed to load team members."));
     } finally {
@@ -578,7 +555,6 @@ export default function MerchantUsers({ readOnly = false }) {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
-
 
   React.useEffect(() => {
     if (!lastSavedUserId) return;
@@ -617,7 +593,10 @@ export default function MerchantUsers({ readOnly = false }) {
     if (next) {
       setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
     }
-    pvUiHook("merchant.users.create_panel_toggle.ui", { stable: "merchant:users:create_panel_toggle", open: next });
+    pvUiHook("merchant.users.create_panel_toggle.ui", {
+      stable: "merchant:users:create_panel_toggle",
+      open: next,
+    });
   }
 
   function toggleExpand(mu) {
@@ -625,7 +604,6 @@ export default function MerchantUsers({ readOnly = false }) {
 
     clearFeedback();
 
-    // contract: mutually exclusive
     if (showCreate) {
       setShowCreate(false);
       pvUiHook("merchant.users.create_panel_auto_closed.ui", {
@@ -642,31 +620,18 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
-    const snapshot = {
-      userId: resolveUserId(mu),
-      merchantUserId: mu?.id ?? mu?.merchantUserId ?? null,
-      email: String(mu?.email ?? mu?.user?.email ?? mu?.userEmail ?? "").trim(),
-      role: String(mu?.role ?? "merchant_admin"),
-      status: String(mu?.status ?? "active"),
-      firstName: String(mu?.firstName ?? mu?.user?.firstName ?? "").trim(),
-      lastName: String(mu?.lastName ?? mu?.user?.lastName ?? "").trim(),
-      phoneCountry: String(mu?.phoneCountry ?? mu?.user?.phoneCountry ?? "US").trim() || "US",
-      phoneRaw: String(mu?.phoneRaw ?? mu?.user?.phoneRaw ?? "").trim(),
-      primaryContactStoreId:
-        Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length === 1
-          ? String(mu.primaryContactStores[0].storeId)
-          : Array.isArray(mu?.primaryContactStores) && mu.primaryContactStores.length > 1
-            ? "__MULTI__"
-            : "",
-    };
-
+    const snapshot = buildEditSnapshot(mu);
     setExpandedId(id);
     setEditOriginal({ ...snapshot });
     setEditDraft({ ...snapshot });
 
     window.setTimeout(scrollEditCardIntoView, 60);
 
-    pvUiHook("merchant.users.row_expand_toggle.ui", { stable: "merchant:users:row_expand_toggle", userId: id, open: true });
+    pvUiHook("merchant.users.row_expand_toggle.ui", {
+      stable: "merchant:users:row_expand_toggle",
+      userId: id,
+      open: true,
+    });
   }
 
   async function onCreate(e) {
@@ -719,10 +684,20 @@ export default function MerchantUsers({ readOnly = false }) {
 
     setBusy(true);
     try {
-      pvUiHook("merchant.users.create_clicked.ui", { stable: "merchant:users:create", merchantId: ctx.merchantId, role: roleNorm, status });
+      pvUiHook("merchant.users.create_clicked.ui", {
+        stable: "merchant:users:create",
+        merchantId: ctx.merchantId,
+        role: roleNorm,
+        status,
+      });
+
       await merchantCreateUser(body);
+
       setResult("Created employee successfully.");
-      pvUiHook("merchant.users.create_ok.ui", { stable: "merchant:users:create_ok", merchantId: ctx.merchantId });
+      pvUiHook("merchant.users.create_ok.ui", {
+        stable: "merchant:users:create_ok",
+        merchantId: ctx.merchantId,
+      });
 
       resetCreateForm();
       setShowCreate(false);
@@ -733,7 +708,7 @@ export default function MerchantUsers({ readOnly = false }) {
       setErr(message);
       pvUiHook("merchant.users.create_fail.ui", {
         stable: "merchant:users:create_fail",
-        message
+        message,
       });
     } finally {
       setBusy(false);
@@ -777,31 +752,22 @@ export default function MerchantUsers({ readOnly = false }) {
     setBusy(true);
     setErr("");
     setResult(null);
+
     try {
-      pvUiHook("merchant.users.row_save.ui", { stable: "merchant:users:row_save", merchantId, userId });
+      pvUiHook("merchant.users.row_save.ui", {
+        stable: "merchant:users:row_save",
+        merchantId,
+        userId,
+      });
+
       await merchantUpdateUserProfile(userId, merchantId, fields);
 
-      const assignedStores = Array.isArray(expandedMu?.stores) ? expandedMu.stores : [];
-      const currentPrimary = Array.isArray(expandedMu?.primaryContactStores) ? expandedMu.primaryContactStores : [];
-      const desiredStoreIdRaw = editDraft.primaryContactStoreId;
+      pvUiHook("merchant.users.row_save_ok.ui", {
+        stable: "merchant:users:row_save_ok",
+        merchantId,
+        userId,
+      });
 
-      if (desiredStoreIdRaw !== "__MULTI__") {
-        if (desiredStoreIdRaw) {
-          const desiredStoreId = Number(desiredStoreIdRaw);
-          const targetStore = assignedStores.find((s) => Number(s.storeId) === desiredStoreId);
-          if (targetStore?.storeUserId) {
-            await merchantUpdateStoreProfile(desiredStoreId, {
-              primaryContactStoreUserId: Number(targetStore.storeUserId),
-            });
-          }
-        } else if (currentPrimary.length === 1) {
-          await merchantUpdateStoreProfile(Number(currentPrimary[0].storeId), {
-            primaryContactStoreUserId: null,
-          });
-        }
-      }
-
-      pvUiHook("merchant.users.row_save_ok.ui", { stable: "merchant:users:row_save_ok", merchantId, userId });
       setLastSavedUserId(userId);
       await load();
       clearEditState();
@@ -811,7 +777,7 @@ export default function MerchantUsers({ readOnly = false }) {
 
       pvUiHook("merchant.users.row_save_fail.ui", {
         stable: "merchant:users:row_save_fail",
-        message
+        message,
       });
     } finally {
       setBusy(false);
@@ -868,9 +834,7 @@ export default function MerchantUsers({ readOnly = false }) {
   const merchantCtx = resolveMerchantContextFromMe(profile);
   const merchantLabel = merchantCtx?.merchantName || "your merchant";
   const storeAssignmentTip =
-    merchantStores.length === 1
-      ? "After creating the employee, assign them to your store from that store’s Team & Access page."
-      : "After creating the employee, assign them to a store from that store’s Team & Access page.";
+    "After creating the employee, assign them to a store from that store’s Team & Access page.";
 
   return (
     <div style={styles.page}>
@@ -1188,12 +1152,6 @@ export default function MerchantUsers({ readOnly = false }) {
                           </select>
                         </div>
                       </div>
-
-                      {Array.isArray(expandedMu?.primaryContactStores) && expandedMu.primaryContactStores.length > 1 ? (
-                        <div style={{ fontSize: 12, color: TOKENS.muted, marginTop: 8 }}>
-                          This employee is the contact for multiple stores. Manage changes from the store pages.
-                        </div>
-                      ) : null}
 
                       <div style={styles.formActions}>
                         <button
