@@ -1,4 +1,4 @@
-// admin/src/pages/MerchantStoreDetail.jsx
+﻿// admin/src/pages/MerchantStoreDetail.jsx
 import React from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { listMerchantStores, me, merchantUpdateStoreProfile } from "../api/client";
@@ -19,7 +19,7 @@ function pvUiHook(event, fields = {}) {
       })
     );
   } catch {
-      // never break UI for logging
+    // never break UI for logging
   }
 }
 
@@ -138,7 +138,7 @@ function pickDeep(obj, paths) {
       }
       if (ok && cur != null && String(cur).trim() !== "") return cur;
     }
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -704,16 +704,43 @@ export default function MerchantStoreDetail() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              justifyContent: "flex-end",
+              flexWrap: "nowrap",
+            }}
+          >
+            <Link
+              to={`/merchant/stores/${store.id}?tab=team`}
+              style={primaryPill}
+              onClick={() =>
+                pvUiHook("merchant.store.detail.tab_change.ui", {
+                  stable: "merchant:store:detail:tab",
+                  storeId: store.id,
+                  tab: "team",
+                })
+              }
+            >
+              Team & Access
+            </Link>
+
             <button
               type="button"
               onClick={() => navigate(`/merchant/stores/${store.id}/qr`)}
-              style={primaryPill}
+              style={mutedPill}
             >
               QR Code
             </button>
 
-            <button type="button" onClick={load} disabled={loading} style={loading ? mutedPillDisabled : mutedPill}>
+            <button
+              type="button"
+              onClick={load}
+              disabled={loading}
+              style={loading ? mutedPillDisabled : mutedPill}
+            >
               {loading ? "Loading..." : "Refresh"}
             </button>
           </div>
@@ -737,36 +764,16 @@ export default function MerchantStoreDetail() {
             </Link>
           ) : null}
         </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: 10,
-            alignItems: "center",
-            flexWrap: "wrap",
-            justifyContent: "flex-end",
-          }}
-        >
-          <Link
-            to={tab === "team" ? `/merchant/stores/${store.id}` : `/merchant/stores/${store.id}?tab=team`}
-            style={tab === "team" ? tabPillActive : tabPill}
-            onClick={() =>
-              pvUiHook("merchant.store.detail.tab_change.ui", {
-                stable: "merchant:store:detail:tab",
-                storeId: store.id,
-                tab: tab === "team" ? "settings" : "team",
-              })
-            }
-          >
-            Team & Access
-          </Link>
-        </div>
       </div>
-
+      
       {addressLine ? (
-        <div style={{ color: "rgba(0,0,0,0.70)", marginBottom: 10 }}>{addressLine}</div>
+        <div style={{ color: COLORS.neutral, marginBottom: 10 }}>
+          {addressLine}
+        </div>
       ) : (
-        <div style={{ color: COLORS.dangerText, marginBottom: 10 }}>Address not available in merchant payload.</div>
+        <div style={{ color: COLORS.dangerText, marginBottom: 10 }}>
+          Address not available in merchant payload.
+        </div>
       )}
 
       {tab === "team" ? (
@@ -1032,8 +1039,9 @@ export default function MerchantStoreDetail() {
             </>
           )}
         </div>
-      )}
-    </PageContainer>
+      )
+      }
+    </PageContainer >
   );
 }
 
@@ -1086,3 +1094,4 @@ const okBox = {
   borderRadius: 12,
   whiteSpace: "pre-wrap",
 };
+

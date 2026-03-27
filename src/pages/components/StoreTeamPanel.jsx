@@ -38,6 +38,9 @@ const TOKENS = {
   errBg: "rgba(255,0,0,0.06)",
   errBorder: "rgba(255,0,0,0.15)",
   flashBg: "rgba(47,143,139,0.08)",
+  overlay: "rgba(11,42,51,0.40)",
+  danger: "#B42318",
+  dangerHover: "#912018",
 };
 
 /* ------------------------------------------------------------- */
@@ -116,16 +119,137 @@ function adaptEmployee(e) {
     status: String(e?.status ?? ""),
     firstName: e?.firstName ?? "",
     lastName: e?.lastName ?? "",
-    phone:
-      e?.phoneE164 ??
-      e?.phoneRaw ??
-      e?.phone ??
-      "",
+    phone: e?.phoneE164 ?? e?.phoneRaw ?? e?.phone ?? "",
     assigned: Boolean(e?.assigned),
     storeUserId: e?.storeUserId == null ? "" : String(e.storeUserId),
     permissionLevel: String(e?.permissionLevel ?? ""),
     storeAssignmentStatus: String(e?.storeAssignmentStatus ?? ""),
   };
+}
+
+/* ------------------------------------------------------------- */
+/* Confirm Dialog                                                */
+/* ------------------------------------------------------------- */
+
+function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
+  danger = false,
+  busy = false,
+  onConfirm,
+  onCancel,
+}) {
+  React.useEffect(() => {
+    if (!open) return;
+
+    function onKeyDown(e) {
+      if (e.key === "Escape" && !busy) onCancel();
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, busy, onCancel]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={!busy ? onCancel : undefined}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: TOKENS.overlay,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 460,
+          background: "#fff",
+          borderRadius: 18,
+          border: `1px solid ${TOKENS.border}`,
+          boxShadow: "0 18px 50px rgba(0,0,0,0.25)",
+          padding: 20,
+        }}
+      >
+        <div style={{ fontSize: 18, fontWeight: 900, color: TOKENS.text, marginBottom: 10 }}>
+          {title}
+        </div>
+
+        <div
+          style={{
+            fontSize: 14,
+            lineHeight: 1.5,
+            color: TOKENS.muted,
+            marginBottom: 18,
+          }}
+        >
+          {message}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            style={{
+              fontSize: 13,
+              fontWeight: 800,
+              minHeight: 38,
+              padding: "9px 14px",
+              borderRadius: 12,
+              border: `1px solid ${TOKENS.border}`,
+              background: "#fff",
+              color: TOKENS.text,
+              cursor: busy ? "not-allowed" : "pointer",
+              opacity: busy ? 0.6 : 1,
+            }}
+          >
+            {cancelLabel}
+          </button>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            style={{
+              fontSize: 13,
+              fontWeight: 900,
+              minHeight: 38,
+              padding: "9px 14px",
+              borderRadius: 12,
+              border: 0,
+              background: danger ? TOKENS.danger : TOKENS.teal,
+              color: "#fff",
+              cursor: busy ? "not-allowed" : "pointer",
+              opacity: busy ? 0.75 : 1,
+            }}
+          >
+            {busy ? "Working…" : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------- */
@@ -153,8 +277,19 @@ export default function StoreTeamPanel({
     primaryContactStoreUserId ? String(primaryContactStoreUserId) : ""
   );
 
+  const [confirmState, setConfirmState] = React.useState({
+    open: false,
+    type: null, // "remove" | "resetPrimary"
+    payload: null,
+  });
+
   const cancelledRef = React.useRef(false);
   const flashTimerRef = React.useRef(null);
+
+  function closeConfirm() {
+    if (busy) return;
+    setConfirmState({ open: false, type: null, payload: null });
+  }
 
   function showFlash(message) {
     setFlash(message);
@@ -313,9 +448,15 @@ export default function StoreTeamPanel({
   /* Remove                                                    */
   /* --------------------------------------------------------- */
 
-  async function removeMember(storeUserId) {
-    if (!window.confirm("Remove this employee from this store?")) return;
+  function removeMember(storeUserId) {
+    setConfirmState({
+      open: true,
+      type: "remove",
+      payload: { storeUserId },
+    });
+  }
 
+  async function confirmRemove(storeUserId) {
     try {
       setBusy(true);
       setErr("");
@@ -336,6 +477,7 @@ export default function StoreTeamPanel({
 
       await load();
       showFlash("Employee removed");
+      setConfirmState({ open: false, type: null, payload: null });
     } catch (e) {
       setErr(e?.message || "Failed to remove employee.");
     } finally {
@@ -377,10 +519,17 @@ export default function StoreTeamPanel({
     }
   }
 
-  async function resetPrimary() {
+  function resetPrimary() {
     if (!primaryId) return;
-    if (!window.confirm("Remove this primary contact?")) return;
 
+    setConfirmState({
+      open: true,
+      type: "resetPrimary",
+      payload: {},
+    });
+  }
+
+  async function confirmResetPrimary() {
     try {
       setBusy(true);
       setErr("");
@@ -398,6 +547,7 @@ export default function StoreTeamPanel({
 
       await load();
       showFlash("Primary contact cleared");
+      setConfirmState({ open: false, type: null, payload: null });
     } catch (e) {
       setErr(e?.message || "Failed to reset primary contact.");
       pvUiHook("merchant.store.team.primary_reset_fail", {
@@ -432,233 +582,263 @@ export default function StoreTeamPanel({
   }
 
   return (
-    <div
-      style={{
-        marginTop: 14,
-        padding: 18,
-        borderRadius: 14,
-        border: `1px solid ${TOKENS.border}`,
-        background: TOKENS.cardBg,
-      }}
-    >
-      {flash ? (
-        <div
-          style={{
-            marginBottom: 12,
-            padding: "8px 10px",
-            borderRadius: 10,
-            background: TOKENS.flashBg,
-            color: TOKENS.teal,
-            fontSize: 12,
-            fontWeight: 700,
-          }}
-        >
-          {flash}
-        </div>
-      ) : null}
-
-      {err ? (
-        <div
-          style={{
-            marginBottom: 12,
-            padding: 10,
-            borderRadius: 10,
-            border: `1px solid ${TOKENS.errBorder}`,
-            background: TOKENS.errBg,
-          }}
-        >
-          {err}
-        </div>
-      ) : null}
-
-      {canManage ? (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 15, fontWeight: 900, color: TOKENS.text, marginBottom: 6 }}>
-            Assign employee to this store
-          </div>
-          <div style={{ fontSize: 13, color: TOKENS.muted, marginBottom: 12 }}>
-            This adds the employee to this store team. Setting the store’s primary contact is a separate action below.
-          </div>
-
+    <>
+      <div
+        style={{
+          marginTop: 14,
+          padding: 18,
+          borderRadius: 14,
+          border: `1px solid ${TOKENS.border}`,
+          background: TOKENS.cardBg,
+        }}
+      >
+        {flash ? (
           <div
             style={{
-              display: "flex",
-              gap: 12,
-              flexWrap: "wrap",
-              alignItems: "center",
+              marginBottom: 12,
+              padding: "8px 10px",
+              borderRadius: 10,
+              background: TOKENS.flashBg,
+              color: TOKENS.teal,
+              fontSize: 12,
+              fontWeight: 700,
             }}
           >
-            <select
-              value={pickId}
-              onChange={(e) => setPickId(e.target.value)}
-              style={{ ...inputStyle(), minWidth: 250 }}
-              disabled={busy}
-            >
-              <option value="">Select employee</option>
-              {assignableUsers.map((u) => (
-                <option key={u.merchantUserId} value={u.merchantUserId}>
-                  {nameOf(u)}
-                </option>
-              ))}
-            </select>
+            {flash}
+          </div>
+        ) : null}
 
-            <select
-              value={pickPerm}
-              onChange={(e) => setPickPerm(e.target.value)}
-              style={{ ...inputStyle(), minWidth: 160 }}
-              disabled={busy}
-            >
-              <option value="">Role</option>
-              <option value="store_admin">Store Admin</option>
-              <option value="store_subadmin">Store Subadmin</option>
-              <option value="pos_access">POS Access</option>
-            </select>
+        {err ? (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 10,
+              border: `1px solid ${TOKENS.errBorder}`,
+              background: TOKENS.errBg,
+            }}
+          >
+            {err}
+          </div>
+        ) : null}
 
-            <button
-              onClick={assignMember}
-              disabled={busy || !pickId || !pickPerm}
+        {canManage ? (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: TOKENS.text, marginBottom: 6 }}>
+              Assign employee to this store
+            </div>
+            <div style={{ fontSize: 13, color: TOKENS.muted, marginBottom: 12 }}>
+              This adds the employee to this store team. Setting the store’s primary contact is a separate action below.
+            </div>
+
+            <div
               style={{
-                background: busy || !pickId || !pickPerm ? "rgba(47,143,139,0.45)" : TOKENS.teal,
-                color: "#fff",
-                border: 0,
-                borderRadius: 12,
-                minHeight: 40,
-                padding: "10px 18px",
-                fontWeight: 800,
-                cursor: busy || !pickId || !pickPerm ? "not-allowed" : "pointer",
+                display: "flex",
+                gap: 12,
+                flexWrap: "wrap",
+                alignItems: "center",
               }}
             >
-              {busy ? "Working…" : "Assign"}
-            </button>
-          </div>
-        </div>
-      ) : null}
+              <select
+                value={pickId}
+                onChange={(e) => setPickId(e.target.value)}
+                style={{ ...inputStyle(), minWidth: 250 }}
+                disabled={busy}
+              >
+                <option value="">Select employee</option>
+                {assignableUsers.map((u) => (
+                  <option key={u.merchantUserId} value={u.merchantUserId}>
+                    {nameOf(u)}
+                  </option>
+                ))}
+              </select>
 
-      <div style={{ fontSize: 15, fontWeight: 900, color: TOKENS.text, marginBottom: 6 }}>
-        Assigned team members
-      </div>
-      <div style={{ fontSize: 13, color: TOKENS.muted, marginBottom: 12 }}>
-        Set one assigned employee as the store’s primary contact.
-      </div>
+              <select
+                value={pickPerm}
+                onChange={(e) => setPickPerm(e.target.value)}
+                style={{ ...inputStyle(), minWidth: 160 }}
+                disabled={busy}
+              >
+                <option value="">Role</option>
+                <option value="store_admin">Store Admin</option>
+                <option value="store_subadmin">Store Subadmin</option>
+                <option value="pos_access">POS Access</option>
+              </select>
 
-      {resolvedTeam.length === 0 ? (
-        <div style={{ fontSize: 13, color: TOKENS.muted }}>No employees are assigned to this store yet.</div>
-      ) : (
-        <div style={{ borderTop: `1px solid ${TOKENS.divider}` }}>
-          {resolvedTeam.map((t) => {
-            const isPrimary = String(t.storeUserId) === String(primaryId);
-            const effectiveStatus = t.storeAssignmentStatus || t.status;
-            const isActive = String(effectiveStatus || "").toLowerCase() === "active";
-            const phoneVal = fmtPhone(t.phone);
-            const showPhone = phoneVal && phoneVal !== "—";
-            const displayName = nameOf(t) || t.email || "User";
-
-            return (
-              <div
-                key={t.storeUserId}
+              <button
+                onClick={assignMember}
+                disabled={busy || !pickId || !pickPerm}
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 16,
-                  padding: "15px 0",
-                  borderBottom: `1px solid ${TOKENS.divider}`,
-                  opacity: isActive ? 1 : 0.6,
+                  background: busy || !pickId || !pickPerm ? "rgba(47,143,139,0.45)" : TOKENS.teal,
+                  color: "#fff",
+                  border: 0,
+                  borderRadius: 12,
+                  minHeight: 40,
+                  padding: "10px 18px",
+                  fontWeight: 800,
+                  cursor: busy || !pickId || !pickPerm ? "not-allowed" : "pointer",
                 }}
               >
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 900, fontSize: 16, color: TOKENS.text, marginBottom: 2 }}>
-                    {displayName}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 13,
-                      color: TOKENS.muted,
-                    }}
-                  >
-                    {showPhone && t.email
-                      ? `${phoneVal} • ${t.email}`
-                      : t.email || (showPhone ? phoneVal : "")}
-                  </div>
-                  <div
-                    style={{
-                      marginTop: 6,
-                      fontSize: 12,
-                      color: TOKENS.muted,
-                    }}
-                  >
-                    {roleLabel(t.permissionLevel)} · {statusLabel(effectiveStatus)}
-                  </div>
-                </div>
+                {busy ? "Working…" : "Assign"}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
+        <div style={{ fontSize: 15, fontWeight: 900, color: TOKENS.text, marginBottom: 6 }}>
+          Assigned team members
+        </div>
+        <div style={{ fontSize: 13, color: TOKENS.muted, marginBottom: 12 }}>
+          Set one assigned employee as the store’s primary contact.
+        </div>
+
+        {resolvedTeam.length === 0 ? (
+          <div style={{ fontSize: 13, color: TOKENS.muted }}>No employees are assigned to this store yet.</div>
+        ) : (
+          <div style={{ borderTop: `1px solid ${TOKENS.divider}` }}>
+            {resolvedTeam.map((t) => {
+              const isPrimary = String(t.storeUserId) === String(primaryId);
+              const effectiveStatus = t.storeAssignmentStatus || t.status;
+              const isActive = String(effectiveStatus || "").toLowerCase() === "active";
+              const phoneVal = fmtPhone(t.phone);
+              const showPhone = phoneVal && phoneVal !== "—";
+              const displayName = nameOf(t) || t.email || "User";
+
+              return (
                 <div
+                  key={t.storeUserId}
                   style={{
                     display: "flex",
-                    gap: 8,
+                    justifyContent: "space-between",
                     alignItems: "center",
-                    flexWrap: "wrap",
-                    justifyContent: "flex-end",
+                    gap: 16,
+                    padding: "15px 0",
+                    borderBottom: `1px solid ${TOKENS.divider}`,
+                    opacity: isActive ? 1 : 0.6,
                   }}
                 >
-                  {isPrimary ? (
-                    <>
-                      <span
-                        style={{
-                          background: TOKENS.teal,
-                          color: "#fff",
-                          padding: "6px 12px",
-                          minHeight: 32,
-                          borderRadius: 999,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        Primary Contact
-                      </span>
-
-                      {canManage ? (
-                        <button
-                          onClick={resetPrimary}
-                          disabled={busy || !primaryId}
-                          style={actionPillStyle({ disabled: busy || !primaryId })}
-                        >
-                          Reset Primary
-                        </button>
-                      ) : null}
-                    </>
-                  ) : (
-                    isActive &&
-                    canManage && (
-                      <button
-                        onClick={() => setPrimary(t.storeUserId)}
-                        disabled={busy}
-                        style={actionPillStyle({ disabled: busy })}
-                      >
-                        Set Primary
-                      </button>
-                    )
-                  )}
-
-                  {canManage ? (
-                    <button
-                      onClick={() => removeMember(t.storeUserId)}
-                      disabled={busy}
-                      style={actionPillStyle({ danger: true, disabled: busy })}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 900, fontSize: 16, color: TOKENS.text, marginBottom: 2 }}>
+                      {displayName}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 13,
+                        color: TOKENS.muted,
+                      }}
                     >
-                      Remove
-                    </button>
-                  ) : null}
+                      {showPhone && t.email
+                        ? `${phoneVal} • ${t.email}`
+                        : t.email || (showPhone ? phoneVal : "")}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        color: TOKENS.muted,
+                      }}
+                    >
+                      {roleLabel(t.permissionLevel)} · {statusLabel(effectiveStatus)}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    {isPrimary ? (
+                      <>
+                        <span
+                          style={{
+                            background: TOKENS.teal,
+                            color: "#fff",
+                            padding: "6px 12px",
+                            minHeight: 32,
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Primary Contact
+                        </span>
+
+                        {canManage ? (
+                          <button
+                            onClick={resetPrimary}
+                            disabled={busy || !primaryId}
+                            style={actionPillStyle({ disabled: busy || !primaryId })}
+                          >
+                            Reset Primary
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      isActive &&
+                      canManage && (
+                        <button
+                          onClick={() => setPrimary(t.storeUserId)}
+                          disabled={busy}
+                          style={actionPillStyle({ disabled: busy })}
+                        >
+                          Set Primary
+                        </button>
+                      )
+                    )}
+
+                    {canManage ? (
+                      <button
+                        onClick={() => removeMember(t.storeUserId)}
+                        disabled={busy}
+                        style={actionPillStyle({ danger: true, disabled: busy })}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={confirmState.open}
+        title={
+          confirmState.type === "remove"
+            ? "Remove Employee"
+            : "Remove Primary Contact"
+        }
+        message={
+          confirmState.type === "remove"
+            ? "This will remove the employee from this store. If they are currently the primary contact, the store’s primary contact will also be cleared."
+            : "This will clear the current primary contact for this store. You can assign a new one at any time."
+        }
+        confirmLabel={
+          confirmState.type === "remove" ? "Remove Employee" : "Clear Primary"
+        }
+        cancelLabel="Cancel"
+        danger={true}
+        busy={busy}
+        onCancel={closeConfirm}
+        onConfirm={() => {
+          if (confirmState.type === "remove") {
+            confirmRemove(confirmState.payload?.storeUserId);
+          } else if (confirmState.type === "resetPrimary") {
+            confirmResetPrimary();
+          }
+        }}
+      />
+    </>
   );
 }
