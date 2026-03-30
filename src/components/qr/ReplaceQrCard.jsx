@@ -23,6 +23,30 @@ const REPLACE_REASONS = [
   },
 ];
 
+const pill = (disabled = false) => ({
+  display: "inline-flex",
+  alignItems: "center",
+  minHeight: 44,
+  padding: "10px 20px",
+  borderRadius: 999,
+  border: "1px solid rgba(0,0,0,0.18)",
+  background: disabled ? "rgba(0,0,0,0.03)" : "#FFFFFF",
+  cursor: disabled ? "not-allowed" : "pointer",
+  fontWeight: 800,
+  fontSize: 14,
+  color: disabled ? "rgba(0,0,0,0.35)" : "#0B2A33",
+  opacity: disabled ? 0.6 : 1,
+  boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+  transition: "background 0.15s, border-color 0.15s",
+});
+
+const pillPrimary = (disabled = false) => ({
+  ...pill(disabled),
+  background: disabled ? "rgba(47,143,139,0.4)" : "#2F8F8B",
+  border: "1px solid transparent",
+  color: "#FFFFFF",
+});
+
 export default function ReplaceQrCard({
   replaceReason,
   setReplaceReason,
@@ -37,22 +61,39 @@ export default function ReplaceQrCard({
   const shouldAllowReplace = selectedReasonMeta?.action === "replace";
 
   return (
-    <div className="mb-6 rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold tracking-tight text-slate-800">
+    <div
+      style={{
+        marginBottom: 24,
+        borderRadius: 16,
+        border: "1px solid rgba(0,0,0,0.10)",
+        background: "#FFFFFF",
+        padding: 24,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+      }}
+    >
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: "#0B2A33" }}>
           Replace active store QR?
         </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">
+        <p style={{ marginTop: 10, maxWidth: 680, fontSize: 13, lineHeight: 1.6, color: "rgba(11,42,51,0.70)" }}>
           Replacing the active QR will invalidate all currently printed copies
-          for this store. Use <span className="font-semibold">Print</span> if
-          you only need another copy of the current QR.
+          for this store. Use <strong>Print</strong> if you only need another
+          copy of the current QR.
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div
+        style={{
+          borderRadius: 12,
+          border: "1px solid rgba(0,0,0,0.10)",
+          background: "#FEFCF7",
+          padding: 16,
+          marginBottom: 16,
+        }}
+      >
         <label
           htmlFor="replaceReason"
-          className="block text-sm font-semibold text-slate-700"
+          style={{ display: "block", fontSize: 12, fontWeight: 800, color: "rgba(11,42,51,0.65)", marginBottom: 8 }}
         >
           Why are you replacing this store QR?
         </label>
@@ -61,9 +102,21 @@ export default function ReplaceQrCard({
           id="replaceReason"
           value={replaceReason}
           onChange={(e) => setReplaceReason(e.target.value)}
-          className="mt-3 block min-h-[52px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-800 outline-none transition focus:border-slate-400"
+          style={{
+            width: "100%",
+            maxWidth: 520,
+            padding: "10px 12px",
+            borderRadius: 10,
+            border: "1px solid rgba(0,0,0,0.18)",
+            background: "#FFFFFF",
+            outline: "none",
+            boxSizing: "border-box",
+            fontSize: 14,
+            color: "#0B2A33",
+            cursor: "pointer",
+          }}
         >
-          <option value="">Select a reason</option>
+          <option value="">Select a reason…</option>
           {REPLACE_REASONS.map((reason) => (
             <option key={reason.value} value={reason.value}>
               {reason.label}
@@ -72,33 +125,44 @@ export default function ReplaceQrCard({
         </select>
 
         {shouldSteerToPrint ? (
-          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-            <p className="text-sm leading-6 text-sky-900">
-              This reason usually does <span className="font-semibold">not</span>{" "}
-              require a new QR. Close this card and use Print to create another
-              copy of the current active store QR.
+          <div
+            style={{
+              marginTop: 12,
+              borderRadius: 10,
+              border: "1px solid rgba(0,0,0,0.10)",
+              background: "rgba(47,143,139,0.06)",
+              padding: 12,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "#0B2A33" }}>
+              This reason usually does <strong>not</strong> require a new QR.
+              Close this card and use Print to create another copy of the
+              current active store QR.
             </p>
           </div>
         ) : null}
 
         {shouldAllowReplace ? (
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm leading-6 text-red-900">
-              Replacing this QR will create a new active code for this store and
-              invalidate all previously printed QR copies. Continue only if you
-              are prepared to replace all existing printed QR signage at this
-              location.
+          <div
+            style={{
+              marginTop: 12,
+              borderRadius: 10,
+              border: "1px solid rgba(200,0,0,0.15)",
+              background: "rgba(255,0,0,0.04)",
+              padding: 12,
+            }}
+          >
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "rgba(140,0,0,0.85)" }}>
+              Replacing this QR will create a new active code and invalidate all
+              previously printed QR copies. Continue only if you are prepared to
+              replace all existing printed QR signage at this location.
             </p>
           </div>
         ) : null}
       </div>
 
-      <div className="mt-5 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex min-h-[48px] items-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-base font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
-        >
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+        <button type="button" onClick={onCancel} style={pill(false)}>
           Cancel
         </button>
 
@@ -106,10 +170,10 @@ export default function ReplaceQrCard({
           type="button"
           onClick={onContinue}
           disabled={!replaceReason || regenerating}
-          className="inline-flex min-h-[48px] items-center rounded-full border border-slate-800 bg-white px-5 py-2.5 text-base font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          style={pillPrimary(!replaceReason || regenerating)}
         >
           {regenerating
-            ? "Working..."
+            ? "Working…"
             : shouldAllowReplace
               ? "Generate New QR"
               : "Continue"}

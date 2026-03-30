@@ -7,17 +7,18 @@
  *  - Load merchant detail
  *  - Display merchant overview/status
  *  - Allow pv_admin to update merchant status
- *  - Navigate back to merchant list after successful status save
+ *  - Allow pv_admin to create a store for this merchant
+ *  - Navigate to store detail pages
  *
  * Notes:
- *  - Fixes stale list-state issue after status mutation
- *  - Fixes status form layout so Save button does not overlap reason input
  *  - Preserves existing layout/tabs/store section behavior
+ *  - Adds inline "Create Store" panel using admin API createStore(...)
+ *  - Reloads merchant after create so the new store appears in the table
  */
 
 import React from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { getMerchant, updateMerchantStatus } from "../api/client";
+import { getMerchant, updateMerchantStatus, createStore } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -35,6 +36,16 @@ export default function MerchantDetail() {
 
   const [newStatus, setNewStatus] = React.useState("active");
   const [statusReason, setStatusReason] = React.useState("");
+
+  // Create Store
+  const [storeName, setStoreName] = React.useState("");
+  const [storeAddress1, setStoreAddress1] = React.useState("");
+  const [storeCity, setStoreCity] = React.useState("");
+  const [storeState, setStoreState] = React.useState("");
+  const [storePostal, setStorePostal] = React.useState("");
+  const [createBusy, setCreateBusy] = React.useState(false);
+  const [createErr, setCreateErr] = React.useState("");
+  const [createOk, setCreateOk] = React.useState("");
 
   const storesRef = React.useRef(null);
 
@@ -80,6 +91,73 @@ export default function MerchantDetail() {
       storesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
       // ignore
+    }
+  }
+
+  function resetCreateStoreForm() {
+    setStoreName("");
+    setStoreAddress1("");
+    setStoreCity("");
+    setStoreState("");
+    setStorePostal("");
+  }
+
+  async function onCreateStore(e) {
+    e.preventDefault();
+    setCreateErr("");
+    setCreateOk("");
+
+    const name = String(storeName || "").trim();
+    const address1 = String(storeAddress1 || "").trim();
+    const city = String(storeCity || "").trim();
+    const state = String(storeState || "").trim().toUpperCase();
+    const postal = String(storePostal || "").trim();
+
+    if (!name) {
+      setCreateErr("Store name is required.");
+      return;
+    }
+    if (!address1) {
+      setCreateErr("Address is required.");
+      return;
+    }
+    if (!city) {
+      setCreateErr("City is required.");
+      return;
+    }
+    if (!state) {
+      setCreateErr("State is required.");
+      return;
+    }
+    if (!postal) {
+      setCreateErr("Zip code is required.");
+      return;
+    }
+
+    setCreateBusy(true);
+    try {
+      await createStore({
+        merchantId: Number(merchantId),
+        name,
+        address1,
+        city,
+        state,
+        postal,
+      });
+
+      setCreateOk("Store created.");
+      resetCreateStoreForm();
+      await load();
+
+      try {
+        storesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      setCreateErr(e?.message || "Failed to create store");
+    } finally {
+      setCreateBusy(false);
     }
   }
 
@@ -145,7 +223,7 @@ export default function MerchantDetail() {
           </span>
         }
         right={
-          <button onClick={load} disabled={busy} style={styles.refreshBtn}>
+          <button onClick={load} disabled={busy || createBusy} style={styles.refreshBtn}>
             Refresh
           </button>
         }
@@ -197,7 +275,7 @@ export default function MerchantDetail() {
             <select
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value)}
-              disabled={busy}
+              disabled={busy || createBusy}
               style={styles.select}
             >
               <option value="active">active</option>
@@ -211,29 +289,106 @@ export default function MerchantDetail() {
             <input
               value={statusReason}
               onChange={(e) => setStatusReason(e.target.value)}
-              disabled={busy}
+              disabled={busy || createBusy}
               placeholder="e.g. Past due, Contract ended, etc."
               style={styles.input}
             />
           </div>
 
           <div style={styles.saveCell}>
-            <button type="submit" disabled={busy} style={styles.saveBtn}>
+            <button type="submit" disabled={busy || createBusy} style={styles.saveBtn}>
               {busy ? "Saving..." : "Save"}
             </button>
           </div>
         </form>
 
-        {err ? (
-          <div style={styles.errBox}>
-            {err}
-          </div>
-        ) : null}
+        {err ? <div style={styles.errBox}>{err}</div> : null}
       </div>
 
+      {/* Create Store — primary action card, above the list */}
+      <div style={styles.card}>
+        <div style={styles.cardTitle}>Create Store</div>
+        <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 14 }}>
+          Add a new location for this merchant.
+        </div>
+        <form onSubmit={onCreateStore} style={styles.createStoreForm}>
+          <div style={styles.createGrid}>
+            <div>
+              <label style={styles.label}>Store name</label>
+              <input
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                disabled={createBusy || busy}
+                placeholder="e.g. Acme - Danville"
+                style={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={styles.label}>Address</label>
+              <input
+                value={storeAddress1}
+                onChange={(e) => setStoreAddress1(e.target.value)}
+                disabled={createBusy || busy}
+                placeholder="123 Main St. Suite 124"
+                style={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={styles.label}>City</label>
+              <input
+                value={storeCity}
+                onChange={(e) => setStoreCity(e.target.value)}
+                disabled={createBusy || busy}
+                placeholder="Danville"
+                style={styles.input}
+              />
+            </div>
+
+            <div>
+              <label style={styles.label}>State</label>
+              <select
+                value={storeState}
+                onChange={(e) => setStoreState(e.target.value)}
+                disabled={createBusy || busy}
+                style={styles.input}
+              >
+                <option value="">Select a state…</option>
+                {["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"].map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={styles.label}>Zip code</label>
+              <input
+                value={storePostal}
+                onChange={(e) => setStorePostal(e.target.value)}
+                disabled={createBusy || busy}
+                placeholder="e.g. 94526"
+                maxLength={10}
+                style={styles.input}
+              />
+            </div>
+          </div>
+
+          <div style={styles.createActions}>
+            <button type="submit" disabled={createBusy || busy} style={styles.saveBtn}>
+              {createBusy ? "Creating…" : "Create Store"}
+            </button>
+          </div>
+        </form>
+
+        {createErr ? <div style={styles.errBox}>{createErr}</div> : null}
+        {createOk ? <div style={styles.okBox}>{createOk}</div> : null}
+      </div>
+
+      {/* Stores list */}
       <div ref={storesRef} style={styles.storesCard}>
         <div style={styles.storesHeader}>
-          <div style={{ fontWeight: 800 }}>Stores</div>
+          <div style={{ fontWeight: 800 }}>Store Locations</div>
           <div style={{ color: "rgba(0,0,0,0.6)" }}>
             ({storesCount} store{storesCount === 1 ? "" : "s"})
           </div>
@@ -263,7 +418,7 @@ export default function MerchantDetail() {
                   <td style={td}>{s.city || ""}</td>
                   <td style={td}>{s.state || ""}</td>
                   <td style={td}>
-                    <Link to={`/stores/${s.id}`} style={{ textDecoration: "none" }}>
+                    <Link to={`/merchants/${merchantId}/stores/${s.id}`} style={{ textDecoration: "none" }}>
                       Open
                     </Link>
                   </td>
@@ -273,7 +428,7 @@ export default function MerchantDetail() {
               {storesCount === 0 && (
                 <tr>
                   <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
-                    No stores for this merchant.
+                    No stores for this merchant yet.
                   </td>
                 </tr>
               )}
@@ -373,6 +528,15 @@ const styles = {
     whiteSpace: "pre-wrap",
   },
 
+  okBox: {
+    marginTop: 10,
+    background: "rgba(0,128,0,0.06)",
+    border: "1px solid rgba(0,128,0,0.18)",
+    padding: 10,
+    borderRadius: 12,
+    whiteSpace: "pre-wrap",
+  },
+
   storesCard: {
     marginTop: 16,
     border: "1px solid rgba(0,0,0,0.12)",
@@ -386,6 +550,22 @@ const styles = {
     display: "flex",
     gap: 10,
     alignItems: "baseline",
+  },
+
+  createStoreForm: {
+    display: "grid",
+    gap: 12,
+  },
+
+  createGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 12,
+  },
+
+  createActions: {
+    display: "flex",
+    justifyContent: "flex-end",
   },
 
   tip: {

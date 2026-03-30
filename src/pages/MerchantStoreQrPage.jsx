@@ -1,3 +1,5 @@
+// admin/src/pages/MerchantStoreQrPage.jsx
+
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { generateMerchantStoreQr } from "../api/client";
@@ -242,77 +244,75 @@ export default function MerchantStoreQrPage() {
     setJustReplaced(true);
   };
 
+  const pill = (variant = "secondary") => ({
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 44,
+    padding: "10px 20px",
+    borderRadius: 999,
+    border: variant === "primary" ? "1px solid transparent" : "1px solid rgba(0,0,0,0.18)",
+    background: variant === "primary" ? "#2F8F8B" : "#FFFFFF",
+    cursor: "pointer",
+    fontWeight: 800,
+    fontSize: 14,
+    color: variant === "primary" ? "#FFFFFF" : "#0B2A33",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+  });
+
   return (
-    <div className="mx-auto w-full max-w-[1100px] px-6 py-8 pb-32">
-      <div className="mb-4">
+    <div style={{ maxWidth: 980, paddingBottom: 120 }}>
+      <div style={{ marginBottom: 16 }}>
         <Link
           to={`/merchant/stores/${storeId}`}
-          className="inline-flex items-center text-sm font-bold text-teal-700 hover:text-teal-800 hover:underline"
+          style={{ fontWeight: 800, color: "#2563EB", textDecoration: "none", fontSize: 14 }}
         >
           ← Back to Store
         </Link>
       </div>
 
-      <div className="mb-6">
-        <h1 className="text-4xl font-bold tracking-tight text-slate-800">
-          {storeLabel}
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ margin: 0, marginBottom: 4, color: "#0B2A33" }}>{storeLabel}</h2>
+        <p style={{ margin: 0, fontSize: 13, color: "rgba(11,42,51,0.60)" }}>
           Scan to check in and access offers
         </p>
         {merchantLabel ? (
-          <p className="mt-3 text-lg leading-7 text-slate-600">{merchantLabel}</p>
+          <p style={{ margin: 0, marginTop: 6, fontSize: 14, color: "rgba(11,42,51,0.70)" }}>{merchantLabel}</p>
         ) : null}
       </div>
 
       {successMessage ? (
-        <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-sm">
-          <p className="text-sm font-medium text-emerald-800">{successMessage}</p>
+        <div style={{ marginBottom: 20, borderRadius: 12, border: "1px solid rgba(47,143,139,0.50)", background: "rgba(47,143,139,0.10)", padding: "12px 16px" }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#0B2A33" }}>{successMessage}</p>
         </div>
       ) : null}
 
       {helperMessage ? (
-        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-5 py-4 shadow-sm">
-          <p className="text-sm font-medium text-sky-900">{helperMessage}</p>
+        <div style={{ marginBottom: 20, borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", background: "rgba(47,143,139,0.06)", padding: "12px 16px" }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#0B2A33" }}>{helperMessage}</p>
         </div>
       ) : null}
 
       {!loading && !error && qrPayload ? (
-        justReplaced ? (
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-3">
+        <div style={{ marginBottom: 20, display: "flex", flexWrap: "wrap", gap: 10 }}>
+          {justReplaced ? (
+            <button type="button" onClick={handlePrint} style={pill("primary")}>
+              Print New QR
+            </button>
+          ) : (
+            <>
               <button
                 type="button"
                 onClick={handlePrint}
-                className="inline-flex min-h-[48px] items-center rounded-full border border-slate-800 bg-white px-5 py-2.5 text-base font-semibold text-slate-900 shadow-sm transition hover:bg-slate-50"
+                style={highlightPrint ? { ...pill("primary"), background: "#277D79" } : pill("primary")}
               >
-                Print New QR
+                Print QR
               </button>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className={`inline-flex min-h-[48px] items-center rounded-full px-5 py-2.5 text-base font-semibold shadow-sm transition ${
-                highlightPrint
-                  ? "border border-slate-900 bg-white text-slate-900 ring-2 ring-teal-200"
-                  : "border border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
-              }`}
-            >
-              Print QR
-            </button>
-
-            <button
-              type="button"
-              onClick={handleOpenReplaceCard}
-              className="inline-flex min-h-[48px] items-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-base font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
-            >
-              Replace
-            </button>
-          </div>
-        )
+              <button type="button" onClick={handleOpenReplaceCard} style={pill("secondary")}>
+                Replace
+              </button>
+            </>
+          )}
+        </div>
       ) : null}
 
       {showReplaceCard ? (
@@ -326,43 +326,42 @@ export default function MerchantStoreQrPage() {
       ) : null}
 
       {loading ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm font-medium text-slate-700">Generating QR...</p>
+        <div style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "#FFFFFF", padding: 24 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "rgba(11,42,51,0.70)" }}>Generating QR…</p>
         </div>
       ) : null}
 
       {!loading && error ? (
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm">
-          <p className="text-sm font-medium text-red-700">{error}</p>
+        <div style={{ borderRadius: 14, border: "1px solid rgba(255,0,0,0.15)", background: "rgba(255,0,0,0.06)", padding: 24 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "rgba(180,0,0,0.85)" }}>{error}</p>
         </div>
       ) : null}
 
       {!loading && !error && qrPayload && !showReplaceCard ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="grid gap-6 lg:grid-cols-[460px_minmax(0,1fr)] lg:items-start">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "#FFFFFF", padding: 24 }}>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", background: "#FFFFFF", padding: 16 }}>
               {qrImageSrc ? (
                 <img
                   src={qrImageSrc}
                   alt={`QR code for ${storeLabel}`}
-                  className="block h-auto max-w-full"
-                  style={{ width: 420, height: 420, objectFit: "contain" }}
+                  style={{ display: "block", width: 420, height: 420, objectFit: "contain", maxWidth: "100%" }}
                 />
               ) : (
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-medium text-amber-800">
+                <div style={{ borderRadius: 10, border: "1px solid rgba(200,150,0,0.20)", background: "rgba(255,200,0,0.06)", padding: 16 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: "rgba(120,80,0,0.85)" }}>
                     QR generated, but no image payload was returned.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", background: "#FEFCF7", padding: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(11,42,51,0.55)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
                   Placement Guidance
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-slate-700">
+                </div>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: "rgba(11,42,51,0.80)" }}>
                   Place this printed QR near the register or checkout area where
                   it is easy to see and scan. Reprint this same code if signage
                   is damaged or additional copies are needed. Replace the QR

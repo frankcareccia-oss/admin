@@ -52,6 +52,7 @@ import ChangePassword from "./pages/Auth/ChangePassword";
 
 import MerchantUsers from "./pages/MerchantUsers";
 import AdminMerchantUsers from "./pages/AdminMerchantUsers";
+import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 
 import {
   getAccessToken,
@@ -881,7 +882,7 @@ export default function App() {
             path="/merchants/:merchantId/stores/:storeId"
             element={
               <RequireAuth>
-                <MerchantStoreDetail />
+                <AdminMerchantStoreDetail />
               </RequireAuth>
             }
           />

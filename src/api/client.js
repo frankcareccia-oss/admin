@@ -914,6 +914,14 @@ export async function updateStoreStatus(storeId, { status, statusReason }) {
   });
 }
 
+export async function updateStore(storeId, { name, address1, city, state, postal }) {
+  return request(`/stores/${storeId}`, {
+    method: "PATCH",
+    body: { name, address1, city, state, postal },
+    auth: "auto",
+  });
+}
+
 /* -----------------------------
    Store QR (admin)
 -------------------------------- */
