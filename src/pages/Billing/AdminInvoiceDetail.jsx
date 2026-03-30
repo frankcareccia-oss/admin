@@ -456,9 +456,7 @@ export default function AdminInvoiceDetail() {
 
     try {
       const tok = getAccessToken();
-      const key = getAdminKey();
       if (!tok) throw new Error("Missing access token. Please re-login.");
-      if (!key) throw new Error("Missing admin key. Set it in Settings → Admin Key.");
 
       // Backend endpoint mints GuestPayToken. We then compute /p/:code from tokenId.
       const url = `${API_BASE}/admin/invoices/${encodeURIComponent(String(invoiceId))}/guest-pay-token`;
@@ -468,7 +466,6 @@ export default function AdminInvoiceDetail() {
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${tok}`,
-          "x-api-key": key,
         },
       });
 
