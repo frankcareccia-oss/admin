@@ -1,15 +1,18 @@
 // admin/src/pages/MerchantInvoices.jsx
 import React from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   adminListInvoices,
   adminGenerateInvoice,
   adminIssueInvoice,
   adminVoidInvoice,
+  getMerchant,
+  adminGetMerchantBillingPolicy,
 } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import SectionTabs from "../components/layout/SectionTabs";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -34,22 +37,46 @@ function usd(cents) {
   return `$${n.toFixed(2)}`;
 }
 
-function Pill({ children }) {
+const MERCHANT_STATUS_COLORS = {
+  active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  suspended: { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
+  archived:  { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+};
+
+function StatusBadge({ status }) {
+  const s = MERCHANT_STATUS_COLORS[status] || MERCHANT_STATUS_COLORS.archived;
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "4px 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 900,
-        background: "rgba(0,0,0,0.06)",
-        border: "1px solid rgba(0,0,0,0.10)",
-        textTransform: "lowercase",
-      }}
-    >
-      {children}
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "unknown"}
+    </span>
+  );
+}
+
+function buildTabs(merchantId, pathname) {
+  const base = `/merchants/${merchantId}`;
+  return [
+    { key: "overview",      label: "Overview",       to: base,                                            active: pathname === base },
+    { key: "billing",       label: "Billing",        to: `${base}/billing`,                               active: pathname === `${base}/billing` },
+    { key: "stores",        label: "Stores",         to: `${base}/stores`,                                active: pathname === `${base}/stores` },
+    { key: "team",          label: "Team",           to: `${base}/users`,                                 active: pathname === `${base}/users` },
+    { key: "invoices",      label: "Invoices",       to: `${base}/invoices`,                              active: pathname === `${base}/invoices` },
+    { key: "billingPolicy", label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
+  ];
+}
+
+const INVOICE_STATUS_STYLES = {
+  draft:   { background: "rgba(0,0,0,0.05)",       color: "rgba(0,0,0,0.55)",   border: "1px solid rgba(0,0,0,0.12)" },
+  issued:  { background: "rgba(0,80,200,0.08)",    color: "rgba(0,60,160,1)",   border: "1px solid rgba(0,80,200,0.20)" },
+  paid:    { background: "rgba(0,150,80,0.10)",    color: "rgba(0,110,50,1)",   border: "1px solid rgba(0,150,80,0.25)" },
+  void:    { background: "rgba(0,0,0,0.04)",       color: "rgba(0,0,0,0.35)",   border: "1px solid rgba(0,0,0,0.10)" },
+  overdue: { background: "rgba(200,0,0,0.08)",     color: "rgba(160,0,0,1)",    border: "1px solid rgba(200,0,0,0.20)" },
+};
+
+function InvoiceStatusPill({ status }) {
+  const s = INVOICE_STATUS_STYLES[status] || INVOICE_STATUS_STYLES.draft;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "—"}
     </span>
   );
 }
@@ -90,11 +117,13 @@ function dollarsToCents(dollarsStr) {
   return Math.round(n * 100);
 }
 
-const NET_TERMS_OPTIONS = [15, 30, 45];
-
 export default function MerchantInvoices() {
   const { merchantId } = useParams();
+  const location = useLocation();
 
+  const [merchant, setMerchant] = React.useState(null);
+  const [netTermsOptions, setNetTermsOptions] = React.useState([15, 30, 45]);
+  const [policyDefaultNetTerms, setPolicyDefaultNetTerms] = React.useState("");
   const [items, setItems] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -108,6 +137,23 @@ export default function MerchantInvoices() {
   async function load() {
     setLoading(true);
     setError("");
+
+    try {
+      const m = await getMerchant(merchantId);
+      setMerchant(m || null);
+    } catch {
+      // Non-fatal: merchant name missing is OK, invoices still load
+    }
+
+    try {
+      const policy = await adminGetMerchantBillingPolicy(merchantId);
+      const opts = policy?.effective?.allowedNetTermsDays;
+      if (Array.isArray(opts) && opts.length > 0) setNetTermsOptions(opts);
+      const def = policy?.effective?.defaultNetTermsDays;
+      setPolicyDefaultNetTerms(def != null ? String(def) : "");
+    } catch {
+      // Non-fatal: fall back to default [15, 30, 45]
+    }
 
     pvUiHook("billing.merchant_invoices.list_load_started.ui", {
       tc: "TC-MIL-UI-10",
@@ -158,7 +204,7 @@ export default function MerchantInvoices() {
     setError("");
     setShowCreate(true);
     setTotalDollars("");
-    setNetTermsDays("");
+    setNetTermsDays(policyDefaultNetTerms || "");
 
     pvUiHook("billing.merchant_invoices.create_modal_opened.ui", {
       tc: "TC-MIL-UI-20",
@@ -187,9 +233,9 @@ export default function MerchantInvoices() {
     }
 
     const nt = Number(String(netTermsDays || "").trim());
-    if (!NET_TERMS_OPTIONS.includes(nt)) {
+    if (!netTermsOptions.includes(nt)) {
       setBusy(false);
-      setError(`Net terms must be one of: ${NET_TERMS_OPTIONS.join(", ")} days`);
+      setError(`Net terms must be one of: ${netTermsOptions.join(", ")} days`);
       pvUiHook("billing.merchant_invoices.create_failed.ui", {
         tc: "TC-MIL-UI-23",
         sev: "warn",
@@ -311,33 +357,26 @@ export default function MerchantInvoices() {
   }
 
   const rows = Array.isArray(items) ? items.slice().sort((a, b) => b.id - a.id) : [];
+  const tabs = buildTabs(merchantId, location.pathname);
 
   return (
     <PageContainer size="page">
-      {/* Q0: Back link top-left above PageHeader */}
       <div style={{ marginBottom: 10 }}>
-        <Link
-          to={`/merchants/${merchantId}`}
-          style={{ textDecoration: "none" }}
-          onClick={() => {
-            pvUiHook("billing.merchant_invoices.back_clicked.ui", {
-              tc: "TC-MIL-UI-05",
-              sev: "info",
-              stable: "merchantInvoices:nav",
-              merchantId: Number(merchantId),
-            });
-          }}
-        >
-          ← Back to Merchant
-        </Link>
+        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
       </div>
 
       <PageHeader
-        title="Invoices"
+        title={merchant?.name || `Merchant ${merchantId}`}
         subtitle={
-          <span>
-            Scope: <b>Merchant #{merchantId}</b>
-          </span>
+          merchant ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <StatusBadge status={merchant.status} />
+              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+                ID: {merchant.id}
+                {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
+              </span>
+            </span>
+          ) : null
         }
         right={
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -367,7 +406,9 @@ export default function MerchantInvoices() {
             </button>
           </div>
         }
-      />
+      >
+        <SectionTabs title="Sections" items={tabs} />
+      </PageHeader>
 
       {error ? (
         <div
@@ -439,7 +480,7 @@ export default function MerchantInvoices() {
                     <tr key={inv.id}>
                       <td style={td}>
                         <Link
-                          to={`/admin/invoices/${inv.id}`}
+                          to={`/admin/invoices/${inv.id}?return=${encodeURIComponent(`/merchants/${merchantId}/invoices`)}`}
                           style={{ textDecoration: "none" }}
                           onClick={() => {
                             pvUiHook("billing.merchant_invoices.row_action.view.ui", {
@@ -456,7 +497,7 @@ export default function MerchantInvoices() {
                       </td>
 
                       <td style={td}>
-                        <Pill>{inv.status}</Pill>
+                        <InvoiceStatusPill status={inv.status} />
                       </td>
 
                       <td style={td}>{usd(inv.totalCents)}</td>
@@ -487,7 +528,7 @@ export default function MerchantInvoices() {
                             </span>
                           ) : (
                             <Link
-                              to={`/admin/invoices/${inv.id}`}
+                              to={`/admin/invoices/${inv.id}?return=${encodeURIComponent(`/merchants/${merchantId}/invoices`)}`}
                               style={{ textDecoration: "none", fontWeight: 900 }}
                               onClick={() => {
                                 pvUiHook("billing.merchant_invoices.row_action.view.ui", {
@@ -545,7 +586,7 @@ export default function MerchantInvoices() {
         >
           <div style={{ background: "white", padding: 16, width: 440, borderRadius: 14 }}>
             <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>
-              Create Draft Invoice (Merchant #{merchantId})
+              Create Draft Invoice — {merchant?.name || `Merchant #${merchantId}`}
             </div>
 
             <div style={{ display: "grid", gap: 10 }}>
@@ -570,7 +611,7 @@ export default function MerchantInvoices() {
                   disabled={busy}
                 >
                   <option value="">Select…</option>
-                  {NET_TERMS_OPTIONS.map((d) => (
+                  {netTermsOptions.map((d) => (
                     <option key={d} value={String(d)}>
                       {d} days
                     </option>
@@ -608,7 +649,7 @@ export default function MerchantInvoices() {
             </div>
 
             <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-              Enter totals in <b>dollars</b> (e.g. 85.50). Net terms are limited to {NET_TERMS_OPTIONS.join("/")} days.
+              Enter totals in <b>dollars</b> (e.g. 85.50). Net terms are limited to {netTermsOptions.join("/")} days.
             </div>
           </div>
         </div>

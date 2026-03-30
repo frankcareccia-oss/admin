@@ -1348,6 +1348,18 @@ export async function adminVoidInvoice(invoiceId) {
   });
 }
 
+export async function adminGetBillingAccount(merchantId) {
+  return request(`/admin/merchants/${merchantId}/billing-account`, { auth: "jwt" });
+}
+
+export async function adminUpdateBillingAccount(merchantId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/billing-account`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
 export async function adminListMerchantInvoices(merchantId, { status } = {}) {
   return adminListInvoices({ merchantId, status });
 }

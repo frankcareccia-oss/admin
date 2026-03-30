@@ -1,62 +1,91 @@
 /**
  * Module: admin/src/pages/MerchantDetail.jsx
  *
- * Merchant Detail page (pv_admin)
+ * Overview tab for a merchant (pv_admin).
  *
  * Responsibilities:
- *  - Load merchant detail
- *  - Display merchant overview/status
- *  - Allow pv_admin to update merchant status
- *  - Allow pv_admin to create a store for this merchant
- *  - Navigate to store detail pages
- *
- * Notes:
- *  - Preserves existing layout/tabs/store section behavior
- *  - Adds inline "Create Store" panel using admin API createStore(...)
- *  - Reloads merchant after create so the new store appears in the table
+ *  - Merchant status management
+ *  - Read-only owner/contact summary
  */
 
 import React from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
-import { getMerchant, updateMerchantStatus, createStore } from "../api/client";
+import { Link, useLocation, useParams } from "react-router-dom";
+import { getMerchant, updateMerchantStatus, adminListMerchantUsers } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SectionTabs from "../components/layout/SectionTabs";
 
+const STATUS_COLORS = {
+  active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  suspended: { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
+  archived:  { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_COLORS[status] || STATUS_COLORS.archived;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "unknown"}
+    </span>
+  );
+}
+
+function formatPhone(raw) {
+  const digits = String(raw || "").replace(/\D/g, "").slice(0, 10);
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function buildTabs(merchantId, pathname) {
+  const base = `/merchants/${merchantId}`;
+  return [
+    { key: "overview",      label: "Overview",       to: base,                                            active: pathname === base },
+    { key: "billing",       label: "Billing",        to: `${base}/billing`,                               active: pathname === `${base}/billing` },
+    { key: "stores",        label: "Stores",         to: `${base}/stores`,                                active: pathname === `${base}/stores` },
+    { key: "team",          label: "Team",           to: `${base}/users`,                                 active: pathname === `${base}/users` },
+    { key: "invoices",      label: "Invoices",       to: `${base}/invoices`,                              active: pathname === `${base}/invoices` },
+    { key: "billingPolicy", label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
+  ];
+}
+
 export default function MerchantDetail() {
   const { merchantId } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
 
   const [merchant, setMerchant] = React.useState(null);
+  const [users, setUsers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
+  const [saveOk, setSaveOk] = React.useState("");
 
   const [newStatus, setNewStatus] = React.useState("active");
   const [statusReason, setStatusReason] = React.useState("");
-
-  // Create Store
-  const [storeName, setStoreName] = React.useState("");
-  const [storeAddress1, setStoreAddress1] = React.useState("");
-  const [storeCity, setStoreCity] = React.useState("");
-  const [storeState, setStoreState] = React.useState("");
-  const [storePostal, setStorePostal] = React.useState("");
-  const [createBusy, setCreateBusy] = React.useState(false);
-  const [createErr, setCreateErr] = React.useState("");
-  const [createOk, setCreateOk] = React.useState("");
-
-  const storesRef = React.useRef(null);
+  const [busy, setBusy] = React.useState(false);
 
   async function load() {
     setLoading(true);
     setErr("");
     try {
-      const m = await getMerchant(merchantId);
-      setMerchant(m);
-      setNewStatus(m?.status || "active");
-      setStatusReason(m?.statusReason || "");
+      const [mResult, uResult] = await Promise.allSettled([
+        getMerchant(merchantId),
+        adminListMerchantUsers(merchantId),
+      ]);
+
+      if (mResult.status === "fulfilled") {
+        const m = mResult.value;
+        setMerchant(m);
+        setNewStatus(m?.status || "active");
+        setStatusReason(m?.statusReason || "");
+      } else {
+        throw new Error(mResult.reason?.message || "Failed to load merchant");
+      }
+
+      if (uResult.status === "fulfilled") {
+        setUsers(uResult.value?.users || []);
+      }
     } catch (e) {
       setErr(e?.message || "Failed to load merchant");
     } finally {
@@ -72,13 +101,16 @@ export default function MerchantDetail() {
   async function onSaveStatus(e) {
     e.preventDefault();
     setErr("");
+    setSaveOk("");
     setBusy(true);
     try {
       await updateMerchantStatus(merchantId, {
         status: newStatus,
         statusReason: statusReason || undefined,
       });
-      navigate("/merchants");
+      // Reload to reflect new status in header
+      await load();
+      setSaveOk("Status updated.");
     } catch (e2) {
       setErr(e2?.message || "Failed to update merchant status");
     } finally {
@@ -86,361 +118,147 @@ export default function MerchantDetail() {
     }
   }
 
-  function scrollToStores() {
-    try {
-      storesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch {
-      // ignore
-    }
-  }
-
-  function resetCreateStoreForm() {
-    setStoreName("");
-    setStoreAddress1("");
-    setStoreCity("");
-    setStoreState("");
-    setStorePostal("");
-  }
-
-  async function onCreateStore(e) {
-    e.preventDefault();
-    setCreateErr("");
-    setCreateOk("");
-
-    const name = String(storeName || "").trim();
-    const address1 = String(storeAddress1 || "").trim();
-    const city = String(storeCity || "").trim();
-    const state = String(storeState || "").trim().toUpperCase();
-    const postal = String(storePostal || "").trim();
-
-    if (!name) {
-      setCreateErr("Store name is required.");
-      return;
-    }
-    if (!address1) {
-      setCreateErr("Address is required.");
-      return;
-    }
-    if (!city) {
-      setCreateErr("City is required.");
-      return;
-    }
-    if (!state) {
-      setCreateErr("State is required.");
-      return;
-    }
-    if (!postal) {
-      setCreateErr("Zip code is required.");
-      return;
-    }
-
-    setCreateBusy(true);
-    try {
-      await createStore({
-        merchantId: Number(merchantId),
-        name,
-        address1,
-        city,
-        state,
-        postal,
-      });
-
-      setCreateOk("Store created.");
-      resetCreateStoreForm();
-      await load();
-
-      try {
-        storesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } catch {
-        // ignore
-      }
-    } catch (e) {
-      setCreateErr(e?.message || "Failed to create store");
-    } finally {
-      setCreateBusy(false);
-    }
-  }
-
   if (loading) {
-    return (
-      <PageContainer size="page">
-        <div style={{ padding: 16 }}>Loading...</div>
-      </PageContainer>
-    );
+    return <PageContainer size="page"><div style={{ padding: 16 }}>Loading…</div></PageContainer>;
   }
 
   if (err && !merchant) {
     return (
       <PageContainer size="page">
-        <div
-          style={{
-            padding: 12,
-            borderRadius: 12,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
-            color: "crimson",
-          }}
-        >
-          {err}
-        </div>
+        <div style={styles.errBox}>{err}</div>
       </PageContainer>
     );
   }
 
   if (!merchant) {
-    return (
-      <PageContainer size="page">
-        <div style={{ padding: 16 }}>Merchant not loaded</div>
-      </PageContainer>
-    );
+    return <PageContainer size="page"><div style={{ padding: 16 }}>Merchant not loaded</div></PageContainer>;
   }
 
-  const storesCount = (merchant.stores || []).length;
+  const tabs = buildTabs(merchantId, location.pathname);
 
-  const path = location.pathname || "";
-  const overviewPath = `/merchants/${merchant.id}`;
-  const teamPath = `/merchants/${merchant.id}/users`;
-  const invoicesPath = `/merchants/${merchant.id}/invoices`;
-  const billingPolicyPath = `/admin/merchants/${merchant.id}/billing-policy`;
+  // Owner contact: prefer merchant_admin, fall back to first user
+  const ownerUser =
+    users.find((u) => u.role === "owner") ||
+    users.find((u) => u.role === "merchant_admin") ||
+    users[0] ||
+    null;
 
-  const overviewActive = path === overviewPath;
-  const teamActive = path === teamPath;
-  const invoicesActive = path === invoicesPath;
+  const otherContacts = users.filter((u) => u !== ownerUser);
 
   return (
     <PageContainer size="page">
       <div style={{ marginBottom: 10 }}>
-        <Link to="/merchants" style={{ textDecoration: "none" }}>
-          Back to Merchants
-        </Link>
+        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
       </div>
 
       <PageHeader
         title={merchant.name}
         subtitle={
-          <span>
-            Status: <code>{merchant.status}</code>
+          <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <StatusBadge status={merchant.status} />
+            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+              ID: {merchant.id}
+              {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
+            </span>
           </span>
         }
         right={
-          <button onClick={load} disabled={busy || createBusy} style={styles.refreshBtn}>
-            Refresh
-          </button>
+          <button onClick={load} disabled={busy} style={styles.refreshBtn}>Refresh</button>
         }
       >
-        <SectionTabs
-          title="Sections"
-          items={[
-            {
-              key: "overview",
-              label: "Overview",
-              to: overviewPath,
-              active: overviewActive,
-            },
-            {
-              key: "team",
-              label: "Team",
-              to: teamPath,
-              active: teamActive,
-            },
-            {
-              key: "invoices",
-              label: "Invoices",
-              to: invoicesPath,
-              active: invoicesActive,
-            },
-            {
-              key: "stores",
-              label: "Stores",
-              onClick: scrollToStores,
-              count: storesCount,
-              active: false,
-            },
-            {
-              key: "billing",
-              label: "Billing Policy",
-              to: billingPolicyPath,
-              active: path === billingPolicyPath,
-            },
-          ]}
-        />
+        <SectionTabs title="Sections" items={tabs} />
       </PageHeader>
 
+      {/* Status */}
       <div style={styles.card}>
-        <div style={styles.cardTitle}>Status</div>
-
+        <div style={styles.cardTitle}>Merchant Status</div>
         <form onSubmit={onSaveStatus} style={styles.statusForm}>
-          <div style={styles.statusField}>
+          <div>
             <label style={styles.label}>Status</label>
             <select
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value)}
-              disabled={busy || createBusy}
-              style={styles.select}
+              disabled={busy}
+              style={styles.input}
             >
-              <option value="active">active</option>
-              <option value="suspended">suspended</option>
-              <option value="archived">archived</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+              <option value="archived">Archived</option>
             </select>
           </div>
-
-          <div style={styles.reasonField}>
+          <div>
             <label style={styles.label}>Status reason (optional)</label>
             <input
               value={statusReason}
               onChange={(e) => setStatusReason(e.target.value)}
-              disabled={busy || createBusy}
-              placeholder="e.g. Past due, Contract ended, etc."
+              disabled={busy}
+              placeholder="e.g. Past due, Contract ended"
               style={styles.input}
             />
           </div>
-
           <div style={styles.saveCell}>
-            <button type="submit" disabled={busy || createBusy} style={styles.saveBtn}>
-              {busy ? "Saving..." : "Save"}
+            <button type="submit" disabled={busy} style={styles.saveBtn}>
+              {busy ? "Saving…" : "Save"}
             </button>
           </div>
         </form>
-
-        {err ? <div style={styles.errBox}>{err}</div> : null}
+        {err    && <div style={{ ...styles.errBox, marginTop: 10 }}>{err}</div>}
+        {saveOk && <div style={{ ...styles.okBox,  marginTop: 10 }}>{saveOk}</div>}
       </div>
 
-      {/* Create Store — primary action card, above the list */}
+      {/* Owner / Contact */}
       <div style={styles.card}>
-        <div style={styles.cardTitle}>Create Store</div>
-        <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 14 }}>
-          Add a new location for this merchant.
-        </div>
-        <form onSubmit={onCreateStore} style={styles.createStoreForm}>
-          <div style={styles.createGrid}>
-            <div>
-              <label style={styles.label}>Store name</label>
-              <input
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                disabled={createBusy || busy}
-                placeholder="e.g. Acme - Danville"
-                style={styles.input}
-              />
-            </div>
-
-            <div>
-              <label style={styles.label}>Address</label>
-              <input
-                value={storeAddress1}
-                onChange={(e) => setStoreAddress1(e.target.value)}
-                disabled={createBusy || busy}
-                placeholder="123 Main St. Suite 124"
-                style={styles.input}
-              />
-            </div>
-
-            <div>
-              <label style={styles.label}>City</label>
-              <input
-                value={storeCity}
-                onChange={(e) => setStoreCity(e.target.value)}
-                disabled={createBusy || busy}
-                placeholder="Danville"
-                style={styles.input}
-              />
-            </div>
-
-            <div>
-              <label style={styles.label}>State</label>
-              <select
-                value={storeState}
-                onChange={(e) => setStoreState(e.target.value)}
-                disabled={createBusy || busy}
-                style={styles.input}
-              >
-                <option value="">Select a state…</option>
-                {["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"].map((s) => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={styles.label}>Zip code</label>
-              <input
-                value={storePostal}
-                onChange={(e) => setStorePostal(e.target.value)}
-                disabled={createBusy || busy}
-                placeholder="e.g. 94526"
-                maxLength={10}
-                style={styles.input}
-              />
-            </div>
-          </div>
-
-          <div style={styles.createActions}>
-            <button type="submit" disabled={createBusy || busy} style={styles.saveBtn}>
-              {createBusy ? "Creating…" : "Create Store"}
-            </button>
-          </div>
-        </form>
-
-        {createErr ? <div style={styles.errBox}>{createErr}</div> : null}
-        {createOk ? <div style={styles.okBox}>{createOk}</div> : null}
-      </div>
-
-      {/* Stores list */}
-      <div ref={storesRef} style={styles.storesCard}>
-        <div style={styles.storesHeader}>
-          <div style={{ fontWeight: 800 }}>Store Locations</div>
-          <div style={{ color: "rgba(0,0,0,0.6)" }}>
-            ({storesCount} store{storesCount === 1 ? "" : "s"})
-          </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={styles.cardTitle}>Business Contact</div>
+          <Link to={`/merchants/${merchantId}/users`} style={styles.manageLink}>
+            Manage Team →
+          </Link>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ textAlign: "left" }}>
-                <th style={th}>ID</th>
-                <th style={th}>Name</th>
-                <th style={th}>City</th>
-                <th style={th}>State</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(merchant.stores || []).map((s) => (
-                <tr key={s.id}>
-                  <td style={td}>{s.id}</td>
-                  <td style={td}>
-                    <div style={{ fontWeight: 700 }}>{s.name}</div>
-                    <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-                      {s.address1 || ""}
+        {!ownerUser && (
+          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)" }}>
+            No users on this merchant yet.{" "}
+            <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>Add one →</Link>
+          </div>
+        )}
+
+        {ownerUser && (
+          <>
+            <div style={styles.contactCard}>
+              <div style={styles.contactBadge}>{ownerUser.role}</div>
+              <div style={styles.contactName}>
+                {[ownerUser.firstName, ownerUser.lastName].filter(Boolean).join(" ") || <span style={styles.empty}>Name not set</span>}
+              </div>
+              <div style={styles.contactRow}>{ownerUser.email}</div>
+              {ownerUser.phone && <div style={styles.contactRow}>{formatPhone(ownerUser.phone)}</div>}
+            </div>
+
+            {otherContacts.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={styles.sectionLabel}>Additional contacts</div>
+                <div style={styles.otherGrid}>
+                  {otherContacts.slice(0, 4).map((u) => (
+                    <div key={u.id || u.userId} style={styles.otherCard}>
+                      <div style={styles.otherBadge}>{u.role}</div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {[u.firstName, u.lastName].filter(Boolean).join(" ") || u.email}
+                      </div>
+                      {[u.firstName, u.lastName].filter(Boolean).join(" ") && (
+                        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{u.email}</div>
+                      )}
                     </div>
-                  </td>
-                  <td style={td}>{s.city || ""}</td>
-                  <td style={td}>{s.state || ""}</td>
-                  <td style={td}>
-                    <Link to={`/merchants/${merchantId}/stores/${s.id}`} style={{ textDecoration: "none" }}>
-                      Open
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-
-              {storesCount === 0 && (
-                <tr>
-                  <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
-                    No stores for this merchant yet.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div style={styles.tip}>
-        Tip: Use <b>Billing Policy</b> to apply merchant-specific grace days, late fee amounts, or default net terms.
-        <br />
-        Tip: Use the <b>Invoices</b> tab to create and manage invoices for this merchant without selecting Merchant ID.
+                  ))}
+                </div>
+                {otherContacts.length > 4 && (
+                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 6 }}>
+                    +{otherContacts.length - 4} more —{" "}
+                    <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>view all</Link>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </PageContainer>
   );
@@ -448,139 +266,72 @@ export default function MerchantDetail() {
 
 const styles = {
   refreshBtn: {
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
+    padding: "10px 12px", borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.18)", background: "white",
+    cursor: "pointer", fontWeight: 800,
   },
-
   card: {
-    marginTop: 16,
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14,
-    padding: 14,
-    background: "white",
+    marginTop: 16, border: "1px solid rgba(0,0,0,0.12)",
+    borderRadius: 14, padding: 16, background: "white",
   },
-  cardTitle: {
-    fontWeight: 800,
-    marginBottom: 10,
-  },
-
+  cardTitle: { fontWeight: 800, marginBottom: 10 },
   statusForm: {
     display: "grid",
-    gridTemplateColumns: "180px minmax(260px, 1fr) 120px",
-    gap: 12,
-    alignItems: "end",
+    gridTemplateColumns: "180px minmax(240px, 1fr) 100px",
+    gap: 12, alignItems: "end",
   },
-  statusField: {
-    minWidth: 0,
-  },
-  reasonField: {
-    minWidth: 0,
-  },
-  saveCell: {
-    display: "flex",
-    justifyContent: "flex-end",
-    alignItems: "end",
-  },
-
+  saveCell: { display: "flex", justifyContent: "flex-end", alignItems: "end" },
   label: {
-    display: "block",
-    fontSize: 12,
-    color: "rgba(0,0,0,0.65)",
-    marginBottom: 6,
-  },
-  select: {
-    width: "100%",
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
+    display: "block", fontSize: 12,
+    color: "rgba(0,0,0,0.65)", marginBottom: 6,
   },
   input: {
-    width: "100%",
-    minWidth: 0,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    boxSizing: "border-box",
+    width: "100%", padding: "10px 12px", borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.18)", boxSizing: "border-box", fontSize: 14,
   },
   saveBtn: {
-    width: "100%",
-    minWidth: 96,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
-    whiteSpace: "nowrap",
+    width: "100%", padding: "10px 12px", borderRadius: 10,
+    border: "1px solid rgba(0,0,0,0.18)", background: "white",
+    cursor: "pointer", fontWeight: 900,
   },
-
   errBox: {
-    marginTop: 10,
-    background: "rgba(255,0,0,0.06)",
-    border: "1px solid rgba(255,0,0,0.15)",
-    padding: 10,
-    borderRadius: 12,
-    whiteSpace: "pre-wrap",
+    background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)",
+    padding: 10, borderRadius: 12, whiteSpace: "pre-wrap",
   },
-
   okBox: {
-    marginTop: 10,
-    background: "rgba(0,128,0,0.06)",
-    border: "1px solid rgba(0,128,0,0.18)",
-    padding: 10,
-    borderRadius: 12,
-    whiteSpace: "pre-wrap",
+    background: "rgba(0,128,0,0.06)", border: "1px solid rgba(0,128,0,0.18)",
+    padding: 10, borderRadius: 12,
   },
-
-  storesCard: {
-    marginTop: 16,
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14,
-    overflow: "hidden",
-    background: "white",
+  manageLink: {
+    fontSize: 13, textDecoration: "none", fontWeight: 700,
+    color: "rgba(0,0,150,0.7)",
   },
-  storesHeader: {
-    padding: 12,
-    borderBottom: "1px solid rgba(0,0,0,0.08)",
-    display: "flex",
-    gap: 10,
-    alignItems: "baseline",
+  contactCard: {
+    border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12,
+    padding: 14, background: "rgba(0,0,0,0.015)",
   },
-
-  createStoreForm: {
-    display: "grid",
-    gap: 12,
+  contactBadge: {
+    display: "inline-block", fontSize: 11, fontWeight: 700,
+    color: "rgba(0,0,100,0.65)", background: "rgba(0,0,200,0.07)",
+    padding: "2px 8px", borderRadius: 6, marginBottom: 6,
+    textTransform: "uppercase", letterSpacing: "0.04em",
   },
-
-  createGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 12,
+  contactName: { fontWeight: 800, fontSize: 16, marginBottom: 4 },
+  contactRow: { fontSize: 14, color: "rgba(0,0,0,0.7)", lineHeight: 1.5 },
+  empty: { color: "rgba(0,0,0,0.35)", fontStyle: "italic", fontWeight: 400 },
+  sectionLabel: {
+    fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.5)",
+    textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8,
   },
-
-  createActions: {
-    display: "flex",
-    justifyContent: "flex-end",
+  otherGrid: {
+    display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10,
   },
-
-  tip: {
-    marginTop: 10,
-    fontSize: 12,
-    color: "rgba(0,0,0,0.55)",
+  otherCard: {
+    border: "1px solid rgba(0,0,0,0.08)", borderRadius: 10,
+    padding: 10, background: "white",
   },
-};
-
-const th = {
-  padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.08)",
-};
-
-const td = {
-  padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.06)",
+  otherBadge: {
+    fontSize: 10, fontWeight: 700, color: "rgba(0,0,100,0.5)",
+    textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4,
+  },
 };

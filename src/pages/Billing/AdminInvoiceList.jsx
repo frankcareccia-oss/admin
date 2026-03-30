@@ -1,7 +1,7 @@
 // admin/src/pages/Billing/AdminInvoiceList.jsx
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { adminListInvoices, adminGenerateInvoice, listMerchants } from "../../api/client";
+import { adminListInvoices, adminGenerateInvoice, listMerchants, adminGetMerchantBillingPolicy } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
@@ -58,8 +58,6 @@ const card = {
   background: "white",
 };
 
-const NET_TERMS_OPTIONS = [15, 30, 45];
-
 function normalizeMoneyInput(raw) {
   const s = String(raw || "").trim();
   if (!s) return "";
@@ -77,7 +75,7 @@ function dollarsToCents(dollarsStr) {
 
 function Money({ cents }) {
   const v = Number(cents || 0) / 100;
-  return <span>{v.toFixed(2)}</span>;
+  return <span>${v.toFixed(2)}</span>;
 }
 
 function titleCaseStatus(value) {
@@ -89,21 +87,20 @@ function titleCaseStatus(value) {
     .join(" ");
 }
 
-function Pill({ children }) {
+const INVOICE_STATUS_STYLES = {
+  draft:    { background: "rgba(0,0,0,0.05)",      color: "rgba(0,0,0,0.55)",  border: "1px solid rgba(0,0,0,0.12)" },
+  issued:   { background: "rgba(0,80,200,0.08)",   color: "rgba(0,60,160,1)",  border: "1px solid rgba(0,80,200,0.20)" },
+  paid:     { background: "rgba(0,150,80,0.10)",   color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  void:     { background: "rgba(0,0,0,0.04)",      color: "rgba(0,0,0,0.35)",  border: "1px solid rgba(0,0,0,0.10)" },
+  past_due: { background: "rgba(200,120,0,0.10)",  color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
+  overdue:  { background: "rgba(200,120,0,0.10)",  color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
+};
+
+function Pill({ status }) {
+  const s = INVOICE_STATUS_STYLES[status] || INVOICE_STATUS_STYLES.draft;
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "4px 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 800,
-        background: "rgba(0,0,0,0.06)",
-        border: "1px solid rgba(0,0,0,0.10)",
-      }}
-    >
-      {titleCaseStatus(children)}
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {titleCaseStatus(status)}
     </span>
   );
 }
@@ -146,6 +143,7 @@ export default function AdminInvoiceList() {
   const [genMerchantId, setGenMerchantId] = React.useState("");
   const [genTotalDollars, setGenTotalDollars] = React.useState(""); // blank by default
   const [genNetTermsDays, setGenNetTermsDays] = React.useState(""); // dropdown, blank by default
+  const [genNetTermsOptions, setGenNetTermsOptions] = React.useState([15, 30, 45]);
   const [genMsg, setGenMsg] = React.useState("");
 
   async function loadMerchantsOnce() {
@@ -184,6 +182,30 @@ export default function AdminInvoiceList() {
       setMerchantsLoading(false);
     }
   }
+
+  React.useEffect(() => {
+    if (!genMerchantId) {
+      setGenNetTermsOptions([15, 30, 45]);
+      return;
+    }
+    let cancelled = false;
+    adminGetMerchantBillingPolicy(genMerchantId)
+      .then((policy) => {
+        if (cancelled) return;
+        const opts = policy?.effective?.allowedNetTermsDays;
+        if (Array.isArray(opts) && opts.length > 0) {
+          setGenNetTermsOptions(opts);
+          const def = policy?.effective?.defaultNetTermsDays;
+          if (def != null) setGenNetTermsDays(String(def));
+        } else {
+          setGenNetTermsOptions([15, 30, 45]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setGenNetTermsOptions([15, 30, 45]);
+      });
+    return () => { cancelled = true; };
+  }, [genMerchantId]);
 
   async function load() {
     setError("");
@@ -329,8 +351,8 @@ export default function AdminInvoiceList() {
     }
 
     const net = Number(String(genNetTermsDays || "").trim());
-    if (!NET_TERMS_OPTIONS.includes(net)) {
-      setError(`Generate: netTermsDays must be one of ${NET_TERMS_OPTIONS.join(", ")}.`);
+    if (!genNetTermsOptions.includes(net)) {
+      setError(`Generate: netTermsDays must be one of ${genNetTermsOptions.join(", ")}.`);
       pvUiHook("billing.admin_invoices.generate_draft.blocked.ui", {
         tc: "TC-AIL-UI-31",
         sev: "warn",
@@ -467,7 +489,7 @@ export default function AdminInvoiceList() {
               load();
             }}
             disabled={loading || busy}
-            style={{ ...buttonBase, marginRight: 72 }}
+            style={buttonBase}
           >
             {loading ? "Loading..." : "Reload"}
           </button>
@@ -512,6 +534,7 @@ export default function AdminInvoiceList() {
               value={genMerchantId}
               onChange={(e) => {
                 setGenMerchantId(e.target.value);
+                setGenNetTermsDays("");
                 setError("");
               }}
               style={controlMd}
@@ -547,7 +570,7 @@ export default function AdminInvoiceList() {
               disabled={busy || loading}
             >
               <option value="">Select…</option>
-              {NET_TERMS_OPTIONS.map((d) => (
+              {genNetTermsOptions.map((d) => (
                 <option key={d} value={String(d)}>
                   {d} days
                 </option>
@@ -578,12 +601,12 @@ export default function AdminInvoiceList() {
               disabled={busy || loading}
               style={controlSm}
             >
-              <option value="">(any)</option>
-              <option value="draft">draft</option>
-              <option value="issued">issued</option>
-              <option value="past_due">past_due</option>
-              <option value="paid">paid</option>
-              <option value="void">void</option>
+              <option value="">(Any)</option>
+              <option value="draft">Draft</option>
+              <option value="issued">Issued</option>
+              <option value="past_due">Past Due</option>
+              <option value="paid">Paid</option>
+              <option value="void">Void</option>
             </select>
           </div>
 
@@ -672,16 +695,22 @@ export default function AdminInvoiceList() {
                       </Link>
                     </td>
 
-                    <td style={styles.td}>{merchantLabel(inv.merchantId)}</td>
+                    <td style={styles.td}>
+                      {inv.merchantId ? (
+                        <Link to={`/merchants/${inv.merchantId}`} style={{ textDecoration: "none", fontWeight: 700 }}>
+                          {merchantLabel(inv.merchantId)}
+                        </Link>
+                      ) : "—"}
+                    </td>
 
                     <td style={styles.td}>
                       <Money cents={inv.totalCents} />
                     </td>
 
-                    <td style={styles.td}>{inv.dueAt ? new Date(inv.dueAt).toLocaleDateString() : "-"}</td>
+                    <td style={styles.td}>{inv.dueAt ? new Date(inv.dueAt).toLocaleDateString() : "—"}</td>
 
                     <td style={styles.td}>
-                      <Pill>{inv.status}</Pill>
+                      <Pill status={inv.status} />
                     </td>
                   </tr>
                 ))

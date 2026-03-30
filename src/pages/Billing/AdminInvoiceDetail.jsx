@@ -6,6 +6,7 @@ import {
   adminIssueInvoice,
   adminLateFeePreview,
   adminVoidInvoice,
+  adminGetMerchantBillingPolicy,
 } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
@@ -64,26 +65,20 @@ function merchantDisplay(detail, inv) {
 
 function Badge({ text }) {
   const bg =
-    text === "paid"
-      ? "rgba(0,160,0,0.12)"
-      : text === "past_due"
-      ? "rgba(200,120,0,0.12)"
-      : text === "issued"
-      ? "rgba(0,90,200,0.12)"
-      : text === "void"
-      ? "rgba(120,120,120,0.12)"
-      : "rgba(0,0,0,0.06)";
+    text === "paid"    ? "rgba(0,160,0,0.12)"     :
+    text === "issued"  ? "rgba(0,90,200,0.12)"    :
+    text === "past_due" || text === "overdue"
+                       ? "rgba(200,120,0,0.12)"   :
+    text === "void"    ? "rgba(120,120,120,0.12)" :
+                         "rgba(0,0,0,0.06)";
 
   const border =
-    text === "paid"
-      ? "rgba(0,160,0,0.25)"
-      : text === "past_due"
-      ? "rgba(200,120,0,0.25)"
-      : text === "issued"
-      ? "rgba(0,90,200,0.25)"
-      : text === "void"
-      ? "rgba(120,120,120,0.25)"
-      : "rgba(0,0,0,0.12)";
+    text === "paid"    ? "rgba(0,160,0,0.25)"     :
+    text === "issued"  ? "rgba(0,90,200,0.25)"    :
+    text === "past_due" || text === "overdue"
+                       ? "rgba(200,120,0,0.25)"   :
+    text === "void"    ? "rgba(120,120,120,0.25)" :
+                         "rgba(0,0,0,0.12)";
 
   return (
     <span
@@ -195,8 +190,6 @@ async function buildShortPayCodeFromTokenId(tokenId) {
   return `${idPart}${sig}`;
 }
 
-const NET_TERMS_OPTIONS = [15, 30, 45];
-
 export default function AdminInvoiceDetail() {
   const { invoiceId } = useParams();
   const [searchParams] = useSearchParams();
@@ -217,6 +210,7 @@ export default function AdminInvoiceDetail() {
   const [actionBusy, setActionBusy] = React.useState(false);
   const [actionMsg, setActionMsg] = React.useState("");
   const [netTermsDays, setNetTermsDays] = React.useState(""); // dropdown, default blank
+  const [policyNetTermsOptions, setPolicyNetTermsOptions] = React.useState([15, 30, 45]);
   const [lateFeePreview, setLateFeePreview] = React.useState(null);
 
   // Pay Link state
@@ -245,8 +239,27 @@ export default function AdminInvoiceDetail() {
       setDetail(d);
 
       const inv = d?.invoice;
+
+      // Fetch billing policy to drive net terms options (non-fatal)
+      let opts = [15, 30, 45];
+      let policyDefault = "";
+      if (inv?.merchantId) {
+        try {
+          const policy = await adminGetMerchantBillingPolicy(inv.merchantId);
+          const allowed = policy?.effective?.allowedNetTermsDays;
+          if (Array.isArray(allowed) && allowed.length > 0) opts = allowed;
+          const def = policy?.effective?.defaultNetTermsDays;
+          if (def != null) policyDefault = String(def);
+        } catch { /* non-fatal */ }
+      }
+      setPolicyNetTermsOptions(opts);
+
       const net = inv?.netTermsDays != null ? Number(inv.netTermsDays) : null;
-      setNetTermsDays(NET_TERMS_OPTIONS.includes(net) ? String(net) : "");
+      if (net != null) {
+        setNetTermsDays(opts.includes(net) ? String(net) : "");
+      } else {
+        setNetTermsDays(policyDefault); // draft: pre-select merchant's default
+      }
 
       pvUiHook("billing.admin_invoice.page.load_succeeded.ui", {
         tc: "TC-AID-UI-01",
@@ -295,8 +308,8 @@ export default function AdminInvoiceDetail() {
     setConfirmVoid(false);
 
     const net = Number(String(netTermsDays || "").trim());
-    if (!NET_TERMS_OPTIONS.includes(net)) {
-      setError(`Net terms is required (${NET_TERMS_OPTIONS.join("/")}).`);
+    if (!policyNetTermsOptions.includes(net)) {
+      setError(`Net terms is required (${policyNetTermsOptions.join("/")}).`);
       pvUiHook("billing.admin_invoice.issue.blocked.ui", {
         tc: "TC-AID-UI-03B",
         sev: "warn",
@@ -558,30 +571,28 @@ export default function AdminInvoiceDetail() {
     <PageContainer size="page">
       {/* Q0: Back link top-left above PageHeader */}
       <div style={{ marginBottom: 10 }}>
-        <Link to={backUrl} style={{ textDecoration: "none" }}>Back to invoices</Link>
+        <Link to={backUrl} style={{ textDecoration: "none" }}>Back to Invoices</Link>
       </div>
 
       <PageHeader
         title={`Invoice #${invoiceId}`}
         subtitle={status ? <Badge text={status} /> : null}
         right={
-          <div style={{ paddingRight: 80 }}>
-            <button
-                        onClick={() => {
-                          pvUiHook("billing.admin_invoice.reload.click.ui", {
-                            tc: "TC-AID-UI-40",
-                            sev: "info",
-                            stable: `invoice:${String(invoiceId)}`,
-                            invoiceId: Number(invoiceId),
-                          });
-                          load();
-                        }}
-                        disabled={actionBusy || loading || payBusy}
-                        style={buttonBase}
-                      >
-                        Reload
-                      </button>
-          </div>
+          <button
+            onClick={() => {
+              pvUiHook("billing.admin_invoice.reload.click.ui", {
+                tc: "TC-AID-UI-40",
+                sev: "info",
+                stable: `invoice:${String(invoiceId)}`,
+                invoiceId: Number(invoiceId),
+              });
+              load();
+            }}
+            disabled={actionBusy || loading || payBusy}
+            style={buttonBase}
+          >
+            Reload
+          </button>
         }
       />
 
@@ -631,7 +642,7 @@ export default function AdminInvoiceDetail() {
                   title={!canIssue ? "Only editable while draft" : "Required to issue invoice"}
                 >
                   <option value="">Select…</option>
-                  {NET_TERMS_OPTIONS.map((d) => (
+                  {policyNetTermsOptions.map((d) => (
                     <option key={d} value={String(d)}>
                       {d} days
                     </option>

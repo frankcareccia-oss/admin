@@ -1,6 +1,6 @@
 // src/pages/Merchants.jsx
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { listMerchants, createMerchant, authDeviceStatus, authDeviceStart } from "../api/client";
 import Toast from "../components/Toast";
 
@@ -25,19 +25,24 @@ function pvUiHook(event, fields = {}) {
   }
 }
 
+const STATUS_BADGE_STYLES = {
+  active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",   border: "1px solid rgba(0,150,80,0.25)" },
+  suspended: { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",   border: "1px solid rgba(200,120,0,0.25)" },
+  archived:  { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",   border: "1px solid rgba(0,0,0,0.12)" },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_BADGE_STYLES[status] || STATUS_BADGE_STYLES.archived;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "unknown"}
+    </span>
+  );
+}
+
 function Badge({ children }) {
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "2px 10px",
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 700,
-        background: "rgba(0,0,0,0.06)",
-      }}
-    >
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "rgba(0,0,0,0.06)" }}>
       {children}
     </span>
   );
@@ -68,8 +73,6 @@ function isDeviceGateError(err) {
 }
 
 export default function Merchants() {
-  const navigate = useNavigate();
-
   const [merchants, setMerchants] = React.useState([]);
   const [status, setStatus] = React.useState("active");
   const [loading, setLoading] = React.useState(false);
@@ -352,6 +355,7 @@ export default function Merchants() {
             onChange={(e) => setStatus(e.target.value)}
             style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)" }}
           >
+            <option value="">All</option>
             <option value="active">Active</option>
             <option value="suspended">Suspended</option>
             <option value="archived">Archived</option>
@@ -363,27 +367,29 @@ export default function Merchants() {
         </button>
 
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          {device?.loading ? <Badge>Checking device…</Badge> : device?.trusted ? <Badge>Device enabled</Badge> : null}
+          {device?.loading
+            ? <Badge>Checking device…</Badge>
+            : device?.trusted
+              ? <Badge>
+                  Device enabled
+                  {device.expiresAt ? ` · expires ${new Date(device.expiresAt).toLocaleDateString()}` : ""}
+                </Badge>
+              : null}
         </div>
       </div>
 
       <div style={{ ...card, marginBottom: 12 }}>
+        <div style={{ fontWeight: 800, marginBottom: 10 }}>Create Merchant</div>
         <form onSubmit={onCreate} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="New merchant name"
+            placeholder="Merchant name"
             disabled={creating}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.18)",
-              minWidth: 240,
-              flex: 1,
-            }}
+            style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.18)", minWidth: 240, flex: 1 }}
           />
           <button type="submit" disabled={creating} style={buttonBase}>
-            {creating ? "Creating..." : "Create"}
+            {creating ? "Creating…" : "Create Merchant"}
           </button>
         </form>
       </div>
@@ -410,11 +416,12 @@ export default function Merchants() {
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {merchants.map((m) => (
-              <button
+              <Link
                 key={m.id}
-                type="button"
-                onClick={() => navigate(`/merchants/${m.id}`)}
+                to={`/merchants/${m.id}`}
                 style={{
+                  textDecoration: "none",
+                  color: "inherit",
                   textAlign: "left",
                   padding: 12,
                   borderRadius: 12,
@@ -429,10 +436,14 @@ export default function Merchants() {
               >
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>ID: {m.id}</div>
+                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                    ID: {m.id}
+                    {m.pvAccountNumber ? ` · ${m.pvAccountNumber}` : ""}
+                    {m.storeCount != null ? ` · ${m.storeCount} store${m.storeCount === 1 ? "" : "s"}` : ""}
+                  </div>
                 </div>
-                <Badge>{m.status || "active"}</Badge>
-              </button>
+                <StatusBadge status={m.status || "active"} />
+              </Link>
             ))}
           </div>
         )}

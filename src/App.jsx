@@ -52,7 +52,10 @@ import ChangePassword from "./pages/Auth/ChangePassword";
 
 import MerchantUsers from "./pages/MerchantUsers";
 import AdminMerchantUsers from "./pages/AdminMerchantUsers";
+import MerchantInvoices from "./pages/MerchantInvoices";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
+import AdminMerchantBilling from "./pages/AdminMerchantBilling";
+import AdminMerchantStores from "./pages/AdminMerchantStores";
 
 import {
   getAccessToken,
@@ -310,6 +313,7 @@ function Layout({ children }) {
         "/merchants/:merchantId/stores/:storeId",
         "/merchants/:merchantId/stores",
         "/merchants/:merchantId/users",
+        "/merchants/:merchantId/invoices",
         "/merchants/:merchantId",
         "/stores/:storeId/print-qr",
         "/merchant/invoices/:invoiceId",
@@ -871,10 +875,18 @@ export default function App() {
           />
 
           <Route
+            path="/merchants/:merchantId/billing"
+            element={
+              <RequireAuth>
+                <AdminMerchantBilling />
+              </RequireAuth>
+            }
+          />
+          <Route
             path="/merchants/:merchantId/stores"
             element={
               <RequireAuth>
-                <MerchantStores />
+                <AdminMerchantStores />
               </RequireAuth>
             }
           />
@@ -892,6 +904,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminMerchantUsers />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchants/:merchantId/invoices"
+            element={
+              <RequireAuth>
+                <MerchantInvoices />
               </RequireAuth>
             }
           />

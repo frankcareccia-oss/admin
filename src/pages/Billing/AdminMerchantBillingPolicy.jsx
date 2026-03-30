@@ -1,13 +1,42 @@
 // admin/src/pages/Billing/AdminMerchantBillingPolicy.jsx
 import React from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   adminGetMerchantBillingPolicy,
   adminUpdateMerchantBillingPolicy,
+  getMerchant,
 } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
+import SectionTabs from "../../components/layout/SectionTabs";
+
+const STATUS_COLORS = {
+  active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  suspended: { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
+  archived:  { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_COLORS[status] || STATUS_COLORS.archived;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "unknown"}
+    </span>
+  );
+}
+
+function buildTabs(merchantId, pathname) {
+  const base = `/merchants/${merchantId}`;
+  return [
+    { key: "overview",      label: "Overview",       to: base,                                            active: pathname === base },
+    { key: "billing",       label: "Billing",        to: `${base}/billing`,                               active: pathname === `${base}/billing` },
+    { key: "stores",        label: "Stores",         to: `${base}/stores`,                                active: pathname === `${base}/stores` },
+    { key: "team",          label: "Team",           to: `${base}/users`,                                 active: pathname === `${base}/users` },
+    { key: "invoices",      label: "Invoices",       to: `${base}/invoices`,                              active: pathname === `${base}/invoices` },
+    { key: "billingPolicy", label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
+  ];
+}
 
 function intOrEmpty(v) {
   return v === null || v === undefined ? "" : String(v);
@@ -57,7 +86,9 @@ const card = {
 
 export default function AdminMerchantBillingPolicy() {
   const { merchantId } = useParams();
+  const location = useLocation();
 
+  const [merchant, setMerchant] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -77,7 +108,10 @@ export default function AdminMerchantBillingPolicy() {
     setError("");
     setMsg("");
     try {
-      const data = await adminGetMerchantBillingPolicy(merchantId);
+      const [data] = await Promise.all([
+        adminGetMerchantBillingPolicy(merchantId),
+        getMerchant(merchantId).then(setMerchant).catch(() => {}),
+      ]);
       setBundle(data);
 
       const o = data?.overrides || {};
@@ -183,18 +217,27 @@ export default function AdminMerchantBillingPolicy() {
   }
 
   const eff = bundle?.effective;
+  const tabs = buildTabs(merchantId, location.pathname);
 
   return (
     <PageContainer size="page">
       <div style={{ marginBottom: 10 }}>
-        <Link to={`/merchants/${merchantId}`} style={{ textDecoration: "none" }}>
-          ← Back to Merchant
-        </Link>
+        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
       </div>
 
       <PageHeader
-        title="Merchant Billing Policy"
-        subtitle={<span>Merchant ID: <code>{merchantId}</code></span>}
+        title={merchant?.name || `Merchant ${merchantId}`}
+        subtitle={
+          merchant ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <StatusBadge status={merchant.status} />
+              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+                ID: {merchant.id}
+                {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
+              </span>
+            </span>
+          ) : null
+        }
         right={
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" onClick={load} disabled={busy} style={buttonBase}>
@@ -208,7 +251,9 @@ export default function AdminMerchantBillingPolicy() {
             </button>
           </div>
         }
-      />
+      >
+        <SectionTabs title="Sections" items={tabs} />
+      </PageHeader>
 
       {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading…</div> : null}
 
@@ -308,12 +353,16 @@ export default function AdminMerchantBillingPolicy() {
                   />
 
                   <label style={styles.label}>Default net terms (days)</label>
-                  <input
+                  <select
                     value={defaultNetTermsDays}
                     onChange={(e) => setDefaultNetTermsDays(e.target.value)}
-                    placeholder={`(inherit) allowed: ${allowedNetTerms.join(", ")}`}
                     style={controlBase}
-                  />
+                  >
+                    <option value="">(inherit global default)</option>
+                    {(allowedNetTerms.length > 0 ? allowedNetTerms : [15, 30, 45]).map((d) => (
+                      <option key={d} value={String(d)}>Net {d}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>

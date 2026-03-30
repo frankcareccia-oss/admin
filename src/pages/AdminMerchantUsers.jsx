@@ -12,7 +12,7 @@
  */
 
 import React from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import {
   adminListMerchantUsers,
   adminGetMerchantUser,
@@ -20,6 +20,36 @@ import {
   getMerchant,
   getSystemRole,
 } from "../api/client";
+import PageContainer from "../components/layout/PageContainer";
+import PageHeader from "../components/layout/PageHeader";
+import SectionTabs from "../components/layout/SectionTabs";
+
+const STATUS_COLORS = {
+  active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  suspended: { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
+  archived:  { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_COLORS[status] || STATUS_COLORS.archived;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "unknown"}
+    </span>
+  );
+}
+
+function buildTabs(merchantId, pathname) {
+  const base = `/merchants/${merchantId}`;
+  return [
+    { key: "overview",      label: "Overview",       to: base,                                            active: pathname === base },
+    { key: "billing",       label: "Billing",        to: `${base}/billing`,                               active: pathname === `${base}/billing` },
+    { key: "stores",        label: "Stores",         to: `${base}/stores`,                                active: pathname === `${base}/stores` },
+    { key: "team",          label: "Team",           to: `${base}/users`,                                 active: pathname === `${base}/users` },
+    { key: "invoices",      label: "Invoices",       to: `${base}/invoices`,                              active: pathname === `${base}/invoices` },
+    { key: "billingPolicy", label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
+  ];
+}
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -111,6 +141,7 @@ function merchantUserIdOf(mu) {
 
 export default function AdminMerchantUsers() {
   const { merchantId } = useParams();
+  const location = useLocation();
 
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -515,28 +546,35 @@ export default function AdminMerchantUsers() {
     ? Boolean(expandedById[merchantUserIdOf(currentOwner)])
     : false;
 
+  const tabs = buildTabs(merchantId, location.pathname);
+
   return (
-    <div style={styles.page}>
-      <div style={styles.frame}>
-        <div style={{ marginBottom: 8 }}>
-          <Link to={`/merchants/${mid || ""}`} style={styles.link}>
-            ← Back to Merchant
-          </Link>
-        </div>
+    <PageContainer size="page">
+      <div style={{ marginBottom: 10 }}>
+        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
+      </div>
 
-        <div style={styles.headerRow}>
-          <div>
-            <h2 style={{ marginTop: 0, marginBottom: 4 }}>Ownership</h2>
-            <div style={{ color: TOKENS.muted }}>Read-only view (pv_admin)</div>
-            <div style={{ marginTop: 6, fontSize: 12, color: TOKENS.muted }}>
-              Organization: <code style={styles.code}>{merchantName || "—"}</code>
-            </div>
-          </div>
-
+      <PageHeader
+        title={merchantName || `Merchant ${merchantId}`}
+        subtitle={
+          merchant ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <StatusBadge status={merchant.status} />
+              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+                ID: {merchant.id}
+                {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
+              </span>
+            </span>
+          ) : null
+        }
+        right={
           <button onClick={onRefresh} disabled={loading || busy} style={styles.refreshBtn}>
             {loading ? "Loading..." : "Refresh"}
           </button>
-        </div>
+        }
+      >
+        <SectionTabs title="Sections" items={tabs} />
+      </PageHeader>
 
         {err ? <div style={styles.errBox}>{err}</div> : null}
 
@@ -836,14 +874,8 @@ export default function AdminMerchantUsers() {
             </table>
           </div>
 
-          <div style={{ marginTop: 8, fontSize: 12, color: TOKENS.muted }}>
-            Screen <code style={styles.code}>AdminMerchantUsers</code> · Role{" "}
-            <code style={styles.code}>pv_admin</code> · MerchantId{" "}
-            <code style={styles.code}>{mid || "—"}</code>
-          </div>
         </div>
-      </div>
-    </div>
+    </PageContainer>
   );
 }
 
@@ -940,32 +972,6 @@ const TOKENS = {
 };
 
 const styles = {
-  page: {
-    background: TOKENS.pageBg,
-    color: TOKENS.navy,
-    height: "calc(100vh - 140px)",
-    overflow: "auto",
-    paddingBottom: 20,
-  },
-  frame: {
-    maxWidth: 1040,
-    minHeight: "100%",
-  },
-
-  headerRow: {
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-
-  link: {
-    color: TOKENS.teal,
-    textDecoration: "none",
-    fontWeight: 700,
-  },
-
   recoveryCard: {
     border: `1px solid ${TOKENS.border}`,
     borderRadius: 14,

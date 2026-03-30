@@ -6,6 +6,16 @@ import { Link, useParams } from "react-router-dom";
 import { getStore, updateStore } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 
+function validateStoreFields({ name, address1, city, state, postal }) {
+  const errors = [];
+  if (!name)     errors.push("Store name is required.");
+  if (!address1) errors.push("Street address is required.");
+  if (!city)     errors.push("City is required.");
+  if (!state)    errors.push("State is required.");
+  if (postal && !/^\d{5}(-\d{4})?$/.test(postal)) errors.push("Zip code must be 5 digits (or 5+4).");
+  return errors;
+}
+
 function pvUiHook(event, fields = {}) {
   try {
     console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
@@ -148,10 +158,8 @@ export default function AdminMerchantStoreDetail() {
     const state = String(editState || "").trim();
     const postal = String(editPostal || "").trim();
 
-    if (!name) { setSaveErr("Store name is required."); return; }
-    if (!address1) { setSaveErr("Address is required."); return; }
-    if (!city) { setSaveErr("City is required."); return; }
-    if (!state) { setSaveErr("State is required."); return; }
+    const errors = validateStoreFields({ name, address1, city, state, postal });
+    if (errors.length > 0) { setSaveErr(errors.join("\n")); return; }
 
     setSaveBusy(true);
     pvUiHook("admin.merchant.store.detail.save_started.ui", {
