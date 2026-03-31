@@ -1692,3 +1692,190 @@ export async function adminReactivateMerchantProduct(merchantId, productId) {
     auth: "jwt",
   });
 }
+
+/* =============================================================
+   Promotions — Earn Items (E.3)
+============================================================= */
+
+export async function merchantListPromoItems({ status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/merchant/promo-items${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreatePromoItem({ name, description, type, skus } = {}) {
+  return request("/merchant/promo-items", {
+    method: "POST",
+    auth: "jwt",
+    body: { name, description, type, skus },
+  });
+}
+
+export async function merchantUpdatePromoItem(itemId, fields = {}) {
+  return request(`/merchant/promo-items/${itemId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantArchivePromoItem(itemId) {
+  return request(`/merchant/promo-items/${itemId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+export async function adminListMerchantPromoItems(merchantId, { status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/admin/merchants/${merchantId}/promo-items${qs}`, { auth: "jwt" });
+}
+
+export async function adminCreateMerchantPromoItem(merchantId, { name, description, type, skus } = {}) {
+  return request(`/admin/merchants/${merchantId}/promo-items`, {
+    method: "POST",
+    auth: "jwt",
+    body: { name, description, type, skus },
+  });
+}
+
+export async function adminUpdateMerchantPromoItem(merchantId, itemId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/promo-items/${itemId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function adminArchiveMerchantPromoItem(merchantId, itemId) {
+  return request(`/admin/merchants/${merchantId}/promo-items/${itemId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+/* =============================================================
+   Promotions — Promotion Rules (E.3)
+============================================================= */
+
+export async function merchantListPromotions({ status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/merchant/promotions${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreatePromotion(fields = {}) {
+  return request("/merchant/promotions", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantUpdatePromotion(promoId, fields = {}) {
+  return request(`/merchant/promotions/${promoId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantArchivePromotion(promoId) {
+  return request(`/merchant/promotions/${promoId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+export async function adminListMerchantPromotions(merchantId, { status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/admin/merchants/${merchantId}/promotions${qs}`, { auth: "jwt" });
+}
+
+export async function adminCreateMerchantPromotion(merchantId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/promotions`, {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function adminUpdateMerchantPromotion(merchantId, promoId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/promotions/${promoId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function adminArchiveMerchantPromotion(merchantId, promoId) {
+  return request(`/admin/merchants/${merchantId}/promotions/${promoId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+/* =============================================================
+   Promotions — Offer Sets (E.3)
+============================================================= */
+
+export async function merchantListOfferSets({ status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/merchant/offer-sets${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreateOfferSet(fields = {}) {
+  return request("/merchant/offer-sets", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantUpdateOfferSet(setId, fields = {}) {
+  return request(`/merchant/offer-sets/${setId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantPublishOfferSet(setId) {
+  return request(`/merchant/offer-sets/${setId}/publish`, {
+    method: "POST",
+    auth: "jwt",
+  });
+}
+
+export async function merchantExpireOfferSet(setId) {
+  return request(`/merchant/offer-sets/${setId}/expire`, {
+    method: "POST",
+    auth: "jwt",
+  });
+}
+
+export async function adminListMerchantOfferSets(merchantId, { status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/admin/merchants/${merchantId}/offer-sets${qs}`, { auth: "jwt" });
+}
+
+export async function adminCreateMerchantOfferSet(merchantId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/offer-sets`, {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function adminUpdateMerchantOfferSet(merchantId, setId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/offer-sets/${setId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function adminArchiveMerchantOfferSet(merchantId, setId) {
+  return request(`/admin/merchants/${merchantId}/offer-sets/${setId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}

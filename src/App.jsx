@@ -54,6 +54,7 @@ import MerchantUsers from "./pages/MerchantUsers";
 import AdminMerchantUsers from "./pages/AdminMerchantUsers";
 import MerchantInvoices from "./pages/MerchantInvoices";
 import MerchantProducts from "./pages/MerchantProducts";
+import MerchantPromotions from "./pages/MerchantPromotions";
 import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
@@ -319,6 +320,7 @@ function Layout({ children }) {
         "/merchants/:merchantId/users",
         "/merchants/:merchantId/invoices",
         "/merchants/:merchantId/products",
+        "/merchants/:merchantId/promotions",
         "/merchants/:merchantId",
         "/stores/:storeId/print-qr",
         "/merchant/invoices/:invoiceId",
@@ -941,6 +943,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantProducts />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchants/:merchantId/promotions"
+            element={
+              <RequireAuth>
+                <MerchantPromotions />
               </RequireAuth>
             }
           />

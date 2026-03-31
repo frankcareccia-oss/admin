@@ -170,11 +170,11 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
-      to: null,
+      to: `${base}/promotions`,
       icon: "🎁",
-      title: "Rewards",
-      description: "Define earn rules, reward types, and loyalty programs.",
-      disabled: true,
+      title: "Promotions",
+      description: "Define earn items, promotion rules, and publish offer sets.",
+      meta: null,
     },
     {
       to: null,
