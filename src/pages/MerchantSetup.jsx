@@ -176,7 +176,7 @@ export default function MerchantSetup() {
       <div style={styles.card}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={styles.cardTitle}>Business Contact</div>
-          <Link to={`/merchants/${merchantId}/team`} style={styles.manageLink}>Manage Team →</Link>
+          <Link to={`/merchants/${merchantId}/users`} style={styles.manageLink}>Manage Team →</Link>
         </div>
 
         {!ownerUser && (
@@ -197,27 +197,9 @@ export default function MerchantSetup() {
               {ownerUser.phone && <div style={styles.contactRow}>{formatPhone(ownerUser.phone)}</div>}
             </div>
             {otherContacts.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div style={styles.sectionLabel}>Additional contacts</div>
-                <div style={{ ...styles.otherGrid, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}>
-                  {otherContacts.slice(0, 4).map((u) => (
-                    <div key={u.id || u.userId} style={styles.otherCard}>
-                      <div style={styles.otherBadge}>{u.role}</div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>
-                        {[u.firstName, u.lastName].filter(Boolean).join(" ") || u.email}
-                      </div>
-                      {[u.firstName, u.lastName].filter(Boolean).join(" ") && (
-                        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{u.email}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {otherContacts.length > 4 && (
-                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 6 }}>
-                    +{otherContacts.length - 4} more —{" "}
-                    <Link to={`/merchants/${merchantId}/team`} style={{ textDecoration: "none" }}>view all</Link>
-                  </div>
-                )}
+              <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 10 }}>
+                +{otherContacts.length} more team member{otherContacts.length !== 1 ? "s" : ""} —{" "}
+                <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>view all</Link>
               </div>
             )}
           </>

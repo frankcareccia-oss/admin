@@ -12,6 +12,7 @@ import { getMerchant, adminListMerchantUsers, adminListMerchantProducts } from "
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import useBreakpoint from "../hooks/useBreakpoint";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -77,6 +78,7 @@ function HubCard({ to, icon, title, description, meta, disabled }) {
 
 export default function MerchantDetail() {
   const { merchantId } = useParams();
+  const { isMobile, isTablet } = useBreakpoint();
 
   const [merchant, setMerchant] = React.useState(null);
   const [userCount, setUserCount] = React.useState(null);
@@ -133,7 +135,7 @@ export default function MerchantDetail() {
       meta: merchant.status ? `Status: ${merchant.status}` : null,
     },
     {
-      to: `${base}/team`,
+      to: `${base}/users`,
       icon: "👥",
       title: "Team",
       description: "Manage users, roles, and merchant-level access.",
@@ -157,7 +159,14 @@ export default function MerchantDetail() {
       to: `${base}/billing`,
       icon: "💳",
       title: "Billing",
-      description: "Billing account, invoices, and payment policy.",
+      description: "Billing account, contact, and payment policy.",
+      meta: null,
+    },
+    {
+      to: `${base}/invoices`,
+      icon: "🧾",
+      title: "Invoices",
+      description: "Invoice history, payment status, and draft generation.",
       meta: null,
     },
     {
@@ -177,7 +186,7 @@ export default function MerchantDetail() {
   ];
 
   return (
-    <PageContainer>
+    <PageContainer size="wide">
       {/* Breadcrumb */}
       <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
@@ -204,7 +213,7 @@ export default function MerchantDetail() {
       {/* Hub card grid */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+        gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "repeat(3, 1fr)" : "repeat(4, 1fr)",
         gap: 16,
       }}>
         {cards.map((c) => (

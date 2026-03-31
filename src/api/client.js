@@ -923,6 +923,29 @@ export async function updateStore(storeId, { name, address1, city, state, postal
 }
 
 /* -----------------------------
+   Store Team (admin)
+-------------------------------- */
+
+export async function adminGetStoreTeam(storeId) {
+  return request(`/stores/${encodeURIComponent(String(storeId))}/team`, { auth: "auto" });
+}
+
+export async function adminAssignStoreTeam(storeId, { merchantUserId, permissionLevel }) {
+  return request(`/stores/${encodeURIComponent(String(storeId))}/team/assign`, {
+    method: "POST",
+    body: { merchantUserId, permissionLevel },
+    auth: "auto",
+  });
+}
+
+export async function adminRemoveStoreTeamMember(storeUserId) {
+  return request(`/stores/team/${encodeURIComponent(String(storeUserId))}`, {
+    method: "DELETE",
+    auth: "auto",
+  });
+}
+
+/* -----------------------------
    Store QR (admin)
 -------------------------------- */
 

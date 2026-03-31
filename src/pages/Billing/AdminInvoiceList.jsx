@@ -140,6 +140,7 @@ export default function AdminInvoiceList() {
   const [merchantId, setMerchantId] = React.useState(""); // dropdown value string
 
   // generate invoice form (DEV)
+  const [genOpen, setGenOpen] = React.useState(false);
   const [genMerchantId, setGenMerchantId] = React.useState("");
   const [genTotalDollars, setGenTotalDollars] = React.useState(""); // blank by default
   const [genNetTermsDays, setGenNetTermsDays] = React.useState(""); // dropdown, blank by default
@@ -380,6 +381,7 @@ export default function AdminInvoiceList() {
         netTermsDays: net,
       });
       setGenMsg(`Created draft invoice #${res?.invoiceId || "?"} for merchant ${mid}.`);
+      setGenOpen(false);
 
       pvUiHook("billing.admin_invoices.generate_draft.success.ui", {
         tc: "TC-AIL-UI-32",
@@ -473,7 +475,7 @@ export default function AdminInvoiceList() {
     };
   }, [loading, focusId, location.pathname, location.search, navigate]);
   return (
-    <PageContainer size="page">
+    <PageContainer size="page" >
       <PageHeader
         title="Admin Invoices"
         subtitle="Search invoices, drill into details, and generate dev draft invoices."
@@ -523,69 +525,78 @@ export default function AdminInvoiceList() {
         </div>
       ) : null}
 
-      {/* Generate invoice panel */}
-      <div style={{ ...card, marginBottom: 12 }}>
-        <div style={{ fontWeight: 900, marginBottom: 8 }}>Generate Draft Invoice (dev)</div>
+      {/* Generate invoice panel - collapsible */}
+      <div style={{ ...card, marginBottom: 12, maxWidth: 800, ...(genOpen ? { border: "1.5px solid rgba(0,80,200,0.35)", boxShadow: "0 2px 12px rgba(0,80,200,0.10)" } : {}) }}>
+        <button
+          type="button"
+          onClick={() => setGenOpen((o) => !o)}
+          style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
+        >
+          <span style={{ fontWeight: 900 }}>Generate Draft Invoice (dev)</span>
+          <span style={{ marginLeft: "auto", fontSize: 13, color: "rgba(0,0,0,0.45)" }}>{genOpen ? "▲ Hide" : "▼ Show"}</span>
+        </button>
 
-        <form onSubmit={onGenerate} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end" }}>
-          <div>
-            <label style={styles.label}>Merchant</label>
-            <select
-              value={genMerchantId}
-              onChange={(e) => {
-                setGenMerchantId(e.target.value);
-                setGenNetTermsDays("");
-                setError("");
-              }}
-              style={controlMd}
-              disabled={busy || loading || merchantsLoading}
-            >
-              <option value="">{merchantsLoading ? "Loading merchants…" : "Select merchant…"}</option>
-              {merchants.map((m) => (
-                <option key={m.id} value={String(m.id)}>
-                  {m.name} (#{m.id})
-                </option>
-              ))}
-            </select>
-          </div>
+        {genOpen && (
+          <form onSubmit={onGenerate} style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "end", marginTop: 12 }}>
+            <div>
+              <label style={styles.label}>Merchant</label>
+              <select
+                value={genMerchantId}
+                onChange={(e) => {
+                  setGenMerchantId(e.target.value);
+                  setGenNetTermsDays("");
+                  setError("");
+                }}
+                style={controlMd}
+                disabled={busy || loading || merchantsLoading}
+              >
+                <option value="">{merchantsLoading ? "Loading merchants…" : "Select merchant…"}</option>
+                {merchants.map((m) => (
+                  <option key={m.id} value={String(m.id)}>
+                    {m.name} (#{m.id})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div>
-            <label style={styles.label}>Total ($)</label>
-            <input
-              value={genTotalDollars}
-              onChange={(e) => setGenTotalDollars(normalizeMoneyInput(e.target.value))}
-              placeholder=""
-              inputMode="decimal"
-              style={controlMd}
-              disabled={busy || loading}
-            />
-          </div>
+            <div>
+              <label style={styles.label}>Total ($)</label>
+              <input
+                value={genTotalDollars}
+                onChange={(e) => setGenTotalDollars(normalizeMoneyInput(e.target.value))}
+                placeholder=""
+                inputMode="decimal"
+                style={controlMd}
+                disabled={busy || loading}
+              />
+            </div>
 
-          <div>
-            <label style={styles.label}>Net terms</label>
-            <select
-              value={genNetTermsDays}
-              onChange={(e) => setGenNetTermsDays(e.target.value)}
-              style={controlSm}
-              disabled={busy || loading}
-            >
-              <option value="">Select…</option>
-              {genNetTermsOptions.map((d) => (
-                <option key={d} value={String(d)}>
-                  {d} days
-                </option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label style={styles.label}>Net terms</label>
+              <select
+                value={genNetTermsDays}
+                onChange={(e) => setGenNetTermsDays(e.target.value)}
+                style={controlSm}
+                disabled={busy || loading}
+              >
+                <option value="">Select…</option>
+                {genNetTermsOptions.map((d) => (
+                  <option key={d} value={String(d)}>
+                    {d} days
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <button type="submit" disabled={busy || loading} style={buttonBase}>
-            {busy ? "Working…" : "Generate"}
-          </button>
-        </form>
+            <button type="submit" disabled={busy || loading} style={buttonBase}>
+              {busy ? "Working…" : "Generate"}
+            </button>
 
-        <div style={{ marginTop: 8, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
-          Creates a <code>draft</code> invoice with one “Platform fee” line item. Open it and click <b>Issue invoice</b>.
-        </div>
+            <div style={{ width: "100%", fontSize: 12, color: "rgba(0,0,0,0.60)", marginTop: 0 }}>
+              Creates a <code>draft</code> invoice with one "Platform fee" line item. Open it and click <b>Issue invoice</b>.
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Filters */}
@@ -648,7 +659,7 @@ export default function AdminInvoiceList() {
           </div>
         </div>
 
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: genOpen ? "45vh" : "55vh", minHeight: 120 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ textAlign: "left" }}>
@@ -720,9 +731,6 @@ export default function AdminInvoiceList() {
         </div>
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
-        Note: This is dev-friendly invoice generation. Real billing generation rules come after Step 3.
-      </div>
     </PageContainer>
   );
 }
@@ -730,7 +738,7 @@ export default function AdminInvoiceList() {
 const styles = {
   label: { display: "block", fontSize: 12, color: "rgba(0,0,0,0.65)", marginBottom: 6, fontWeight: 700 },
 
-  th: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)" },
+  th: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)", position: "sticky", top: 0, background: "white", zIndex: 1 },
   td: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.06)" },
 
   // Navigation link (blue comes from Link / theme; we do NOT force a non-blue color here).

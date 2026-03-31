@@ -6,12 +6,12 @@
  */
 
 import React from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { getMerchant, createStore } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SectionTabs from "../components/layout/SectionTabs";
+import SupportInfo from "../components/SupportInfo";
 
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
@@ -26,18 +26,6 @@ function StatusBadge({ status }) {
       {status || "unknown"}
     </span>
   );
-}
-
-function buildTabs(merchantId, pathname) {
-  const base = `/merchants/${merchantId}`;
-  return [
-    { key: "overview",       label: "Overview",       to: base,                                        active: pathname === base },
-    { key: "billing",        label: "Billing",        to: `${base}/billing`,                           active: pathname === `${base}/billing` },
-    { key: "stores",         label: "Stores",         to: `${base}/stores`,                            active: pathname === `${base}/stores` },
-    { key: "team",           label: "Team",           to: `${base}/users`,                             active: pathname === `${base}/users` },
-    { key: "invoices",       label: "Invoices",       to: `${base}/invoices`,                          active: pathname === `${base}/invoices` },
-    { key: "billingPolicy",  label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
-  ];
 }
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
@@ -55,12 +43,12 @@ function validateStoreFields({ name, address1, city, state, postal }) {
 
 export default function AdminMerchantStores() {
   const { merchantId } = useParams();
-  const location = useLocation();
 
   const [merchant, setMerchant] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [loadErr, setLoadErr] = React.useState("");
 
+  const [addOpen, setAddOpen] = React.useState(false);
   const [storeName, setStoreName] = React.useState("");
   const [storeAddress1, setStoreAddress1] = React.useState("");
   const [storeCity, setStoreCity] = React.useState("");
@@ -111,6 +99,7 @@ export default function AdminMerchantStores() {
       await createStore({ merchantId: Number(merchantId), name, address1, city, state, postal });
       setCreateOk("Store created.");
       resetForm();
+      setAddOpen(false);
       await load();
     } catch (e2) {
       setCreateErr(e2?.message || "Failed to create store");
@@ -120,7 +109,7 @@ export default function AdminMerchantStores() {
   }
 
   if (loading) {
-    return <PageContainer size="page"><div style={{ padding: 16 }}>Loading…</div></PageContainer>;
+    return <PageContainer size="page"><div style={{ padding: 16 }}>Loading...</div></PageContainer>;
   }
 
   if (loadErr && !merchant) {
@@ -131,22 +120,26 @@ export default function AdminMerchantStores() {
     );
   }
 
+  const merchantName = merchant?.name || `Merchant ${merchantId}`;
   const stores = merchant?.stores || [];
-  const tabs = buildTabs(merchantId, location.pathname);
 
   return (
     <PageContainer size="page">
-      <div style={{ marginBottom: 10 }}>
-        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+        {" / "}
+        <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+        {" / "}
+        <span>Stores</span>
       </div>
 
       <PageHeader
-        title={merchant?.name || `Merchant ${merchantId}`}
+        title="Stores"
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatusBadge status={merchant.status} />
             <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
-              ID: {merchant.id}
+              {merchantName}
               {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
             </span>
           </span>
@@ -154,81 +147,94 @@ export default function AdminMerchantStores() {
         right={
           <button onClick={load} disabled={createBusy} style={styles.refreshBtn}>Refresh</button>
         }
-      >
-        <SectionTabs title="Sections" items={tabs} />
-      </PageHeader>
+      />
 
-      {/* Create Store */}
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>Add Store Location</div>
-        <form onSubmit={onCreateStore}>
-          <div style={styles.formGrid}>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={styles.label}>Store name</label>
-              <input
-                value={storeName}
-                onChange={(e) => setStoreName(e.target.value)}
-                disabled={createBusy}
-                placeholder="e.g. Acme - Danville"
-                style={styles.input}
-              />
-            </div>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={styles.label}>Street address</label>
-              <input
-                value={storeAddress1}
-                onChange={(e) => setStoreAddress1(e.target.value)}
-                disabled={createBusy}
-                placeholder="123 Main St"
-                style={styles.input}
-              />
-            </div>
-            <div>
-              <label style={styles.label}>City</label>
-              <input
-                value={storeCity}
-                onChange={(e) => setStoreCity(e.target.value)}
-                disabled={createBusy}
-                placeholder="Danville"
-                style={styles.input}
-              />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={styles.label}>State</label>
-                <select
-                  value={storeState}
-                  onChange={(e) => setStoreState(e.target.value)}
-                  disabled={createBusy}
-                  style={styles.input}
-                >
-                  <option value="">Select…</option>
-                  {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={styles.label}>Zip code</label>
+      {/* Add Store Location — collapsible */}
+      <div style={{
+        ...styles.card,
+        ...(addOpen ? { border: "1.5px solid rgba(0,80,200,0.35)", boxShadow: "0 2px 12px rgba(0,80,200,0.10)" } : {}),
+      }}>
+        <button
+          type="button"
+          onClick={() => { setAddOpen((o) => !o); setCreateErr(""); setCreateOk(""); }}
+          style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
+        >
+          <span style={{ fontWeight: 900 }}>Add Store Location</span>
+          <span style={{ marginLeft: "auto", fontSize: 13, color: "rgba(0,0,0,0.5)" }}>
+            {addOpen ? "Hide" : "Show"}
+          </span>
+        </button>
+
+        {addOpen && (
+          <form onSubmit={onCreateStore} style={{ marginTop: 16 }}>
+            <div style={styles.formGrid}>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Store name</label>
                 <input
-                  value={storePostal}
-                  onChange={(e) => setStorePostal(e.target.value)}
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
                   disabled={createBusy}
-                  placeholder="94526"
-                  maxLength={10}
+                  placeholder="e.g. Acme - Danville"
                   style={styles.input}
                 />
               </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={styles.label}>Street address</label>
+                <input
+                  value={storeAddress1}
+                  onChange={(e) => setStoreAddress1(e.target.value)}
+                  disabled={createBusy}
+                  placeholder="123 Main St"
+                  style={styles.input}
+                />
+              </div>
+              <div>
+                <label style={styles.label}>City</label>
+                <input
+                  value={storeCity}
+                  onChange={(e) => setStoreCity(e.target.value)}
+                  disabled={createBusy}
+                  placeholder="Danville"
+                  style={styles.input}
+                />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={styles.label}>State</label>
+                  <select
+                    value={storeState}
+                    onChange={(e) => setStoreState(e.target.value)}
+                    disabled={createBusy}
+                    style={styles.input}
+                  >
+                    <option value="">Select...</option>
+                    {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={styles.label}>Zip code</label>
+                  <input
+                    value={storePostal}
+                    onChange={(e) => setStorePostal(e.target.value)}
+                    disabled={createBusy}
+                    placeholder="94526"
+                    maxLength={10}
+                    style={styles.input}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
-          {createErr && <div style={{ ...styles.errBox, marginTop: 10 }}>{createErr}</div>}
-          {createOk  && <div style={{ ...styles.okBox,  marginTop: 10 }}>{createOk}</div>}
+            {createErr && <div style={{ ...styles.errBox, marginTop: 10 }}>{createErr}</div>}
+            {createOk  && <div style={{ ...styles.okBox,  marginTop: 10 }}>{createOk}</div>}
 
-          <div style={styles.formActions}>
-            <button type="submit" disabled={createBusy} style={styles.saveBtn}>
-              {createBusy ? "Creating…" : "Create Store"}
-            </button>
-          </div>
-        </form>
+            <div style={styles.formActions}>
+              <button type="submit" disabled={createBusy} style={styles.saveBtn}>
+                {createBusy ? "Creating..." : "Create Store"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Store list */}
@@ -240,7 +246,15 @@ export default function AdminMerchantStores() {
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "6%" }} />
+              <col style={{ width: "28%" }} />
+              <col style={{ width: "20%" }} />
+              <col style={{ width: "10%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "8%" }} />
+            </colgroup>
             <thead>
               <tr style={{ textAlign: "left" }}>
                 <th style={th}>ID</th>
@@ -264,7 +278,7 @@ export default function AdminMerchantStores() {
                   <td style={td}><StatusBadge status={s.status || "active"} /></td>
                   <td style={td}>
                     <Link to={`/merchants/${merchantId}/stores/${s.id}`} style={{ textDecoration: "none", fontWeight: 700 }}>
-                      View →
+                      View &rarr;
                     </Link>
                   </td>
                 </tr>
@@ -280,6 +294,8 @@ export default function AdminMerchantStores() {
           </table>
         </div>
       </div>
+
+      <SupportInfo context={{ page: "AdminMerchantStores", merchantId }} />
     </PageContainer>
   );
 }
@@ -294,7 +310,6 @@ const styles = {
     marginTop: 16, border: "1px solid rgba(0,0,0,0.12)",
     borderRadius: 14, padding: 16, background: "white",
   },
-  cardTitle: { fontWeight: 800, marginBottom: 14 },
   label: {
     display: "block", fontSize: 12,
     color: "rgba(0,0,0,0.65)", marginBottom: 6,
@@ -330,10 +345,10 @@ const styles = {
     borderRadius: 14, overflow: "hidden", background: "white",
   },
   storesHeader: {
-    padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)",
+    padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)",
     display: "flex", gap: 10, alignItems: "baseline",
   },
 };
 
-const th = { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)" };
-const td = { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.06)" };
+const th = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", fontSize: 13, color: "rgba(0,0,0,0.55)", fontWeight: 700 };
+const td = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)", verticalAlign: "middle" };

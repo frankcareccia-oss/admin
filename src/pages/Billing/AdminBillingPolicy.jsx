@@ -43,6 +43,7 @@
  */
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { getBillingPolicy, updateBillingPolicy } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
@@ -73,8 +74,8 @@ function dollarsStringToCents(dollarsStr) {
 }
 
 const controlBase = {
-  padding: "10px 12px",
-  borderRadius: 10,
+  padding: "7px 10px",
+  borderRadius: 8,
   border: "1px solid rgba(0,0,0,0.18)",
   background: "white",
   outline: "none",
@@ -92,7 +93,7 @@ const buttonBase = {
 const card = {
   border: "1px solid rgba(0,0,0,0.12)",
   borderRadius: 14,
-  padding: 14,
+  padding: 12,
   background: "white",
 };
 
@@ -205,16 +206,22 @@ export default function AdminBillingPolicy() {
 
   return (
     <PageContainer size="form">
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/admin" style={{ color: "inherit", textDecoration: "none" }}>Dashboard</Link>
+        {" / "}
+        <span>Billing Policy</span>
+      </div>
+
       <PageHeader
-        title="Admin Billing Policy"
-        subtitle="Global billing defaults for invoice terms, late fees, and guest payments."
+        title="Billing Policy"
+        subtitle="Global defaults for invoice terms, late fees, and guest payments."
         right={
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
             <button type="button" onClick={load} disabled={busy} style={buttonBase}>
               Reload
             </button>
             <button type="button" onClick={onSave} disabled={loading || busy} style={buttonBase}>
-              {busy ? "Saving…" : "Save policy"}
+              {busy ? "Saving..." : "Save"}
             </button>
           </div>
         }
@@ -249,7 +256,7 @@ export default function AdminBillingPolicy() {
         </div>
       ) : null}
 
-      <form onSubmit={onSave} style={{ display: "grid", gap: 12 }}>
+      <form onSubmit={onSave} style={{ display: "grid", gap: 8 }}>
         <div style={{ ...card, opacity: loading || busy ? 0.75 : 1 }}>
           <div style={styles.cardHeader}>Late Fee Policy</div>
 
@@ -299,7 +306,6 @@ export default function AdminBillingPolicy() {
             />
           </div>
 
-          <div style={styles.note}>Note: Amounts are stored internally as cents to avoid rounding bugs.</div>
         </div>
 
         <div style={{ ...card, opacity: loading || busy ? 0.75 : 1 }}>
@@ -334,9 +340,6 @@ export default function AdminBillingPolicy() {
             </select>
           </div>
 
-          <div style={styles.note}>
-            Note: “Past due” is derived from due date. Net terms sets the due date at invoice issuance.
-          </div>
         </div>
 
         {updatedAt ? (
@@ -353,15 +356,15 @@ const styles = {
   cardHeader: {
     fontWeight: 900,
     fontSize: 14,
-    marginBottom: 10,
+    marginBottom: 6,
     color: "rgba(0,0,0,0.78)",
   },
   grid: {
     display: "grid",
     gridTemplateColumns: "220px 1fr",
-    gap: 10,
+    gap: 7,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 4,
   },
   label: {
     fontSize: 12,

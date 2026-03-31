@@ -1,7 +1,7 @@
 // admin/src/pages/Auth/ChangePassword.jsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { changePassword } from "../../api/client";
+import { changePassword, getSystemRole } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
 
@@ -50,9 +50,14 @@ export default function ChangePassword() {
     }
   }
 
+  const homeRoute = getSystemRole() === "pv_admin" ? "/admin" : "/merchant";
+
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
+        <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 14 }}>
+          <a href={homeRoute} style={{ color: "inherit", textDecoration: "none" }}>&larr; Back</a>
+        </div>
         <h2 style={{ marginTop: 0, marginBottom: 6 }}>Change password</h2>
         <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
           After changing your password, you’ll be signed out and asked to sign in again.

@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
-import { getStore, updateStore } from "../api/client";
+import { getStore, updateStore, adminGetStoreTeam, adminAssignStoreTeam, adminRemoveStoreTeamMember, adminListMerchantUsers } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 
 function validateStoreFields({ name, address1, city, state, postal }) {
@@ -65,6 +65,9 @@ const inputStyle = {
   fontFamily: "inherit",
 };
 
+const teamTh = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", fontSize: 12, color: "rgba(0,0,0,0.55)", fontWeight: 700 };
+const teamTd = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 13, verticalAlign: "middle" };
+
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA",
   "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
   "OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
@@ -75,6 +78,19 @@ export default function AdminMerchantStoreDetail() {
   const [store, setStore] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState("");
+
+  // Team state
+  const [team, setTeam] = React.useState([]);
+  const [merchantUsers, setMerchantUsers] = React.useState([]);
+  const [teamLoading, setTeamLoading] = React.useState(true);
+  const [teamErr, setTeamErr] = React.useState("");
+  const [addTeamOpen, setAddTeamOpen] = React.useState(false);
+  const [addMuId, setAddMuId] = React.useState("");
+  const [addPermission, setAddPermission] = React.useState("pos_access");
+  const [addBusy, setAddBusy] = React.useState(false);
+  const [addErr, setAddErr] = React.useState("");
+  const [addOk, setAddOk] = React.useState("");
+  const [removeBusy, setRemoveBusy] = React.useState(null); // storeUserId being removed
 
   // Edit form state
   const [editing, setEditing] = React.useState(false);
@@ -113,6 +129,27 @@ export default function AdminMerchantStoreDetail() {
           stable: "admin:merchant:store:detail",
           storeId: Number(storeId),
         });
+
+        // Load team in parallel after we know the merchantId
+        if (!cancelled && data?.merchant?.id) {
+          setTeamLoading(true);
+          try {
+            const [teamData, muData] = await Promise.all([
+              adminGetStoreTeam(storeId),
+              adminListMerchantUsers(data.merchant.id),
+            ]);
+            if (!cancelled) {
+              setTeam(teamData?.team || []);
+              setMerchantUsers(muData?.users || []);
+            }
+          } catch (te) {
+            if (!cancelled) setTeamErr(te?.message || "Failed to load store team");
+          } finally {
+            if (!cancelled) setTeamLoading(false);
+          }
+        } else if (!cancelled) {
+          setTeamLoading(false);
+        }
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Failed to load store");
         pvUiHook("admin.merchant.store.detail.load_failed.ui", {
@@ -188,6 +225,72 @@ export default function AdminMerchantStoreDetail() {
     }
   }
 
+  async function loadTeam(mId) {
+    setTeamLoading(true);
+    setTeamErr("");
+    try {
+      const [teamData, muData] = await Promise.all([
+        adminGetStoreTeam(storeId),
+        adminListMerchantUsers(mId),
+      ]);
+      setTeam(teamData?.team || []);
+      setMerchantUsers(muData?.users || []);
+    } catch (te) {
+      setTeamErr(te?.message || "Failed to load store team");
+    } finally {
+      setTeamLoading(false);
+    }
+  }
+
+  async function onAssign(e) {
+    e.preventDefault();
+    setAddErr(""); setAddOk("");
+    if (!addMuId) { setAddErr("Select a team member."); return; }
+    setAddBusy(true);
+    try {
+      await adminAssignStoreTeam(storeId, { merchantUserId: Number(addMuId), permissionLevel: addPermission });
+      setAddOk("Assigned.");
+      setAddMuId(""); setAddPermission("pos_access");
+      setAddTeamOpen(false);
+      await loadTeam(store.merchant.id);
+    } catch (e2) {
+      setAddErr(e2?.message || "Failed to assign");
+    } finally {
+      setAddBusy(false);
+    }
+  }
+
+  async function onRemove(storeUserId) {
+    setRemoveBusy(storeUserId);
+    try {
+      await adminRemoveStoreTeamMember(storeUserId);
+      setTeam((prev) => prev.filter((m) => m.storeUserId !== storeUserId));
+    } catch (e3) {
+      setTeamErr(e3?.message || "Failed to remove");
+    } finally {
+      setRemoveBusy(null);
+    }
+  }
+
+  function prettyPermission(p) {
+    if (p === "store_admin") return "Store Admin";
+    if (p === "store_subadmin") return "Store Staff";
+    if (p === "pos_access") return "POS Access";
+    return p || "—";
+  }
+
+  function prettyRole(r) {
+    if (r === "owner" || r === "merchant_admin") return "Owner";
+    if (r === "ap_clerk") return "Billing Clerk";
+    if (r === "store_admin") return "Store Admin";
+    if (r === "store_subadmin") return "Store Staff";
+    return r || "—";
+  }
+
+  // Merchant users not yet assigned to this store
+  const assignedMuIds = new Set(team.map((t) => t.merchantUserId));
+  const unassignedUsers = merchantUsers.filter((mu) => !assignedMuIds.has(mu.id) && mu.status === "active");
+
   return (
     <PageContainer>
       {/* Breadcrumb */}
@@ -198,6 +301,10 @@ export default function AdminMerchantStoreDetail() {
         <span style={{ margin: "0 6px", color: COLORS.neutral }}>/</span>
         <Link to={`/merchants/${merchantId}`} style={{ textDecoration: "none", fontWeight: 800, color: COLORS.primary }}>
           {store?.merchant?.name || `Merchant #${merchantId}`}
+        </Link>
+        <span style={{ margin: "0 6px", color: COLORS.neutral }}>/</span>
+        <Link to={`/merchants/${merchantId}/stores`} style={{ textDecoration: "none", fontWeight: 800, color: COLORS.primary }}>
+          Stores
         </Link>
         <span style={{ margin: "0 6px", color: COLORS.neutral }}>/</span>
         <span style={{ color: COLORS.neutral }}>{store?.name || `Store #${storeId}`}</span>
@@ -433,6 +540,137 @@ export default function AdminMerchantStoreDetail() {
                 <div style={valueStyle}>{store.updatedAt ? new Date(store.updatedAt).toLocaleString() : "—"}</div>
               </div>
             </div>
+          </div>
+          {/* Store Team */}
+          <div style={card}>
+            <div style={{ fontWeight: 800, marginBottom: 14, fontSize: 15, color: COLORS.text }}>
+              Store Team <span style={{ fontWeight: 400, fontSize: 13, color: COLORS.neutral }}>({team.length})</span>
+            </div>
+
+            {teamLoading ? (
+              <div style={{ fontSize: 13, color: COLORS.neutral }}>Loading team...</div>
+            ) : teamErr ? (
+              <div style={{ fontSize: 13, color: "rgba(180,0,0,0.85)" }}>{teamErr}</div>
+            ) : (
+              <>
+                {team.length > 0 && (
+                  <div style={{ overflowX: "auto", marginBottom: 14 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                      <colgroup>
+                        <col style={{ width: "28%" }} />
+                        <col style={{ width: "30%" }} />
+                        <col style={{ width: "18%" }} />
+                        <col style={{ width: "16%" }} />
+                        <col style={{ width: "8%" }} />
+                      </colgroup>
+                      <thead>
+                        <tr style={{ textAlign: "left" }}>
+                          <th style={teamTh}>Name</th>
+                          <th style={teamTh}>Email</th>
+                          <th style={teamTh}>Merchant Role</th>
+                          <th style={teamTh}>Store Access</th>
+                          <th style={teamTh}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {team.map((m) => (
+                          <tr key={m.storeUserId}>
+                            <td style={teamTd}>{[m.firstName, m.lastName].filter(Boolean).join(" ") || "—"}</td>
+                            <td style={{ ...teamTd, wordBreak: "break-all" }}>{m.email || "—"}</td>
+                            <td style={teamTd}>{prettyRole(m.role)}</td>
+                            <td style={teamTd}>{prettyPermission(m.permissionLevel)}</td>
+                            <td style={teamTd}>
+                              <button
+                                type="button"
+                                disabled={removeBusy === m.storeUserId}
+                                onClick={() => onRemove(m.storeUserId)}
+                                style={{ all: "unset", cursor: "pointer", fontSize: 12, color: "rgba(180,0,0,0.75)", fontWeight: 700 }}
+                              >
+                                {removeBusy === m.storeUserId ? "..." : "Remove"}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {team.length === 0 && (
+                  <div style={{ fontSize: 13, color: COLORS.neutral, marginBottom: 14 }}>No team members assigned to this store yet.</div>
+                )}
+
+                {/* Add member — collapsible */}
+                <div style={{
+                  border: addTeamOpen ? "1.5px solid rgba(0,80,200,0.30)" : "1px solid rgba(0,0,0,0.10)",
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                  boxShadow: addTeamOpen ? "0 2px 8px rgba(0,80,200,0.08)" : "none",
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => { setAddTeamOpen((o) => !o); setAddErr(""); setAddOk(""); }}
+                    style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", width: "100%", gap: 8 }}
+                  >
+                    <span style={{ fontWeight: 800, fontSize: 13 }}>Add Team Member</span>
+                    <span style={{ marginLeft: "auto", fontSize: 12, color: COLORS.neutral }}>{addTeamOpen ? "Hide" : "Show"}</span>
+                  </button>
+
+                  {addTeamOpen && (
+                    <form onSubmit={onAssign} style={{ marginTop: 12 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                        <div>
+                          <div style={labelStyle}>Team Member</div>
+                          <select
+                            value={addMuId}
+                            onChange={(e) => setAddMuId(e.target.value)}
+                            disabled={addBusy}
+                            style={inputStyle}
+                          >
+                            <option value="">Select...</option>
+                            {unassignedUsers.map((mu) => (
+                              <option key={mu.id} value={mu.id}>
+                                {[mu.firstName, mu.lastName].filter(Boolean).join(" ") || mu.email} ({prettyRole(mu.role)})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <div style={labelStyle}>Store Access Level</div>
+                          <select
+                            value={addPermission}
+                            onChange={(e) => setAddPermission(e.target.value)}
+                            disabled={addBusy}
+                            style={inputStyle}
+                          >
+                            <option value="pos_access">POS Access</option>
+                            <option value="store_subadmin">Store Staff</option>
+                            <option value="store_admin">Store Admin</option>
+                          </select>
+                        </div>
+                      </div>
+                      {addErr && <div style={{ fontSize: 12, color: "rgba(180,0,0,0.85)", marginBottom: 8 }}>{addErr}</div>}
+                      {addOk  && <div style={{ fontSize: 12, color: "rgba(0,100,0,0.85)", marginBottom: 8 }}>{addOk}</div>}
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <button
+                          type="submit"
+                          disabled={addBusy}
+                          style={{
+                            padding: "8px 20px", borderRadius: 999,
+                            border: "none", background: COLORS.primary,
+                            color: "#fff", fontWeight: 800, fontSize: 13,
+                            cursor: addBusy ? "not-allowed" : "pointer",
+                            opacity: addBusy ? 0.7 : 1,
+                          }}
+                        >
+                          {addBusy ? "Assigning..." : "Assign"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </>
       ) : null}

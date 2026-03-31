@@ -22,7 +22,7 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SectionTabs from "../components/layout/SectionTabs";
+import SupportInfo from "../components/SupportInfo";
 
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
@@ -39,17 +39,6 @@ function StatusBadge({ status }) {
   );
 }
 
-function buildTabs(merchantId, pathname) {
-  const base = `/merchants/${merchantId}`;
-  return [
-    { key: "overview",      label: "Overview",       to: base,                                            active: pathname === base },
-    { key: "billing",       label: "Billing",        to: `${base}/billing`,                               active: pathname === `${base}/billing` },
-    { key: "stores",        label: "Stores",         to: `${base}/stores`,                                active: pathname === `${base}/stores` },
-    { key: "team",          label: "Team",           to: `${base}/users`,                                 active: pathname === `${base}/users` },
-    { key: "invoices",      label: "Invoices",       to: `${base}/invoices`,                              active: pathname === `${base}/invoices` },
-    { key: "billingPolicy", label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
-  ];
-}
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -97,9 +86,14 @@ async function copyToClipboard(text) {
 function prettyRole(role) {
   const v = String(role || "").trim().toLowerCase();
   if (!v) return "—";
-  if (v === "merchant_admin") return "'Owner'";
+  if (v === "merchant_admin") return "Owner";
+  if (v === "owner") return "Owner";
   if (v === "merchant_employee") return "Staff";
-  if (v === "ap_clerk") return "Billing";
+  if (v === "ap_clerk") return "Billing Clerk";
+  if (v === "store_admin") return "Store Admin";
+  if (v === "store_subadmin") return "Store Staff";
+  if (v === "pv_admin") return "PV Admin";
+  if (v === "pv_support") return "PV Support";
   return role;
 }
 
@@ -157,6 +151,8 @@ export default function AdminMerchantUsers() {
   const [createMsg, setCreateMsg] = React.useState("");
   const [createResult, setCreateResult] = React.useState(null);
   const [actionMode, setActionMode] = React.useState("create");
+
+  const [prevOpen, setPrevOpen] = React.useState(false);
 
   // expanded rows + per-row lazy detail caches
   const [expandedById, setExpandedById] = React.useState({});
@@ -507,13 +503,9 @@ export default function AdminMerchantUsers() {
   const merchantName = merchant?.name || "";
   const hasUsers = items.length > 0;
 
-  const recoveryTitle = hasUsers
-    ? `Manage 'Owner' Access for ${merchantName || "Organization"}`
-    : `Create 'Owner' Access for ${merchantName || "Organization"}`;
+  const recoveryTitle = hasUsers ? "Change or Replace Owner" : "Create Owner Access";
 
-  const recoveryHelp = hasUsers
-    ? "Select an existing account below, or choose another existing person. Use a different email only when needed."
-    : "This organization has no users yet. Choose a person if available, or use a different email to create the first 'owner' access path.";
+  const recoveryHelp = "The owner is the legal proprietor of this merchant account — responsible for billing, store operations, and ownership history.";
 
   const currentOwner = React.useMemo(() => {
     return (
@@ -546,22 +538,25 @@ export default function AdminMerchantUsers() {
     ? Boolean(expandedById[merchantUserIdOf(currentOwner)])
     : false;
 
-  const tabs = buildTabs(merchantId, location.pathname);
 
   return (
     <PageContainer size="page">
-      <div style={{ marginBottom: 10 }}>
-        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+        {" / "}
+        <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName || `Merchant ${merchantId}`}</Link>
+        {" / "}
+        <span>Team</span>
       </div>
 
       <PageHeader
-        title={merchantName || `Merchant ${merchantId}`}
+        title="Owner Access"
         subtitle={
           merchant ? (
             <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <StatusBadge status={merchant.status} />
               <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
-                ID: {merchant.id}
+                {merchantName} · ID: {merchant.id}
                 {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
               </span>
             </span>
@@ -572,9 +567,7 @@ export default function AdminMerchantUsers() {
             {loading ? "Loading..." : "Refresh"}
           </button>
         }
-      >
-        <SectionTabs title="Sections" items={tabs} />
-      </PageHeader>
+      />
 
         {err ? <div style={styles.errBox}>{err}</div> : null}
 
@@ -764,20 +757,17 @@ export default function AdminMerchantUsers() {
         </div>
 
         <div style={{ marginTop: 10, ...styles.card }}>
-          <div style={styles.cardTop}>
-            <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-              <div style={{ fontWeight: 900 }}>Previous Owner Access</div>
-              <div style={{ color: TOKENS.muted }}>
-                ({previousOwnerItems.length} record{previousOwnerItems.length === 1 ? "" : "s"})
-              </div>
-            </div>
+          <button
+            type="button"
+            onClick={() => setPrevOpen((o) => !o)}
+            style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
+          >
+            <span style={{ fontWeight: 900 }}>Previous Owners</span>
+            <span style={{ color: TOKENS.muted, fontSize: 13 }}>({previousOwnerItems.length})</span>
+            <span style={{ marginLeft: "auto", fontSize: 13, color: TOKENS.muted }}>{prevOpen ? "Hide" : "Show"}</span>
+          </button>
 
-            <div style={{ fontSize: 12, color: TOKENS.muted }}>
-              Use carets to view details
-            </div>
-          </div>
-
-          <div style={styles.scrollArea}>
+          {prevOpen && <div style={styles.scrollArea}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ textAlign: "left" }}>
@@ -872,9 +862,69 @@ export default function AdminMerchantUsers() {
                 ) : null}
               </tbody>
             </table>
-          </div>
+          </div>}
 
         </div>
+
+        <div style={{ marginTop: 10, ...styles.card }}>
+          <div style={{ fontWeight: 900, marginBottom: 14 }}>
+            All Team Members
+            <span style={{ fontWeight: 400, fontSize: 13, color: TOKENS.muted, marginLeft: 8 }}>
+              ({items.length})
+            </span>
+          </div>
+
+          {loading ? (
+            <div style={{ color: TOKENS.muted, padding: "8px 0" }}>Loading...</div>
+          ) : items.length === 0 ? (
+            <div style={{ color: TOKENS.muted, padding: "8px 0" }}>No team members found.</div>
+          ) : (
+            <div style={styles.scrollArea}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ textAlign: "left" }}>
+                    <th style={th}>Name</th>
+                    <th style={th}>Email</th>
+                    <th style={th}>Role</th>
+                    <th style={th}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((mu, idx) => {
+                    const rowKey = mu?.merchantUserId ?? mu?.id ?? mu?.userId ?? idx;
+                    const firstName = mu?.firstName || mu?.user?.firstName || "";
+                    const lastName = mu?.lastName || mu?.user?.lastName || "";
+                    const fullName = [firstName, lastName].filter(Boolean).join(" ");
+                    const email = userEmail(mu);
+                    const role = mu?.role || "—";
+                    const status = mu?.status || "—";
+                    const isCurrentOwner = currentOwner && merchantUserIdOf(mu) === merchantUserIdOf(currentOwner);
+
+                    return (
+                      <tr key={String(rowKey)} style={styles.row}>
+                        <td style={tdUser}>
+                          <span style={{ fontWeight: 700, color: TOKENS.navy }}>
+                            {fullName || <span style={{ color: TOKENS.muted, fontStyle: "italic" }}>No name</span>}
+                          </span>
+                          {isCurrentOwner && (
+                            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,150,80,0.10)", color: "rgba(0,110,50,1)", border: "1px solid rgba(0,150,80,0.25)", padding: "1px 7px", borderRadius: 999 }}>
+                              current
+                            </span>
+                          )}
+                        </td>
+                        <td style={tdText}>{email || "—"}</td>
+                        <td style={tdText}>{prettyRole(role)}</td>
+                        <td style={tdText}>{prettyStatus(status)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+      <SupportInfo context={{ page: "AdminMerchantUsers", merchantId }} />
     </PageContainer>
   );
 }
@@ -920,7 +970,7 @@ function DetailBlock({
         </div>
       </div>
 
-      <div style={styles.diagBar}>
+      <div style={{ ...styles.diagBar, opacity: 0.6, fontSize: 11 }}>
         <button
           type="button"
           onClick={(e) => {
@@ -928,7 +978,7 @@ function DetailBlock({
             e.stopPropagation();
             onToggleDiagnostics(merchantUserId);
           }}
-          style={diagEnabled ? styles.diagChipOn : styles.diagChip}
+          style={{ ...diagEnabled ? styles.diagChipOn : styles.diagChip, fontSize: 11 }}
           aria-pressed={diagEnabled}
           title="Support: enable advanced diagnostics"
         >
@@ -943,7 +993,7 @@ function DetailBlock({
             onCopyDiagnostics(merchantUserId);
           }}
           disabled={!detail}
-          style={styles.copyBtn}
+          style={{ ...styles.copyBtn, fontSize: 11 }}
           title="Copy diagnostics payload for support/chatbot"
         >
           {copyState === "copied"

@@ -201,6 +201,10 @@ export default function AdminInvoiceDetail() {
     (returnTo.includes("?") ? "&" : "?") +
     `focus=${encodeURIComponent(String(invoiceId))}`;
 
+  // Parse merchant context from returnTo if coming from merchant-scoped invoices
+  const merchantReturnMatch = returnTo.match(/^\/merchants\/(\d+)\/invoices/);
+  const returnMerchantId = merchantReturnMatch ? merchantReturnMatch[1] : null;
+
 
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
@@ -569,9 +573,27 @@ export default function AdminInvoiceDetail() {
 
   return (
     <PageContainer size="page">
-      {/* Q0: Back link top-left above PageHeader */}
-      <div style={{ marginBottom: 10 }}>
-        <Link to={backUrl} style={{ textDecoration: "none" }}>Back to Invoices</Link>
+      {/* Breadcrumb */}
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        {returnMerchantId ? (
+          <>
+            <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+            {" / "}
+            <Link to={`/merchants/${returnMerchantId}`} style={{ color: "inherit", textDecoration: "none" }}>
+              {merchantDisplay(detail, inv) !== `Merchant #${returnMerchantId}` ? merchantDisplay(detail, inv) : `Merchant #${returnMerchantId}`}
+            </Link>
+            {" / "}
+            <Link to={backUrl} style={{ color: "inherit", textDecoration: "none" }}>Invoices</Link>
+            {" / "}
+            <span>#{invoiceId}</span>
+          </>
+        ) : (
+          <>
+            <Link to={backUrl} style={{ color: "inherit", textDecoration: "none" }}>Invoices</Link>
+            {" / "}
+            <span>#{invoiceId}</span>
+          </>
+        )}
       </div>
 
       <PageHeader

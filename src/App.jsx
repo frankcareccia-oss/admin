@@ -58,6 +58,7 @@ import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
+import AdminMerchantInvoices from "./pages/AdminMerchantInvoices";
 import AdminMerchantStores from "./pages/AdminMerchantStores";
 
 import {
@@ -655,9 +656,14 @@ function Layout({ children }) {
                       </>
                     )}
 
-                    <NavLink to="/account/change-password" style={navPill}>
-                      Account
-                    </NavLink>
+                    {(sysRole === "pv_admin"
+                      ? !location.pathname.startsWith("/merchants/")
+                      : !location.pathname.startsWith("/merchant/stores/")
+                    ) && (
+                      <NavLink to="/account/change-password" style={navPill}>
+                        Change Password
+                      </NavLink>
+                    )}
 
                     <button
                       onClick={onLogout}
@@ -875,6 +881,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminMerchantBilling />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/merchants/:merchantId/invoices"
+            element={
+              <RequireAuth>
+                <AdminMerchantInvoices />
               </RequireAuth>
             }
           />

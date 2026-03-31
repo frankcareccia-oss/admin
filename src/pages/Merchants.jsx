@@ -6,6 +6,9 @@ import Toast from "../components/Toast";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import SupportInfo from "../components/SupportInfo";
+import ProductAvatar from "../components/ProductAvatar";
+import useBreakpoint from "../hooks/useBreakpoint";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -73,6 +76,7 @@ function isDeviceGateError(err) {
 }
 
 export default function Merchants() {
+  const { isMobile } = useBreakpoint();
   const [merchants, setMerchants] = React.useState([]);
   const [status, setStatus] = React.useState("active");
   const [loading, setLoading] = React.useState(false);
@@ -345,6 +349,12 @@ export default function Merchants() {
 
   return (
     <PageContainer>
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/admin" style={{ color: "inherit", textDecoration: "none" }}>Dashboard</Link>
+        {" / "}
+        <span>Merchants</span>
+      </div>
+
       <PageHeader title="Merchants" subtitle="Manage merchant lifecycle and view merchant details." />
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
@@ -414,7 +424,7 @@ export default function Merchants() {
         ) : merchants.length === 0 ? (
           <div style={{ padding: 8, color: "rgba(0,0,0,0.60)" }}>No merchants found.</div>
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))", gap: 10 }}>
             {merchants.map((m) => (
               <Link
                 key={m.id}
@@ -422,21 +432,20 @@ export default function Merchants() {
                 style={{
                   textDecoration: "none",
                   color: "inherit",
-                  textAlign: "left",
-                  padding: 12,
+                  padding: 14,
                   borderRadius: 12,
                   border: "1px solid rgba(0,0,0,0.12)",
                   background: "white",
-                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "space-between",
                   gap: 12,
+                  transition: "box-shadow 0.15s",
                 }}
               >
-                <div style={{ minWidth: 0 }}>
+                <ProductAvatar name={m.name} size={44} radius={10} />
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.50)", marginTop: 2 }}>
                     ID: {m.id}
                     {m.pvAccountNumber ? ` · ${m.pvAccountNumber}` : ""}
                     {m.storeCount != null ? ` · ${m.storeCount} store${m.storeCount === 1 ? "" : "s"}` : ""}
@@ -449,6 +458,7 @@ export default function Merchants() {
         )}
       </div>
 
+      <SupportInfo context={{ page: "Merchants" }} />
       {toast ? <Toast kind={toast.kind} message={toast.message} onClose={() => setToast(null)} /> : null}
     </PageContainer>
   );

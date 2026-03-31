@@ -12,7 +12,7 @@
  */
 
 import React from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import {
   getMerchant,
   adminGetBillingAccount,
@@ -22,19 +22,8 @@ import {
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SectionTabs from "../components/layout/SectionTabs";
+import SupportInfo from "../components/SupportInfo";
 
-function buildTabs(merchantId, pathname) {
-  const base = `/merchants/${merchantId}`;
-  return [
-    { key: "overview",       label: "Overview",       to: base,                                        active: pathname === base },
-    { key: "billing",        label: "Billing",        to: `${base}/billing`,                           active: pathname === `${base}/billing` },
-    { key: "stores",         label: "Stores",         to: `${base}/stores`,                            active: pathname === `${base}/stores` },
-    { key: "team",           label: "Team",           to: `${base}/users`,                             active: pathname === `${base}/users` },
-    { key: "invoices",       label: "Invoices",       to: `${base}/invoices`,                          active: pathname === `${base}/invoices` },
-    { key: "billingPolicy",  label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
-  ];
-}
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
@@ -108,7 +97,6 @@ function validateFields(fields) {
 
 export default function AdminMerchantBilling() {
   const { merchantId } = useParams();
-  const location = useLocation();
 
   const [merchant, setMerchant] = React.useState(null);
   const [billingAccount, setBillingAccount] = React.useState(null);
@@ -243,22 +231,26 @@ export default function AdminMerchantBilling() {
     );
   }
 
-  const tabs = buildTabs(merchantId, location.pathname);
   const ba = billingAccount;
+  const merchantName = merchant?.name || `Merchant ${merchantId}`;
 
   return (
     <PageContainer size="page">
-      <div style={{ marginBottom: 10 }}>
-        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+        {" / "}
+        <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+        {" / "}
+        <span>Billing</span>
       </div>
 
       <PageHeader
-        title={merchant?.name || `Merchant ${merchantId}`}
+        title="Billing"
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatusBadge status={merchant?.status} />
             <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
-              ID: {merchantId}
+              {merchantName}
               {ba?.pvAccountNumber ? ` · ${ba.pvAccountNumber}` : ""}
             </span>
           </span>
@@ -266,9 +258,7 @@ export default function AdminMerchantBilling() {
         right={
           <button onClick={load} disabled={busy} style={styles.refreshBtn}>Refresh</button>
         }
-      >
-        <SectionTabs title="Sections" items={tabs} />
-      </PageHeader>
+      />
 
       <div style={styles.card}>
         <div style={styles.cardHeader}>
@@ -461,6 +451,8 @@ export default function AdminMerchantBilling() {
         </Link>{" "}
         tab to set merchant-specific grace days, late fee amounts, or default net terms.
       </div>
+
+      <SupportInfo context={{ page: "AdminMerchantBilling", merchantId }} />
     </PageContainer>
   );
 }
