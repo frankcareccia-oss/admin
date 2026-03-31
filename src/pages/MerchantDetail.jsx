@@ -177,6 +177,13 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
+      to: `${base}/bundles`,
+      icon: "🎫",
+      title: "Bundles",
+      description: "Prepaid credit packs. Sell 10 coffees upfront, redeem 1 per visit.",
+      meta: null,
+    },
+    {
       to: null,
       icon: "📊",
       title: "Reporting",

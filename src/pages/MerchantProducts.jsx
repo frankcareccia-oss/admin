@@ -220,6 +220,34 @@ export default function MerchantProducts() {
     }
   }
 
+  // ─── Inline category auto-save ───────────────────────────
+  const [catSavingIds, setCatSavingIds] = React.useState(new Set());
+
+  async function handleCategoryChange(productId, rawValue) {
+    const categoryId = rawValue ? parseInt(rawValue, 10) : null;
+    setCatSavingIds(prev => new Set([...prev, productId]));
+    pvUiHook("merchant.products.category.autosave.submit", { merchantId, productId, categoryId });
+    try {
+      if (isPvAdmin) {
+        await adminUpdateMerchantProduct(merchantId, productId, { categoryId });
+      } else {
+        await merchantUpdateProduct(productId, { categoryId });
+      }
+      setProducts(prev => prev.map(p => {
+        if (p.id !== productId) return p;
+        const cat = categoryId ? categories.find(c => c.id === categoryId) : null;
+        return { ...p, categoryId, category: cat || null };
+      }));
+      pvUiHook("merchant.products.category.autosave.success", { merchantId, productId, categoryId });
+    } catch (e) {
+      const msg = e?.message || "Failed to update category";
+      setLastError(msg);
+      pvUiHook("merchant.products.category.autosave.error", { merchantId, productId, error: msg });
+    } finally {
+      setCatSavingIds(prev => { const s = new Set(prev); s.delete(productId); return s; });
+    }
+  }
+
   // ─── Category quick-create ────────────────────────────────
   async function handleCatCreate(e) {
     e.preventDefault();
@@ -307,7 +335,7 @@ export default function MerchantProducts() {
           <div>
             <span style={{ fontWeight: 700, fontSize: 14 }}>Categories</span>
             {categories.length > 0 && (
-              <span style={{ marginLeft: 10, fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+              <span style={{ marginLeft: 10, fontSize: 12, color: "rgba(0,0,0,0.72)", fontWeight: 600 }}>
                 {categories.filter(c => c.status === "active").map(c => c.name).join(" · ")}
               </span>
             )}
@@ -507,9 +535,30 @@ export default function MerchantProducts() {
                     </td>
                     <td style={{ ...td, fontFamily: "monospace", fontSize: 12 }}>{p.sku}</td>
                     <td style={td}>
-                      {p.category
-                        ? <span style={catPill}>{p.category.name}</span>
-                        : <span style={{ color: "rgba(0,0,0,0.30)", fontSize: 12 }}>—</span>}
+                      <select
+                        style={{
+                          padding: "4px 8px",
+                          border: "1px solid rgba(0,0,0,0.15)",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          background: catSavingIds.has(p.id) ? "rgba(0,0,0,0.04)" : "#fff",
+                          color: "#0B2A33",
+                          cursor: "pointer",
+                          minWidth: 110,
+                        }}
+                        value={p.categoryId ? String(p.categoryId) : ""}
+                        disabled={catSavingIds.has(p.id)}
+                        onChange={e => handleCategoryChange(p.id, e.target.value)}
+                      >
+                        <option value="">— none —</option>
+                        {categories.filter(c => c.status === "active").map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                      {catSavingIds.has(p.id) && (
+                        <span style={{ fontSize: 11, color: "rgba(0,0,0,0.40)", marginLeft: 6 }}>saving…</span>
+                      )}
                     </td>
                     <td style={{ ...td, color: "rgba(0,0,0,0.55)" }}>{p.description || "—"}</td>
                     <td style={td}><StatusBadge status={p.status} /></td>

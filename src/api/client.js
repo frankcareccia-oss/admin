@@ -1747,6 +1747,34 @@ export async function adminReactivateMerchantProduct(merchantId, productId) {
 }
 
 /* =============================================================
+   Catalog — Store Product Overrides (v1)
+============================================================= */
+
+export async function merchantListStoreProducts(storeId) {
+  return request(`/merchant/stores/${storeId}/products`, { auth: "jwt" });
+}
+
+export async function merchantSetStoreProduct(storeId, productId, enabled) {
+  return request(`/merchant/stores/${storeId}/products/${productId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: { enabled },
+  });
+}
+
+export async function adminListStoreProducts(merchantId, storeId) {
+  return request(`/admin/merchants/${merchantId}/stores/${storeId}/products`, { auth: "jwt" });
+}
+
+export async function adminSetStoreProduct(merchantId, storeId, productId, enabled) {
+  return request(`/admin/merchants/${merchantId}/stores/${storeId}/products/${productId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: { enabled },
+  });
+}
+
+/* =============================================================
    Promotions — Earn Items (E.3)
 ============================================================= */
 
@@ -1931,4 +1959,65 @@ export async function adminArchiveMerchantOfferSet(merchantId, setId) {
     method: "DELETE",
     auth: "jwt",
   });
+}
+
+// ── Bundles (Prepaid Credits) ─────────────────────────────────
+
+export async function merchantListBundles({ status } = {}) {
+  const qs = status ? `?status=${status}` : "";
+  return request(`/merchant/bundles${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreateBundle({ name, categoryId, quantity, price, expiresAt } = {}) {
+  return request("/merchant/bundles", {
+    method: "POST", auth: "jwt",
+    body: { name, categoryId, quantity, price, expiresAt },
+  });
+}
+
+export async function merchantUpdateBundle(bundleId, fields = {}) {
+  return request(`/merchant/bundles/${bundleId}`, {
+    method: "PATCH", auth: "jwt", body: fields,
+  });
+}
+
+export async function adminListMerchantBundles(merchantId, { status } = {}) {
+  const qs = status ? `?status=${status}` : "";
+  return request(`/admin/merchants/${merchantId}/bundles${qs}`, { auth: "jwt" });
+}
+
+export async function adminCreateMerchantBundle(merchantId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/bundles`, {
+    method: "POST", auth: "jwt", body: fields,
+  });
+}
+
+export async function adminUpdateMerchantBundle(merchantId, bundleId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/bundles/${bundleId}`, {
+    method: "PATCH", auth: "jwt", body: fields,
+  });
+}
+
+export async function merchantDeleteBundle(bundleId) {
+  return request(`/merchant/bundles/${bundleId}`, { method: "DELETE", auth: "jwt" });
+}
+
+export async function merchantDuplicateBundle(bundleId) {
+  return request(`/merchant/bundles/${bundleId}/duplicate`, { method: "POST", auth: "jwt" });
+}
+
+export async function adminDeleteMerchantBundle(merchantId, bundleId) {
+  return request(`/admin/merchants/${merchantId}/bundles/${bundleId}`, { method: "DELETE", auth: "jwt" });
+}
+
+export async function adminDuplicateMerchantBundle(merchantId, bundleId) {
+  return request(`/admin/merchants/${merchantId}/bundles/${bundleId}/duplicate`, { method: "POST", auth: "jwt" });
+}
+
+export async function merchantGetBundleAudit(bundleId) {
+  return request(`/merchant/bundles/${bundleId}/audit`, { auth: "jwt" });
+}
+
+export async function adminGetBundleAudit(merchantId, bundleId) {
+  return request(`/admin/merchants/${merchantId}/bundles/${bundleId}/audit`, { auth: "jwt" });
 }

@@ -3,7 +3,7 @@
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
-import { getStore, updateStore, adminGetStoreTeam, adminAssignStoreTeam, adminRemoveStoreTeamMember, adminListMerchantUsers } from "../api/client";
+import { getStore, updateStore, adminGetStoreTeam, adminAssignStoreTeam, adminRemoveStoreTeamMember, adminListMerchantUsers, adminListStoreProducts, adminSetStoreProduct } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 
 function validateStoreFields({ name, address1, city, state, postal }) {
@@ -92,6 +92,12 @@ export default function AdminMerchantStoreDetail() {
   const [addOk, setAddOk] = React.useState("");
   const [removeBusy, setRemoveBusy] = React.useState(null); // storeUserId being removed
 
+  // Store products state
+  const [storeProducts, setStoreProducts] = React.useState([]);
+  const [spLoading, setSpLoading] = React.useState(true);
+  const [spErr, setSpErr] = React.useState("");
+  const [spSavingIds, setSpSavingIds] = React.useState(new Set());
+
   // Edit form state
   const [editing, setEditing] = React.useState(false);
   const [editName, setEditName] = React.useState("");
@@ -130,20 +136,23 @@ export default function AdminMerchantStoreDetail() {
           storeId: Number(storeId),
         });
 
-        // Load team in parallel after we know the merchantId
+        // Load team + store products in parallel after we know the merchantId
         if (!cancelled && data?.merchant?.id) {
           setTeamLoading(true);
+          setSpLoading(true);
           pvUiHook("admin.merchant.store.team.load_started.ui", {
             stable: "admin:merchant:store:team", storeId: Number(storeId),
           });
           try {
-            const [teamData, muData] = await Promise.all([
+            const [teamData, muData, spData] = await Promise.all([
               adminGetStoreTeam(storeId),
               adminListMerchantUsers(data.merchant.id),
+              adminListStoreProducts(data.merchant.id, storeId),
             ]);
             if (!cancelled) {
               setTeam(teamData?.team || []);
               setMerchantUsers(muData?.users || []);
+              setStoreProducts(spData?.products || []);
               pvUiHook("admin.merchant.store.team.load_succeeded.ui", {
                 stable: "admin:merchant:store:team",
                 storeId: Number(storeId),
@@ -160,10 +169,11 @@ export default function AdminMerchantStoreDetail() {
               });
             }
           } finally {
-            if (!cancelled) setTeamLoading(false);
+            if (!cancelled) { setTeamLoading(false); setSpLoading(false); }
           }
         } else if (!cancelled) {
           setTeamLoading(false);
+          setSpLoading(false);
         }
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Failed to load store");
@@ -338,6 +348,31 @@ export default function AdminMerchantStoreDetail() {
       });
     } finally {
       setRemoveBusy(null);
+    }
+  }
+
+  async function toggleStoreProduct(merchantId, productId, currentEnabled) {
+    const newEnabled = !currentEnabled;
+    setSpSavingIds(prev => new Set([...prev, productId]));
+    pvUiHook("admin.merchant.store.product.toggle.submit", {
+      stable: "admin:merchant:store:product:toggle",
+      storeId: Number(storeId), productId, enabled: newEnabled,
+    });
+    try {
+      await adminSetStoreProduct(merchantId, storeId, productId, newEnabled);
+      setStoreProducts(prev => prev.map(p => p.id === productId ? { ...p, enabledAtStore: newEnabled } : p));
+      pvUiHook("admin.merchant.store.product.toggle.success", {
+        stable: "admin:merchant:store:product:toggle",
+        storeId: Number(storeId), productId, enabled: newEnabled,
+      });
+    } catch (e) {
+      setSpErr(e?.message || "Failed to update product availability");
+      pvUiHook("admin.merchant.store.product.toggle.error", {
+        stable: "admin:merchant:store:product:toggle",
+        storeId: Number(storeId), productId, error: e?.message,
+      });
+    } finally {
+      setSpSavingIds(prev => { const s = new Set(prev); s.delete(productId); return s; });
     }
   }
 
@@ -610,6 +645,79 @@ export default function AdminMerchantStoreDetail() {
               </div>
             </div>
           </div>
+          {/* Product Availability */}
+          <div style={card}>
+            <div style={{ fontWeight: 800, marginBottom: 4, fontSize: 15, color: COLORS.text }}>
+              Product Availability
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.neutral, marginBottom: 14 }}>
+              Disable products that aren't offered at this location. All products are enabled by default.
+            </div>
+
+            {spLoading ? (
+              <div style={{ fontSize: 13, color: COLORS.neutral }}>Loading products…</div>
+            ) : spErr ? (
+              <div style={{ fontSize: 13, color: "rgba(180,0,0,0.85)", marginBottom: 8 }}>{spErr}</div>
+            ) : storeProducts.length === 0 ? (
+              <div style={{ fontSize: 13, color: COLORS.neutral }}>No products in this merchant's catalog yet.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: "rgba(0,0,0,0.02)", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+                      <th style={teamTh}>Product</th>
+                      <th style={teamTh}>Category</th>
+                      <th style={teamTh}>SKU</th>
+                      <th style={{ ...teamTh, textAlign: "center" }}>At this store</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {storeProducts.map((p, idx) => (
+                      <tr key={p.id} style={{ borderTop: idx === 0 ? "none" : "1px solid rgba(0,0,0,0.06)" }}>
+                        <td style={teamTd}>
+                          <span style={{ fontWeight: 700 }}>{p.name}</span>
+                        </td>
+                        <td style={teamTd}>
+                          {p.category
+                            ? <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "rgba(11,42,51,0.08)", color: "#0B2A33" }}>{p.category.name}</span>
+                            : <span style={{ color: "rgba(0,0,0,0.30)" }}>—</span>}
+                        </td>
+                        <td style={{ ...teamTd, fontFamily: "monospace", fontSize: 12, color: COLORS.neutral }}>{p.sku}</td>
+                        <td style={{ ...teamTd, textAlign: "center" }}>
+                          <button
+                            type="button"
+                            disabled={spSavingIds.has(p.id)}
+                            onClick={() => toggleStoreProduct(store.merchant.id, p.id, p.enabledAtStore)}
+                            style={{
+                              padding: "4px 14px",
+                              borderRadius: 999,
+                              border: p.enabledAtStore
+                                ? "1px solid rgba(0,150,80,0.30)"
+                                : "1px solid rgba(0,0,0,0.18)",
+                              background: p.enabledAtStore
+                                ? "rgba(0,150,80,0.10)"
+                                : "rgba(0,0,0,0.05)",
+                              color: p.enabledAtStore
+                                ? "rgba(0,100,50,1)"
+                                : "rgba(0,0,0,0.45)",
+                              fontWeight: 700,
+                              fontSize: 12,
+                              cursor: spSavingIds.has(p.id) ? "not-allowed" : "pointer",
+                              opacity: spSavingIds.has(p.id) ? 0.6 : 1,
+                              minWidth: 90,
+                            }}
+                          >
+                            {spSavingIds.has(p.id) ? "…" : p.enabledAtStore ? "Enabled" : "Disabled"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Store Team */}
           <div style={card}>
             <div style={{ fontWeight: 800, marginBottom: 14, fontSize: 15, color: COLORS.text }}>
