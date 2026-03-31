@@ -1620,6 +1620,59 @@ export async function posCustomerCreate({ phone, firstName, lastName } = {}) {
 }
 
 /* =============================================================
+   Catalog — Categories (v3.5)
+============================================================= */
+
+export async function merchantListCategories({ status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/merchant/categories${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreateCategory({ name } = {}) {
+  return request("/merchant/categories", {
+    method: "POST",
+    auth: "jwt",
+    body: { name },
+  });
+}
+
+export async function merchantUpdateCategory(categoryId, fields = {}) {
+  return request(`/merchant/categories/${categoryId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantDeactivateCategory(categoryId) {
+  return request(`/merchant/categories/${categoryId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+export async function adminListMerchantCategories(merchantId, { status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/admin/merchants/${merchantId}/categories${qs}`, { auth: "jwt" });
+}
+
+export async function adminCreateMerchantCategory(merchantId, { name } = {}) {
+  return request(`/admin/merchants/${merchantId}/categories`, {
+    method: "POST",
+    auth: "jwt",
+    body: { name },
+  });
+}
+
+export async function adminUpdateMerchantCategory(merchantId, categoryId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/categories/${categoryId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+/* =============================================================
    Catalog — Products (E.2)
 ============================================================= */
 
@@ -1628,11 +1681,11 @@ export async function merchantListProducts({ status } = {}) {
   return request(`/merchant/products${qs}`, { auth: "jwt" });
 }
 
-export async function merchantCreateProduct({ name, description, sku, imageUrl } = {}) {
+export async function merchantCreateProduct({ name, description, sku, imageUrl, categoryId } = {}) {
   return request("/merchant/products", {
     method: "POST",
     auth: "jwt",
-    body: { name, description, sku, imageUrl },
+    body: { name, description, sku, imageUrl, categoryId },
   });
 }
 
@@ -1663,11 +1716,11 @@ export async function adminListMerchantProducts(merchantId, { status } = {}) {
   return request(`/admin/merchants/${merchantId}/products${qs}`, { auth: "jwt" });
 }
 
-export async function adminCreateMerchantProduct(merchantId, { name, description, sku, imageUrl } = {}) {
+export async function adminCreateMerchantProduct(merchantId, { name, description, sku, imageUrl, categoryId } = {}) {
   return request(`/admin/merchants/${merchantId}/products`, {
     method: "POST",
     auth: "jwt",
-    body: { name, description, sku, imageUrl },
+    body: { name, description, sku, imageUrl, categoryId },
   });
 }
 

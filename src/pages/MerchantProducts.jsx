@@ -18,11 +18,15 @@ import {
   merchantUpdateProduct,
   merchantDeactivateProduct,
   merchantReactivateProduct,
+  merchantListCategories,
+  merchantCreateCategory,
   adminListMerchantProducts,
   adminCreateMerchantProduct,
   adminUpdateMerchantProduct,
   adminDeactivateMerchantProduct,
   adminReactivateMerchantProduct,
+  adminListMerchantCategories,
+  adminCreateMerchantCategory,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -55,7 +59,7 @@ function StatusBadge({ status }) {
 }
 
 
-const EMPTY_FORM = { name: "", description: "", sku: "", imageUrl: "" };
+const EMPTY_FORM = { name: "", description: "", sku: "", imageUrl: "", categoryId: "" };
 
 export default function MerchantProducts() {
   const { merchantId } = useParams();
@@ -64,8 +68,15 @@ export default function MerchantProducts() {
 
   const [merchant, setMerchant] = React.useState(null);
   const [products, setProducts] = React.useState([]);
+  const [categories, setCategories] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
+
+  // Category management
+  const [showCatCreate, setShowCatCreate] = React.useState(false);
+  const [catName, setCatName] = React.useState("");
+  const [catSaving, setCatSaving] = React.useState(false);
+  const [catError, setCatError] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState("active");
 
   // Create panel
@@ -89,14 +100,18 @@ export default function MerchantProducts() {
     setLoading(true);
     setError("");
     try {
-      const [mRes, pRes] = await Promise.all([
+      const [mRes, pRes, cRes] = await Promise.all([
         getMerchant(merchantId),
         isPvAdmin
           ? adminListMerchantProducts(merchantId, { status: filter })
           : merchantListProducts({ status: filter }),
+        isPvAdmin
+          ? adminListMerchantCategories(merchantId)
+          : merchantListCategories(),
       ]);
       setMerchant(mRes?.merchant || mRes);
       setProducts(pRes?.items || []);
+      setCategories(cRes?.categories || []);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.products.list.loaded", { merchantId, count: (pRes?.items || []).length, statusFilter: filter });
     } catch (e) {
@@ -131,6 +146,7 @@ export default function MerchantProducts() {
         description: form.description.trim() || undefined,
         sku: form.sku.trim() || undefined,
         imageUrl: form.imageUrl.trim() || undefined,
+        categoryId: form.categoryId ? parseInt(form.categoryId, 10) : undefined,
       };
       if (isPvAdmin) {
         await adminCreateMerchantProduct(merchantId, payload);
@@ -156,7 +172,7 @@ export default function MerchantProducts() {
   function startEdit(product) {
     if (showCreate) setShowCreate(false);
     setEditingId(product.id);
-    setEditForm({ name: product.name, description: product.description || "", imageUrl: product.imageUrl || "" });
+    setEditForm({ name: product.name, description: product.description || "", imageUrl: product.imageUrl || "", categoryId: product.categoryId ? String(product.categoryId) : "" });
     setEditError("");
     pvUiHook("merchant.products.edit.open", { merchantId, productId: product.id, sku: product.sku });
   }
@@ -183,6 +199,7 @@ export default function MerchantProducts() {
         name,
         description: editForm.description?.trim() || undefined,
         imageUrl: editForm.imageUrl?.trim() || null,
+        categoryId: editForm.categoryId ? parseInt(editForm.categoryId, 10) : null,
       };
       if (isPvAdmin) {
         await adminUpdateMerchantProduct(merchantId, productId, payload);
@@ -200,6 +217,29 @@ export default function MerchantProducts() {
       pvUiHook("merchant.products.edit.error", { merchantId, productId, error: msg });
     } finally {
       setEditSaving(false);
+    }
+  }
+
+  // ─── Category quick-create ────────────────────────────────
+  async function handleCatCreate(e) {
+    e.preventDefault();
+    setCatError("");
+    const name = catName.trim();
+    if (!name) { setCatError("Name is required"); return; }
+    setCatSaving(true);
+    try {
+      const res = isPvAdmin
+        ? await adminCreateMerchantCategory(merchantId, { name })
+        : await merchantCreateCategory({ name });
+      const newCat = res?.category;
+      setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+      setCatName("");
+      setShowCatCreate(false);
+      pvUiHook("merchant.products.category.created", { merchantId, categoryId: newCat?.id });
+    } catch (e) {
+      setCatError(e?.message || "Failed to create category");
+    } finally {
+      setCatSaving(false);
     }
   }
 
@@ -261,6 +301,42 @@ export default function MerchantProducts() {
 
       <div style={{ marginTop: 24 }} />
 
+      {/* ── Categories Panel ── */}
+      <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, padding: "14px 20px", marginBottom: 20, background: "rgba(0,0,0,0.02)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCatCreate ? 12 : 0 }}>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>Categories</span>
+            {categories.length > 0 && (
+              <span style={{ marginLeft: 10, fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+                {categories.filter(c => c.status === "active").map(c => c.name).join(" · ")}
+              </span>
+            )}
+            {categories.length === 0 && <span style={{ marginLeft: 10, fontSize: 12, color: "rgba(0,0,0,0.40)" }}>No categories yet</span>}
+          </div>
+          {!showCatCreate && (
+            <button type="button" style={btnSecondary} onClick={() => { setShowCatCreate(true); setCatName(""); setCatError(""); }}>
+              + Add Category
+            </button>
+          )}
+        </div>
+        {showCatCreate && (
+          <form onSubmit={handleCatCreate} style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <input
+                style={inputStyle}
+                value={catName}
+                onChange={e => setCatName(e.target.value)}
+                placeholder="Category name (e.g. Coffee, Pastry)"
+                autoFocus
+              />
+              {catError && <div style={{ ...errorStyle, marginTop: 4 }}>{catError}</div>}
+            </div>
+            <button type="submit" style={btnPrimary} disabled={catSaving}>{catSaving ? "Saving…" : "Save"}</button>
+            <button type="button" style={btnSecondary} onClick={() => { setShowCatCreate(false); setCatName(""); setCatError(""); }}>Cancel</button>
+          </form>
+        )}
+      </div>
+
       {/* ── Create Card ── */}
       {!showCreate ? (
         <div
@@ -315,6 +391,24 @@ export default function MerchantProducts() {
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Optional"
               />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>Category</label>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <select
+                  style={{ ...inputStyle, flex: 1 }}
+                  value={form.categoryId}
+                  onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}
+                >
+                  <option value="">— none —</option>
+                  {categories.filter(c => c.status === "active").map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {categories.length === 0 && (
+                  <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>Add categories above first</span>
+                )}
+              </div>
             </div>
             <div style={fieldRow}>
               <label style={labelStyle}>SKU</label>
@@ -395,6 +489,7 @@ export default function MerchantProducts() {
               <tr style={{ background: "rgba(0,0,0,0.03)", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
                 <th style={th}>Name</th>
                 <th style={th}>SKU</th>
+                <th style={th}>Category</th>
                 <th style={th}>Description</th>
                 <th style={th}>Status</th>
                 <th style={{ ...th, textAlign: "right" }}>Actions</th>
@@ -411,6 +506,11 @@ export default function MerchantProducts() {
                       </div>
                     </td>
                     <td style={{ ...td, fontFamily: "monospace", fontSize: 12 }}>{p.sku}</td>
+                    <td style={td}>
+                      {p.category
+                        ? <span style={catPill}>{p.category.name}</span>
+                        : <span style={{ color: "rgba(0,0,0,0.30)", fontSize: 12 }}>—</span>}
+                    </td>
                     <td style={{ ...td, color: "rgba(0,0,0,0.55)" }}>{p.description || "—"}</td>
                     <td style={td}><StatusBadge status={p.status} /></td>
                     <td style={{ ...td, textAlign: "right" }}>
@@ -430,7 +530,7 @@ export default function MerchantProducts() {
                   {/* Inline edit row */}
                   {editingId === p.id && (
                     <tr style={{ borderTop: "1px solid rgba(0,0,0,0.06)", background: "rgba(0,0,0,0.015)" }}>
-                      <td colSpan={5} style={{ padding: "12px 16px" }}>
+                      <td colSpan={6} style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                           <div>
                             <label style={labelStyle}>Name <span style={{ color: "red" }}>*</span></label>
@@ -440,6 +540,19 @@ export default function MerchantProducts() {
                               onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
                               autoFocus
                             />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Category</label>
+                            <select
+                              style={{ ...inputStyle, width: 160 }}
+                              value={editForm.categoryId || ""}
+                              onChange={e => setEditForm(f => ({ ...f, categoryId: e.target.value }))}
+                            >
+                              <option value="">— none —</option>
+                              {categories.filter(c => c.status === "active").map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                              ))}
+                            </select>
                           </div>
                           <div>
                             <label style={labelStyle}>Description</label>
@@ -596,4 +709,15 @@ const th = {
 const td = {
   padding: "12px 16px",
   verticalAlign: "middle",
+};
+
+const catPill = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "2px 10px",
+  borderRadius: 999,
+  fontSize: 12,
+  fontWeight: 700,
+  background: "rgba(11,42,51,0.08)",
+  color: "#0B2A33",
 };
