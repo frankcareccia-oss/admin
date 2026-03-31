@@ -25,6 +25,14 @@ import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 
 
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {
+    // never break UI for logging
+  }
+}
+
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
 const ACCT_STATUS_COLORS = {
@@ -114,6 +122,9 @@ export default function AdminMerchantBilling() {
   async function load() {
     setLoading(true);
     setLoadErr("");
+    pvUiHook("admin.merchant.billing.load_started.ui", {
+      stable: "admin:merchant:billing", merchantId: Number(merchantId),
+    });
     try {
       const [mResult, baResult] = await Promise.allSettled([
         getMerchant(merchantId),
@@ -122,8 +133,18 @@ export default function AdminMerchantBilling() {
       if (mResult.status === "fulfilled") setMerchant(mResult.value);
       else throw new Error(mResult.reason?.message || "Failed to load merchant");
       if (baResult.status === "fulfilled") setBillingAccount(baResult.value?.billingAccount ?? null);
+      pvUiHook("admin.merchant.billing.load_succeeded.ui", {
+        stable: "admin:merchant:billing",
+        merchantId: Number(merchantId),
+        hasBillingAccount: baResult.status === "fulfilled" && !!baResult.value?.billingAccount,
+      });
     } catch (e) {
       setLoadErr(e?.message || "Failed to load");
+      pvUiHook("admin.merchant.billing.load_failed.ui", {
+        stable: "admin:merchant:billing",
+        merchantId: Number(merchantId),
+        error: e?.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -135,6 +156,9 @@ export default function AdminMerchantBilling() {
   }, [merchantId]);
 
   function onEdit() {
+    pvUiHook("admin.merchant.billing.edit_opened.ui", {
+      stable: "admin:merchant:billing:edit", merchantId: Number(merchantId),
+    });
     const ba = billingAccount || {};
     setFields({
       pvAccountNumber:  ba.pvAccountNumber  || "",
@@ -155,6 +179,9 @@ export default function AdminMerchantBilling() {
   }
 
   function onCancel() {
+    pvUiHook("admin.merchant.billing.edit_cancelled.ui", {
+      stable: "admin:merchant:billing:edit", merchantId: Number(merchantId),
+    });
     setEditing(false);
     setSaveErr("");
     setSaveOk("");
@@ -172,10 +199,18 @@ export default function AdminMerchantBilling() {
     const errors = validateFields(fields);
     if (errors.length > 0) {
       setSaveErr(errors.join("\n"));
+      pvUiHook("admin.merchant.billing.save_validation_failed.ui", {
+        stable: "admin:merchant:billing:save",
+        merchantId: Number(merchantId),
+        errors,
+      });
       return;
     }
 
     setBusy(true);
+    pvUiHook("admin.merchant.billing.save_started.ui", {
+      stable: "admin:merchant:billing:save", merchantId: Number(merchantId),
+    });
 
     try {
       // Store phone as raw digits only (E.164-ish), display formatting is UI-only
@@ -212,8 +247,16 @@ export default function AdminMerchantBilling() {
       setBillingAccount(result?.billingAccount ?? null);
       setSaveOk("Billing account updated.");
       setEditing(false);
+      pvUiHook("admin.merchant.billing.save_succeeded.ui", {
+        stable: "admin:merchant:billing:save", merchantId: Number(merchantId),
+      });
     } catch (e2) {
       setSaveErr(e2?.message || "Failed to update billing account");
+      pvUiHook("admin.merchant.billing.save_failed.ui", {
+        stable: "admin:merchant:billing:save",
+        merchantId: Number(merchantId),
+        error: e2?.message,
+      });
     } finally {
       setBusy(false);
     }
@@ -256,7 +299,7 @@ export default function AdminMerchantBilling() {
           </span>
         }
         right={
-          <button onClick={load} disabled={busy} style={styles.refreshBtn}>Refresh</button>
+          <button onClick={() => { pvUiHook("admin.merchant.billing.refresh_clicked.ui", { stable: "admin:merchant:billing", merchantId: Number(merchantId) }); load(); }} disabled={busy} style={styles.refreshBtn}>Refresh</button>
         }
       />
 

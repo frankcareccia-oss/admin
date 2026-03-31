@@ -5,6 +5,14 @@ import { changePassword, getSystemRole } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
 
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {
+    // never break UI for logging
+  }
+}
+
 export default function ChangePassword() {
   const navigate = useNavigate();
 
@@ -31,12 +39,17 @@ export default function ChangePassword() {
     const v = validate();
     if (v) {
       setError(v);
+      pvUiHook("auth.change_password.validation_failed.ui", {
+        stable: "auth:change_password", reason: v,
+      });
       return;
     }
 
     setBusy(true);
+    pvUiHook("auth.change_password.submit_started.ui", { stable: "auth:change_password" });
     try {
       await changePassword(cur, pw1);
+      pvUiHook("auth.change_password.submit_succeeded.ui", { stable: "auth:change_password" });
 
       // changePassword() clears JWT; user must sign in again
       navigate("/login", {
@@ -45,6 +58,9 @@ export default function ChangePassword() {
       });
     } catch (err) {
       setError(err?.message || "Change password failed");
+      pvUiHook("auth.change_password.submit_failed.ui", {
+        stable: "auth:change_password", error: err?.message,
+      });
     } finally {
       setBusy(false);
     }

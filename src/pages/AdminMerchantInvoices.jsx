@@ -17,6 +17,15 @@ import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 
+/* ── pvUiHook ── */
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {
+    // never break UI for logging
+  }
+}
+
 /* ── Shared helpers ── */
 
 function normalizeMoneyInput(raw) {
@@ -146,13 +155,29 @@ export default function AdminMerchantInvoices() {
     setError("");
     setGenMsg("");
     setLoading(true);
+    pvUiHook("admin.merchant.invoices.load_started.ui", {
+      stable: "admin:merchant:invoices:list",
+      merchantId: Number(merchantId),
+      statusFilter: statusFilter || null,
+    });
     try {
       const q = { merchantId: Number(merchantId) };
       if (statusFilter) q.status = statusFilter;
       const res = await adminListInvoices(q);
-      setItems(res?.items || []);
+      const invoices = res?.items || [];
+      setItems(invoices);
+      pvUiHook("admin.merchant.invoices.load_succeeded.ui", {
+        stable: "admin:merchant:invoices:list",
+        merchantId: Number(merchantId),
+        count: invoices.length,
+      });
     } catch (e) {
       setError(e?.message || "Failed to load invoices");
+      pvUiHook("admin.merchant.invoices.load_failed.ui", {
+        stable: "admin:merchant:invoices:list",
+        merchantId: Number(merchantId),
+        error: e?.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -165,11 +190,19 @@ export default function AdminMerchantInvoices() {
 
   async function onApplyFilters(e) {
     e.preventDefault();
+    pvUiHook("admin.merchant.invoices.filter_applied.ui", {
+      stable: "admin:merchant:invoices:filters",
+      merchantId: Number(merchantId),
+      statusFilter: statusFilter || null,
+    });
     setBusy(true);
     try { await load(); } finally { setBusy(false); }
   }
 
   function onClearFilters() {
+    pvUiHook("admin.merchant.invoices.filter_cleared.ui", {
+      stable: "admin:merchant:invoices:filters", merchantId: Number(merchantId),
+    });
     setStatusFilter("");
     // reload with cleared filter
     setLoading(true);
@@ -187,23 +220,49 @@ export default function AdminMerchantInvoices() {
     const cents = dollarsToCents(genTotalDollars);
     if (!Number.isInteger(cents) || cents <= 0) {
       setError("Total must be a valid dollar amount greater than 0 (e.g. 100.00).");
+      pvUiHook("admin.merchant.invoices.generate_validation_failed.ui", {
+        stable: "admin:merchant:invoices:generate",
+        merchantId: Number(merchantId),
+        reason: "invalid_total",
+      });
       return;
     }
     const net = Number(String(genNetTermsDays || "").trim());
     if (!genNetTermsOptions.includes(net)) {
       setError(`Net terms must be one of: ${genNetTermsOptions.join(", ")}.`);
+      pvUiHook("admin.merchant.invoices.generate_validation_failed.ui", {
+        stable: "admin:merchant:invoices:generate",
+        merchantId: Number(merchantId),
+        reason: "invalid_net_terms",
+      });
       return;
     }
 
     setBusy(true);
+    pvUiHook("admin.merchant.invoices.generate_started.ui", {
+      stable: "admin:merchant:invoices:generate",
+      merchantId: Number(merchantId),
+      totalCents: cents,
+      netTermsDays: net,
+    });
     try {
       const res = await adminGenerateInvoice({ merchantId: Number(merchantId), totalCents: cents, netTermsDays: net });
       setGenMsg(`Created draft invoice #${res?.invoiceId || "?"}.`);
       setGenTotalDollars("");
       setGenOpen(false);
+      pvUiHook("admin.merchant.invoices.generate_succeeded.ui", {
+        stable: "admin:merchant:invoices:generate",
+        merchantId: Number(merchantId),
+        invoiceId: res?.invoiceId ?? null,
+      });
       await load();
     } catch (e2) {
       setError(e2?.message || "Failed to generate invoice");
+      pvUiHook("admin.merchant.invoices.generate_failed.ui", {
+        stable: "admin:merchant:invoices:generate",
+        merchantId: Number(merchantId),
+        error: e2?.message,
+      });
     } finally {
       setBusy(false);
     }
@@ -217,6 +276,11 @@ export default function AdminMerchantInvoices() {
       if (el) {
         el.scrollIntoView({ block: "center" });
         didFocusRef.current = true;
+        pvUiHook("admin.merchant.invoices.return_focus.applied.ui", {
+          stable: "admin:merchant:invoices:return_focus",
+          merchantId: Number(merchantId),
+          invoiceId: focusId,
+        });
         setHighlightId(focusId);
         if (highlightTimerRef.current) window.clearTimeout(highlightTimerRef.current);
         highlightTimerRef.current = window.setTimeout(() => setHighlightId(null), 1200);
@@ -284,7 +348,15 @@ export default function AdminMerchantInvoices() {
       }}>
         <button
           type="button"
-          onClick={() => setGenOpen((o) => !o)}
+          onClick={() => {
+            const next = !genOpen;
+            setGenOpen(next);
+            pvUiHook("admin.merchant.invoices.gen_toggle.ui", {
+              stable: "admin:merchant:invoices:gen_form",
+              merchantId: Number(merchantId),
+              open: next,
+            });
+          }}
           style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
         >
           <span style={{ fontWeight: 900 }}>Generate Draft Invoice (dev)</span>

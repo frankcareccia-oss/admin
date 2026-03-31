@@ -133,6 +133,9 @@ export default function AdminMerchantStoreDetail() {
         // Load team in parallel after we know the merchantId
         if (!cancelled && data?.merchant?.id) {
           setTeamLoading(true);
+          pvUiHook("admin.merchant.store.team.load_started.ui", {
+            stable: "admin:merchant:store:team", storeId: Number(storeId),
+          });
           try {
             const [teamData, muData] = await Promise.all([
               adminGetStoreTeam(storeId),
@@ -141,9 +144,21 @@ export default function AdminMerchantStoreDetail() {
             if (!cancelled) {
               setTeam(teamData?.team || []);
               setMerchantUsers(muData?.users || []);
+              pvUiHook("admin.merchant.store.team.load_succeeded.ui", {
+                stable: "admin:merchant:store:team",
+                storeId: Number(storeId),
+                teamCount: teamData?.team?.length ?? 0,
+              });
             }
           } catch (te) {
-            if (!cancelled) setTeamErr(te?.message || "Failed to load store team");
+            if (!cancelled) {
+              setTeamErr(te?.message || "Failed to load store team");
+              pvUiHook("admin.merchant.store.team.load_failed.ui", {
+                stable: "admin:merchant:store:team",
+                storeId: Number(storeId),
+                error: te?.message,
+              });
+            }
           } finally {
             if (!cancelled) setTeamLoading(false);
           }
@@ -228,6 +243,9 @@ export default function AdminMerchantStoreDetail() {
   async function loadTeam(mId) {
     setTeamLoading(true);
     setTeamErr("");
+    pvUiHook("admin.merchant.store.team.load_started.ui", {
+      stable: "admin:merchant:store:team", storeId: Number(storeId),
+    });
     try {
       const [teamData, muData] = await Promise.all([
         adminGetStoreTeam(storeId),
@@ -235,8 +253,18 @@ export default function AdminMerchantStoreDetail() {
       ]);
       setTeam(teamData?.team || []);
       setMerchantUsers(muData?.users || []);
+      pvUiHook("admin.merchant.store.team.load_succeeded.ui", {
+        stable: "admin:merchant:store:team",
+        storeId: Number(storeId),
+        teamCount: teamData?.team?.length ?? 0,
+      });
     } catch (te) {
       setTeamErr(te?.message || "Failed to load store team");
+      pvUiHook("admin.merchant.store.team.load_failed.ui", {
+        stable: "admin:merchant:store:team",
+        storeId: Number(storeId),
+        error: te?.message,
+      });
     } finally {
       setTeamLoading(false);
     }
@@ -245,16 +273,41 @@ export default function AdminMerchantStoreDetail() {
   async function onAssign(e) {
     e.preventDefault();
     setAddErr(""); setAddOk("");
-    if (!addMuId) { setAddErr("Select a team member."); return; }
+    if (!addMuId) {
+      setAddErr("Select a team member.");
+      pvUiHook("admin.merchant.store.team.assign_blocked.ui", {
+        stable: "admin:merchant:store:team:assign",
+        storeId: Number(storeId),
+        reason: "no_member_selected",
+      });
+      return;
+    }
     setAddBusy(true);
+    pvUiHook("admin.merchant.store.team.assign_started.ui", {
+      stable: "admin:merchant:store:team:assign",
+      storeId: Number(storeId),
+      merchantUserId: Number(addMuId),
+      permissionLevel: addPermission,
+    });
     try {
       await adminAssignStoreTeam(storeId, { merchantUserId: Number(addMuId), permissionLevel: addPermission });
       setAddOk("Assigned.");
       setAddMuId(""); setAddPermission("pos_access");
       setAddTeamOpen(false);
+      pvUiHook("admin.merchant.store.team.assign_succeeded.ui", {
+        stable: "admin:merchant:store:team:assign",
+        storeId: Number(storeId),
+        merchantUserId: Number(addMuId),
+        permissionLevel: addPermission,
+      });
       await loadTeam(store.merchant.id);
     } catch (e2) {
       setAddErr(e2?.message || "Failed to assign");
+      pvUiHook("admin.merchant.store.team.assign_failed.ui", {
+        stable: "admin:merchant:store:team:assign",
+        storeId: Number(storeId),
+        error: e2?.message,
+      });
     } finally {
       setAddBusy(false);
     }
@@ -262,11 +315,27 @@ export default function AdminMerchantStoreDetail() {
 
   async function onRemove(storeUserId) {
     setRemoveBusy(storeUserId);
+    pvUiHook("admin.merchant.store.team.remove_started.ui", {
+      stable: "admin:merchant:store:team:remove",
+      storeId: Number(storeId),
+      storeUserId,
+    });
     try {
       await adminRemoveStoreTeamMember(storeUserId);
       setTeam((prev) => prev.filter((m) => m.storeUserId !== storeUserId));
+      pvUiHook("admin.merchant.store.team.remove_succeeded.ui", {
+        stable: "admin:merchant:store:team:remove",
+        storeId: Number(storeId),
+        storeUserId,
+      });
     } catch (e3) {
       setTeamErr(e3?.message || "Failed to remove");
+      pvUiHook("admin.merchant.store.team.remove_failed.ui", {
+        stable: "admin:merchant:store:team:remove",
+        storeId: Number(storeId),
+        storeUserId,
+        error: e3?.message,
+      });
     } finally {
       setRemoveBusy(null);
     }

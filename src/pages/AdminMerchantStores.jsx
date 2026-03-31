@@ -13,6 +13,14 @@ import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {
+    // never break UI for logging
+  }
+}
+
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
   suspended: { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
@@ -61,11 +69,24 @@ export default function AdminMerchantStores() {
   async function load() {
     setLoading(true);
     setLoadErr("");
+    pvUiHook("admin.merchant.stores.load_started.ui", {
+      stable: "admin:merchant:stores:list", merchantId: Number(merchantId),
+    });
     try {
       const m = await getMerchant(merchantId);
       setMerchant(m);
+      pvUiHook("admin.merchant.stores.load_succeeded.ui", {
+        stable: "admin:merchant:stores:list",
+        merchantId: Number(merchantId),
+        storeCount: m?.stores?.length ?? 0,
+      });
     } catch (e) {
       setLoadErr(e?.message || "Failed to load merchant");
+      pvUiHook("admin.merchant.stores.load_failed.ui", {
+        stable: "admin:merchant:stores:list",
+        merchantId: Number(merchantId),
+        error: e?.message,
+      });
     } finally {
       setLoading(false);
     }
@@ -92,17 +113,38 @@ export default function AdminMerchantStores() {
     const postal   = storePostal.trim();
 
     const errors = validateStoreFields({ name, address1, city, state, postal });
-    if (errors.length > 0) { setCreateErr(errors.join("\n")); return; }
+    if (errors.length > 0) {
+      setCreateErr(errors.join("\n"));
+      pvUiHook("admin.merchant.stores.create_validation_failed.ui", {
+        stable: "admin:merchant:stores:create",
+        merchantId: Number(merchantId),
+        errors,
+      });
+      return;
+    }
 
     setCreateBusy(true);
+    pvUiHook("admin.merchant.stores.create_started.ui", {
+      stable: "admin:merchant:stores:create", merchantId: Number(merchantId),
+    });
     try {
-      await createStore({ merchantId: Number(merchantId), name, address1, city, state, postal });
+      const created = await createStore({ merchantId: Number(merchantId), name, address1, city, state, postal });
       setCreateOk("Store created.");
       resetForm();
       setAddOpen(false);
+      pvUiHook("admin.merchant.stores.create_succeeded.ui", {
+        stable: "admin:merchant:stores:create",
+        merchantId: Number(merchantId),
+        storeId: created?.id ?? null,
+      });
       await load();
     } catch (e2) {
       setCreateErr(e2?.message || "Failed to create store");
+      pvUiHook("admin.merchant.stores.create_failed.ui", {
+        stable: "admin:merchant:stores:create",
+        merchantId: Number(merchantId),
+        error: e2?.message,
+      });
     } finally {
       setCreateBusy(false);
     }
@@ -145,7 +187,7 @@ export default function AdminMerchantStores() {
           </span>
         }
         right={
-          <button onClick={load} disabled={createBusy} style={styles.refreshBtn}>Refresh</button>
+          <button onClick={() => { pvUiHook("admin.merchant.stores.refresh_clicked.ui", { stable: "admin:merchant:stores:list", merchantId: Number(merchantId) }); load(); }} disabled={createBusy} style={styles.refreshBtn}>Refresh</button>
         }
       />
 
@@ -156,7 +198,17 @@ export default function AdminMerchantStores() {
       }}>
         <button
           type="button"
-          onClick={() => { setAddOpen((o) => !o); setCreateErr(""); setCreateOk(""); }}
+          onClick={() => {
+            const next = !addOpen;
+            setAddOpen(next);
+            setCreateErr("");
+            setCreateOk("");
+            pvUiHook("admin.merchant.stores.add_toggle.ui", {
+              stable: "admin:merchant:stores:add_form",
+              merchantId: Number(merchantId),
+              open: next,
+            });
+          }}
           style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
         >
           <span style={{ fontWeight: 900 }}>Add Store Location</span>
