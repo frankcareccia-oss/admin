@@ -1605,11 +1605,11 @@ export async function merchantListProducts({ status } = {}) {
   return request(`/merchant/products${qs}`, { auth: "jwt" });
 }
 
-export async function merchantCreateProduct({ name, description, sku } = {}) {
+export async function merchantCreateProduct({ name, description, sku, imageUrl } = {}) {
   return request("/merchant/products", {
     method: "POST",
     auth: "jwt",
-    body: { name, description, sku },
+    body: { name, description, sku, imageUrl },
   });
 }
 
@@ -1638,4 +1638,34 @@ export async function merchantReactivateProduct(productId) {
 export async function adminListMerchantProducts(merchantId, { status } = {}) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return request(`/admin/merchants/${merchantId}/products${qs}`, { auth: "jwt" });
+}
+
+export async function adminCreateMerchantProduct(merchantId, { name, description, sku, imageUrl } = {}) {
+  return request(`/admin/merchants/${merchantId}/products`, {
+    method: "POST",
+    auth: "jwt",
+    body: { name, description, sku, imageUrl },
+  });
+}
+
+export async function adminUpdateMerchantProduct(merchantId, productId, fields = {}) {
+  return request(`/admin/merchants/${merchantId}/products/${productId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function adminDeactivateMerchantProduct(merchantId, productId) {
+  return request(`/admin/merchants/${merchantId}/products/${productId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+export async function adminReactivateMerchantProduct(merchantId, productId) {
+  return request(`/admin/merchants/${merchantId}/products/${productId}/reactivate`, {
+    method: "POST",
+    auth: "jwt",
+  });
 }

@@ -10,6 +10,7 @@ import {
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
 import SectionTabs from "../../components/layout/SectionTabs";
+import useBreakpoint from "../../hooks/useBreakpoint";
 
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
@@ -87,6 +88,7 @@ const card = {
 export default function AdminMerchantBillingPolicy() {
   const { merchantId } = useParams();
   const location = useLocation();
+  const { isMobile } = useBreakpoint();
 
   const [merchant, setMerchant] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
@@ -289,7 +291,7 @@ export default function AdminMerchantBillingPolicy() {
           {/* Effective */}
           <div style={{ ...card, marginBottom: 12 }}>
             <div style={{ fontWeight: 900, marginBottom: 10 }}>Effective Policy</div>
-            <div style={styles.grid}>
+            <div style={{ ...styles.grid, gridTemplateColumns: isMobile ? "1fr" : "220px 1fr" }}>
               <div style={styles.k}>Grace days</div>
               <div>{eff?.graceDays ?? "—"}</div>
 
@@ -316,7 +318,7 @@ export default function AdminMerchantBillingPolicy() {
 
             <form onSubmit={onSave}>
               <fieldset disabled={busy} style={{ border: "none", padding: 0, margin: 0 }}>
-                <div style={styles.gridForm}>
+                <div style={{ ...styles.gridForm, gridTemplateColumns: isMobile ? "1fr" : "220px 1fr" }}>
                   <label style={styles.label}>Grace days</label>
                   <input
                     value={graceDays}

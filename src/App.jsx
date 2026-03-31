@@ -55,6 +55,7 @@ import AdminMerchantUsers from "./pages/AdminMerchantUsers";
 import MerchantInvoices from "./pages/MerchantInvoices";
 import MerchantProducts from "./pages/MerchantProducts";
 import MerchantSetup from "./pages/MerchantSetup";
+import AdminHome from "./pages/AdminHome";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
 import AdminMerchantStores from "./pages/AdminMerchantStores";
@@ -114,7 +115,7 @@ function computeHome() {
   if (landing) return landing;
 
   const sys = getSystemRole();
-  if (sys === "pv_admin") return "/merchants";
+  if (sys === "pv_admin") return "/admin";
   return "/merchant";
 }
 
@@ -628,17 +629,9 @@ function Layout({ children }) {
                             Device verification required
                           </div>
                         ) : (
-                          <>
-                            <NavLink to="/merchants" style={navPill}>
-                              Merchants
-                            </NavLink>
-                            <NavLink to="/admin/billing-policy" style={navPill}>
-                              Billing Policy
-                            </NavLink>
-                            <NavLink to="/admin/invoices" style={navPill}>
-                              Invoices (All)
-                            </NavLink>
-                          </>
+                          <NavLink to="/admin" style={navPill}>
+                            Dashboard
+                          </NavLink>
                         )}
                       </>
                     ) : pos ? (
@@ -943,6 +936,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminMerchantOwnershipChange />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <RequireAuth>
+                <AdminHome />
               </RequireAuth>
             }
           />

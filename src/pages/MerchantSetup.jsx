@@ -11,6 +11,7 @@ import { getMerchant, updateMerchantStatus, adminListMerchantUsers } from "../ap
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import useBreakpoint from "../hooks/useBreakpoint";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -43,6 +44,7 @@ function formatPhone(raw) {
 
 export default function MerchantSetup() {
   const { merchantId } = useParams();
+  const { isMobile } = useBreakpoint();
 
   const [merchant, setMerchant] = React.useState(null);
   const [users, setUsers] = React.useState([]);
@@ -143,7 +145,7 @@ export default function MerchantSetup() {
       {/* Status */}
       <div style={styles.card}>
         <div style={styles.cardTitle}>Merchant Status</div>
-        <form onSubmit={onSaveStatus} style={styles.statusForm}>
+        <form onSubmit={onSaveStatus} style={{ ...styles.statusForm, gridTemplateColumns: isMobile ? "1fr" : "180px minmax(240px, 1fr) 100px" }}>
           <div>
             <label style={styles.label}>Status</label>
             <select value={newStatus} onChange={(e) => setNewStatus(e.target.value)} disabled={busy} style={styles.input}>
@@ -197,7 +199,7 @@ export default function MerchantSetup() {
             {otherContacts.length > 0 && (
               <div style={{ marginTop: 12 }}>
                 <div style={styles.sectionLabel}>Additional contacts</div>
-                <div style={styles.otherGrid}>
+                <div style={{ ...styles.otherGrid, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}>
                   {otherContacts.slice(0, 4).map((u) => (
                     <div key={u.id || u.userId} style={styles.otherCard}>
                       <div style={styles.otherBadge}>{u.role}</div>

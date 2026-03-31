@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { me, merchantCreateStore } from "../api/client";
+import useBreakpoint from "../hooks/useBreakpoint";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -240,6 +241,7 @@ const expandedBoxScheme = {
 
 export default function MerchantStoreCreate() {
   const navigate = useNavigate();
+  const { isMobile } = useBreakpoint();
 
   const [loading, setLoading] = React.useState(true);
   const [creating, setCreating] = React.useState(false);
@@ -482,7 +484,7 @@ export default function MerchantStoreCreate() {
           {showFieldError("address1") ? <div style={errorText}>{errors.address1}</div> : null}
         </div>
 
-        <div style={grid2}>
+        <div style={{ ...grid2, gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)" }}>
           <div style={{ minWidth: 0 }}>
             <div style={label}>City</div>
             <input

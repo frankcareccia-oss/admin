@@ -2,6 +2,7 @@
 import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { listMerchantStores, merchantUpdateStoreProfile, me } from "../api/client";
+import useBreakpoint from "../hooks/useBreakpoint";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -88,6 +89,7 @@ function pickDeep(obj, paths) {
 export default function MerchantStoreEdit() {
   const { storeId } = useParams();
   const navigate = useNavigate();
+  const { isMobile } = useBreakpoint();
 
   const sid = Number(storeId) || null;
 
@@ -436,7 +438,7 @@ export default function MerchantStoreEdit() {
           />
         </div>
 
-        <div style={grid2}>
+        <div style={{ ...grid2, gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) minmax(0, 1fr)" }}>
           <div style={cell}>
             <div style={label}>City</div>
             <input

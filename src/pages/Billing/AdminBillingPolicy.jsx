@@ -47,6 +47,7 @@ import { getBillingPolicy, updateBillingPolicy } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
+import useBreakpoint from "../../hooks/useBreakpoint";
 
 function parseCsvInts(text) {
   const raw = String(text || "")
@@ -96,6 +97,7 @@ const card = {
 };
 
 export default function AdminBillingPolicy() {
+  const { isMobile } = useBreakpoint();
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
@@ -251,7 +253,7 @@ export default function AdminBillingPolicy() {
         <div style={{ ...card, opacity: loading || busy ? 0.75 : 1 }}>
           <div style={styles.cardHeader}>Late Fee Policy</div>
 
-          <div style={styles.grid}>
+          <div style={{ ...styles.grid, gridTemplateColumns: isMobile ? "1fr" : "220px 1fr" }}>
             <label style={styles.label}>Grace days</label>
             <input
               type="number"
@@ -303,7 +305,7 @@ export default function AdminBillingPolicy() {
         <div style={{ ...card, opacity: loading || busy ? 0.75 : 1 }}>
           <div style={styles.cardHeader}>Invoice Net Terms</div>
 
-          <div style={styles.grid}>
+          <div style={{ ...styles.grid, gridTemplateColumns: isMobile ? "1fr" : "220px 1fr" }}>
             <label style={styles.label}>Allowed net terms (days)</label>
             <input
               type="text"

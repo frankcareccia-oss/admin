@@ -19,10 +19,15 @@ import {
   merchantDeactivateProduct,
   merchantReactivateProduct,
   adminListMerchantProducts,
+  adminCreateMerchantProduct,
+  adminUpdateMerchantProduct,
+  adminDeactivateMerchantProduct,
+  adminReactivateMerchantProduct,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import ProductAvatar from "../components/ProductAvatar";
 
 // ─── pvUiHook ────────────────────────────────────────────────
 function pvUiHook(event, fields = {}) {
@@ -50,7 +55,7 @@ function StatusBadge({ status }) {
 }
 
 
-const EMPTY_FORM = { name: "", description: "", sku: "" };
+const EMPTY_FORM = { name: "", description: "", sku: "", imageUrl: "" };
 
 export default function MerchantProducts() {
   const { merchantId } = useParams();
@@ -114,15 +119,24 @@ export default function MerchantProducts() {
     setFormError("");
     const name = form.name.trim();
     if (!name) { setFormError("Name is required"); return; }
+    const imageUrl = form.imageUrl.trim();
+    if (imageUrl && imageUrl.startsWith("data:")) { setFormError("Image URL must be a hosted URL (https://…), not a base64 data URI. Upload the image to an image host first."); return; }
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) { setFormError("Image URL must start with https:// or http://"); return; }
 
     setSaving(true);
     pvUiHook("merchant.products.create.submit", { merchantId, hasCustomSku: Boolean(form.sku.trim()) });
     try {
-      await merchantCreateProduct({
+      const payload = {
         name,
         description: form.description.trim() || undefined,
         sku: form.sku.trim() || undefined,
-      });
+        imageUrl: form.imageUrl.trim() || undefined,
+      };
+      if (isPvAdmin) {
+        await adminCreateMerchantProduct(merchantId, payload);
+      } else {
+        await merchantCreateProduct(payload);
+      }
       setForm(EMPTY_FORM);
       setShowCreate(false);
       setLastSuccessTs(new Date().toISOString());
@@ -142,7 +156,7 @@ export default function MerchantProducts() {
   function startEdit(product) {
     if (showCreate) setShowCreate(false);
     setEditingId(product.id);
-    setEditForm({ name: product.name, description: product.description || "" });
+    setEditForm({ name: product.name, description: product.description || "", imageUrl: product.imageUrl || "" });
     setEditError("");
     pvUiHook("merchant.products.edit.open", { merchantId, productId: product.id, sku: product.sku });
   }
@@ -158,14 +172,23 @@ export default function MerchantProducts() {
     setEditError("");
     const name = (editForm.name || "").trim();
     if (!name) { setEditError("Name is required"); return; }
+    const imageUrl = (editForm.imageUrl || "").trim();
+    if (imageUrl && imageUrl.startsWith("data:")) { setEditError("Image URL must be a hosted URL (https://…), not a base64 data URI."); return; }
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) { setEditError("Image URL must start with https:// or http://"); return; }
 
     setEditSaving(true);
     pvUiHook("merchant.products.edit.submit", { merchantId, productId });
     try {
-      await merchantUpdateProduct(productId, {
+      const payload = {
         name,
         description: editForm.description?.trim() || undefined,
-      });
+        imageUrl: editForm.imageUrl?.trim() || null,
+      };
+      if (isPvAdmin) {
+        await adminUpdateMerchantProduct(merchantId, productId, payload);
+      } else {
+        await merchantUpdateProduct(productId, payload);
+      }
       setEditingId(null);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.products.edit.success", { merchantId, productId });
@@ -184,7 +207,11 @@ export default function MerchantProducts() {
   async function handleDeactivate(product) {
     pvUiHook("merchant.products.deactivate.submit", { merchantId, productId: product.id, sku: product.sku });
     try {
-      await merchantDeactivateProduct(product.id);
+      if (isPvAdmin) {
+        await adminDeactivateMerchantProduct(merchantId, product.id);
+      } else {
+        await merchantDeactivateProduct(product.id);
+      }
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.products.deactivate.success", { merchantId, productId: product.id });
       await load(statusFilter);
@@ -198,7 +225,11 @@ export default function MerchantProducts() {
   async function handleReactivate(product) {
     pvUiHook("merchant.products.reactivate.submit", { merchantId, productId: product.id, sku: product.sku });
     try {
-      await merchantReactivateProduct(product.id);
+      if (isPvAdmin) {
+        await adminReactivateMerchantProduct(merchantId, product.id);
+      } else {
+        await merchantReactivateProduct(product.id);
+      }
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.products.reactivate.success", { merchantId, productId: product.id });
       await load(statusFilter);
@@ -294,6 +325,23 @@ export default function MerchantProducts() {
                 placeholder="Leave blank to auto-generate (e.g. PRD-0001)"
               />
             </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>Image URL</label>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <div style={{ flex: 1 }}>
+                  <input
+                    style={inputStyle}
+                    value={form.imageUrl}
+                    onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
+                    placeholder="https://images.unsplash.com/photo-… (direct image link)"
+                  />
+                  <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 4 }}>
+                    Must be a direct link to an image file, not a webpage. Right-click any image → "Copy image address".
+                  </div>
+                </div>
+                <ProductAvatar name={form.name || "?"} imageUrl={form.imageUrl || undefined} size={40} radius={8} />
+              </div>
+            </div>
             {formError && <div style={errorStyle}>{formError}</div>}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button type="submit" style={btnPrimary} disabled={saving}>
@@ -357,7 +405,10 @@ export default function MerchantProducts() {
                 <React.Fragment key={p.id}>
                   <tr style={{ borderTop: idx === 0 ? "none" : "1px solid rgba(0,0,0,0.06)", background: editingId === p.id ? "rgba(0,0,0,0.015)" : "transparent" }}>
                     <td style={td}>
-                      <span style={{ fontWeight: 700 }}>{p.name}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <ProductAvatar name={p.name} imageUrl={p.imageUrl} size={36} radius={8} />
+                        <span style={{ fontWeight: 700 }}>{p.name}</span>
+                      </div>
                     </td>
                     <td style={{ ...td, fontFamily: "monospace", fontSize: 12 }}>{p.sku}</td>
                     <td style={{ ...td, color: "rgba(0,0,0,0.55)" }}>{p.description || "—"}</td>
@@ -393,11 +444,28 @@ export default function MerchantProducts() {
                           <div>
                             <label style={labelStyle}>Description</label>
                             <input
-                              style={{ ...inputStyle, width: 280 }}
+                              style={{ ...inputStyle, width: 260 }}
                               value={editForm.description || ""}
                               onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
                               placeholder="Optional"
                             />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Image URL</label>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              <div>
+                                <input
+                                  style={{ ...inputStyle, width: 220 }}
+                                  value={editForm.imageUrl || ""}
+                                  onChange={e => setEditForm(f => ({ ...f, imageUrl: e.target.value }))}
+                                  placeholder="Direct image link (https://…)"
+                                />
+                                <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 3 }}>
+                                  Right-click image → "Copy image address"
+                                </div>
+                              </div>
+                              <ProductAvatar name={editForm.name || p.name} imageUrl={editForm.imageUrl || undefined} size={32} radius={6} />
+                            </div>
                           </div>
                           <div style={{ display: "flex", gap: 8 }}>
                             <button type="button" style={btnPrimary} disabled={editSaving} onClick={() => handleEditSave(p.id)}>
