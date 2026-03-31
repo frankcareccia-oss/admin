@@ -1,20 +1,23 @@
 /**
- * Module: admin/src/pages/MerchantDetail.jsx
+ * MerchantDetail.jsx — Merchant Hub
  *
- * Overview tab for a merchant (pv_admin).
- *
- * Responsibilities:
- *  - Merchant status management
- *  - Read-only owner/contact summary
+ * Hub-and-spoke landing page for a merchant.
+ * Each domain (Setup, Team, Stores, Products, Billing) is a card.
+ * Future domains (Rewards, Reporting) shown grayed out.
  */
 
 import React from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
-import { getMerchant, updateMerchantStatus, adminListMerchantUsers } from "../api/client";
-
+import { Link, useParams } from "react-router-dom";
+import { getMerchant, adminListMerchantUsers, adminListMerchantProducts } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SectionTabs from "../components/layout/SectionTabs";
+import SupportInfo from "../components/SupportInfo";
+
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {}
+}
 
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
@@ -31,124 +34,155 @@ function StatusBadge({ status }) {
   );
 }
 
-function formatPhone(raw) {
-  const digits = String(raw || "").replace(/\D/g, "").slice(0, 10);
-  if (digits.length === 0) return "";
-  if (digits.length <= 3) return `(${digits}`;
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
+function HubCard({ to, icon, title, description, meta, disabled }) {
+  const inner = (
+    <div style={{
+      border: `1px solid ${disabled ? "rgba(0,0,0,0.07)" : "rgba(0,0,0,0.12)"}`,
+      borderRadius: 16,
+      padding: "20px 22px",
+      background: disabled ? "rgba(0,0,0,0.02)" : "#fff",
+      cursor: disabled ? "default" : "pointer",
+      transition: "box-shadow 0.15s",
+      height: "100%",
+      boxSizing: "border-box",
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+      opacity: disabled ? 0.55 : 1,
+    }}>
+      <div style={{ fontSize: 28, lineHeight: 1 }}>{icon}</div>
+      <div style={{ fontWeight: 800, fontSize: 15, color: disabled ? "rgba(0,0,0,0.45)" : "#0B2A33" }}>
+        {title}
+        {disabled && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,0,0,0.08)", borderRadius: 999, padding: "2px 8px", verticalAlign: "middle" }}>Coming soon</span>}
+      </div>
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.50)", lineHeight: 1.4 }}>{description}</div>
+      {meta != null && !disabled && (
+        <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.40)" }}>{meta}</div>
+      )}
+    </div>
+  );
 
-function buildTabs(merchantId, pathname) {
-  const base = `/merchants/${merchantId}`;
-  return [
-    { key: "overview",      label: "Overview",       to: base,                                            active: pathname === base },
-    { key: "billing",       label: "Billing",        to: `${base}/billing`,                               active: pathname === `${base}/billing` },
-    { key: "stores",        label: "Stores",         to: `${base}/stores`,                                active: pathname === `${base}/stores` },
-    { key: "team",          label: "Team",           to: `${base}/users`,                                 active: pathname === `${base}/users` },
-    { key: "invoices",      label: "Invoices",       to: `${base}/invoices`,                              active: pathname === `${base}/invoices` },
-    { key: "billingPolicy", label: "Billing Policy", to: `/admin/merchants/${merchantId}/billing-policy`, active: pathname.startsWith(`/admin/merchants/${merchantId}/billing-policy`) },
-  ];
+  if (disabled) return <div>{inner}</div>;
+
+  return (
+    <Link
+      to={to}
+      style={{ textDecoration: "none", color: "inherit" }}
+      onClick={() => pvUiHook("merchant.hub.card.click", { card: title, to })}
+    >
+      {inner}
+    </Link>
+  );
 }
 
 export default function MerchantDetail() {
   const { merchantId } = useParams();
-  const location = useLocation();
 
   const [merchant, setMerchant] = React.useState(null);
-  const [users, setUsers] = React.useState([]);
+  const [userCount, setUserCount] = React.useState(null);
+  const [productCount, setProductCount] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState("");
-  const [saveOk, setSaveOk] = React.useState("");
-
-  const [newStatus, setNewStatus] = React.useState("active");
-  const [statusReason, setStatusReason] = React.useState("");
-  const [busy, setBusy] = React.useState(false);
+  const [lastError, setLastError] = React.useState("");
+  const [lastSuccessTs, setLastSuccessTs] = React.useState("");
 
   async function load() {
     setLoading(true);
     setErr("");
     try {
-      const [mResult, uResult] = await Promise.allSettled([
+      const [mRes, uRes, pRes] = await Promise.allSettled([
         getMerchant(merchantId),
         adminListMerchantUsers(merchantId),
+        adminListMerchantProducts(merchantId),
       ]);
 
-      if (mResult.status === "fulfilled") {
-        const m = mResult.value;
-        setMerchant(m);
-        setNewStatus(m?.status || "active");
-        setStatusReason(m?.statusReason || "");
+      if (mRes.status === "fulfilled") {
+        setMerchant(mRes.value);
+        setLastSuccessTs(new Date().toISOString());
+        pvUiHook("merchant.hub.loaded", { merchantId, status: mRes.value?.status });
       } else {
-        throw new Error(mResult.reason?.message || "Failed to load merchant");
+        throw new Error(mRes.reason?.message || "Failed to load merchant");
       }
 
-      if (uResult.status === "fulfilled") {
-        setUsers(uResult.value?.users || []);
-      }
+      if (uRes.status === "fulfilled") setUserCount((uRes.value?.users || []).length);
+      if (pRes.status === "fulfilled") setProductCount((pRes.value?.items || []).length);
     } catch (e) {
-      setErr(e?.message || "Failed to load merchant");
+      const msg = e?.message || "Failed to load merchant";
+      setErr(msg);
+      setLastError(msg);
     } finally {
       setLoading(false);
     }
   }
 
-  React.useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchantId]);
+  React.useEffect(() => { load(); }, [merchantId]);
 
-  async function onSaveStatus(e) {
-    e.preventDefault();
-    setErr("");
-    setSaveOk("");
-    setBusy(true);
-    try {
-      await updateMerchantStatus(merchantId, {
-        status: newStatus,
-        statusReason: statusReason || undefined,
-      });
-      // Reload to reflect new status in header
-      await load();
-      setSaveOk("Status updated.");
-    } catch (e2) {
-      setErr(e2?.message || "Failed to update merchant status");
-    } finally {
-      setBusy(false);
-    }
-  }
+  if (loading) return <PageContainer><div style={{ padding: 16 }}>Loading…</div></PageContainer>;
+  if (err && !merchant) return <PageContainer><div style={styles.errBox}>{err}</div></PageContainer>;
+  if (!merchant) return <PageContainer><div style={{ padding: 16 }}>Merchant not found</div></PageContainer>;
 
-  if (loading) {
-    return <PageContainer size="page"><div style={{ padding: 16 }}>Loading…</div></PageContainer>;
-  }
+  const base = `/merchants/${merchantId}`;
+  const storeCount = merchant.storeCount ?? merchant.stores?.length ?? null;
 
-  if (err && !merchant) {
-    return (
-      <PageContainer size="page">
-        <div style={styles.errBox}>{err}</div>
-      </PageContainer>
-    );
-  }
-
-  if (!merchant) {
-    return <PageContainer size="page"><div style={{ padding: 16 }}>Merchant not loaded</div></PageContainer>;
-  }
-
-  const tabs = buildTabs(merchantId, location.pathname);
-
-  // Owner contact: prefer merchant_admin, fall back to first user
-  const ownerUser =
-    users.find((u) => u.role === "owner") ||
-    users.find((u) => u.role === "merchant_admin") ||
-    users[0] ||
-    null;
-
-  const otherContacts = users.filter((u) => u !== ownerUser);
+  const cards = [
+    {
+      to: `${base}/setup`,
+      icon: "⚙️",
+      title: "Setup",
+      description: "Merchant profile, status, and primary contact.",
+      meta: merchant.status ? `Status: ${merchant.status}` : null,
+    },
+    {
+      to: `${base}/team`,
+      icon: "👥",
+      title: "Team",
+      description: "Manage users, roles, and merchant-level access.",
+      meta: userCount != null ? `${userCount} user${userCount !== 1 ? "s" : ""}` : null,
+    },
+    {
+      to: `${base}/stores`,
+      icon: "🏪",
+      title: "Stores",
+      description: "Store locations, QR codes, and store-level settings.",
+      meta: storeCount != null ? `${storeCount} store${storeCount !== 1 ? "s" : ""}` : null,
+    },
+    {
+      to: `${base}/products`,
+      icon: "📦",
+      title: "Products",
+      description: "Product and service catalog. SKUs, names, and status.",
+      meta: productCount != null ? `${productCount} product${productCount !== 1 ? "s" : ""}` : null,
+    },
+    {
+      to: `${base}/billing`,
+      icon: "💳",
+      title: "Billing",
+      description: "Billing account, invoices, and payment policy.",
+      meta: null,
+    },
+    {
+      to: null,
+      icon: "🎁",
+      title: "Rewards",
+      description: "Define earn rules, reward types, and loyalty programs.",
+      disabled: true,
+    },
+    {
+      to: null,
+      icon: "📊",
+      title: "Reporting",
+      description: "Visit analytics, reward redemption, and revenue rollups.",
+      disabled: true,
+    },
+  ];
 
   return (
-    <PageContainer size="page">
-      <div style={{ marginBottom: 10 }}>
-        <Link to="/merchants" style={{ textDecoration: "none" }}>Back to Merchants</Link>
+    <PageContainer>
+      {/* Breadcrumb */}
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+        {" / "}
+        <span>{merchant.name}</span>
       </div>
 
       <PageHeader
@@ -162,176 +196,28 @@ export default function MerchantDetail() {
             </span>
           </span>
         }
-        right={
-          <button onClick={load} disabled={busy} style={styles.refreshBtn}>Refresh</button>
-        }
-      >
-        <SectionTabs title="Sections" items={tabs} />
-      </PageHeader>
+        right={<button onClick={load} style={styles.refreshBtn}>Refresh</button>}
+      />
 
-      {/* Status */}
-      <div style={styles.card}>
-        <div style={styles.cardTitle}>Merchant Status</div>
-        <form onSubmit={onSaveStatus} style={styles.statusForm}>
-          <div>
-            <label style={styles.label}>Status</label>
-            <select
-              value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
-              disabled={busy}
-              style={styles.input}
-            >
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
-          <div>
-            <label style={styles.label}>Status reason (optional)</label>
-            <input
-              value={statusReason}
-              onChange={(e) => setStatusReason(e.target.value)}
-              disabled={busy}
-              placeholder="e.g. Past due, Contract ended"
-              style={styles.input}
-            />
-          </div>
-          <div style={styles.saveCell}>
-            <button type="submit" disabled={busy} style={styles.saveBtn}>
-              {busy ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </form>
-        {err    && <div style={{ ...styles.errBox, marginTop: 10 }}>{err}</div>}
-        {saveOk && <div style={{ ...styles.okBox,  marginTop: 10 }}>{saveOk}</div>}
+      <div style={{ marginTop: 24 }} />
+
+      {/* Hub card grid */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+        gap: 16,
+      }}>
+        {cards.map((c) => (
+          <HubCard key={c.title} {...c} />
+        ))}
       </div>
 
-      {/* Owner / Contact */}
-      <div style={styles.card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div style={styles.cardTitle}>Business Contact</div>
-          <Link to={`/merchants/${merchantId}/users`} style={styles.manageLink}>
-            Manage Team →
-          </Link>
-        </div>
-
-        {!ownerUser && (
-          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)" }}>
-            No users on this merchant yet.{" "}
-            <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>Add one →</Link>
-          </div>
-        )}
-
-        {ownerUser && (
-          <>
-            <div style={styles.contactCard}>
-              <div style={styles.contactBadge}>{ownerUser.role}</div>
-              <div style={styles.contactName}>
-                {[ownerUser.firstName, ownerUser.lastName].filter(Boolean).join(" ") || <span style={styles.empty}>Name not set</span>}
-              </div>
-              <div style={styles.contactRow}>{ownerUser.email}</div>
-              {ownerUser.phone && <div style={styles.contactRow}>{formatPhone(ownerUser.phone)}</div>}
-            </div>
-
-            {otherContacts.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div style={styles.sectionLabel}>Additional contacts</div>
-                <div style={styles.otherGrid}>
-                  {otherContacts.slice(0, 4).map((u) => (
-                    <div key={u.id || u.userId} style={styles.otherCard}>
-                      <div style={styles.otherBadge}>{u.role}</div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>
-                        {[u.firstName, u.lastName].filter(Boolean).join(" ") || u.email}
-                      </div>
-                      {[u.firstName, u.lastName].filter(Boolean).join(" ") && (
-                        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{u.email}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {otherContacts.length > 4 && (
-                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 6 }}>
-                    +{otherContacts.length - 4} more —{" "}
-                    <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>view all</Link>
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <SupportInfo context={{ page: "MerchantHub", merchantId, lastError, lastSuccessTs }} />
     </PageContainer>
   );
 }
 
 const styles = {
-  refreshBtn: {
-    padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 800,
-  },
-  card: {
-    marginTop: 16, border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14, padding: 16, background: "white",
-  },
-  cardTitle: { fontWeight: 800, marginBottom: 10 },
-  statusForm: {
-    display: "grid",
-    gridTemplateColumns: "180px minmax(240px, 1fr) 100px",
-    gap: 12, alignItems: "end",
-  },
-  saveCell: { display: "flex", justifyContent: "flex-end", alignItems: "end" },
-  label: {
-    display: "block", fontSize: 12,
-    color: "rgba(0,0,0,0.65)", marginBottom: 6,
-  },
-  input: {
-    width: "100%", padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", boxSizing: "border-box", fontSize: 14,
-  },
-  saveBtn: {
-    width: "100%", padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 900,
-  },
-  errBox: {
-    background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)",
-    padding: 10, borderRadius: 12, whiteSpace: "pre-wrap",
-  },
-  okBox: {
-    background: "rgba(0,128,0,0.06)", border: "1px solid rgba(0,128,0,0.18)",
-    padding: 10, borderRadius: 12,
-  },
-  manageLink: {
-    fontSize: 13, textDecoration: "none", fontWeight: 700,
-    color: "rgba(0,0,150,0.7)",
-  },
-  contactCard: {
-    border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12,
-    padding: 14, background: "rgba(0,0,0,0.015)",
-  },
-  contactBadge: {
-    display: "inline-block", fontSize: 11, fontWeight: 700,
-    color: "rgba(0,0,100,0.65)", background: "rgba(0,0,200,0.07)",
-    padding: "2px 8px", borderRadius: 6, marginBottom: 6,
-    textTransform: "uppercase", letterSpacing: "0.04em",
-  },
-  contactName: { fontWeight: 800, fontSize: 16, marginBottom: 4 },
-  contactRow: { fontSize: 14, color: "rgba(0,0,0,0.7)", lineHeight: 1.5 },
-  empty: { color: "rgba(0,0,0,0.35)", fontStyle: "italic", fontWeight: 400 },
-  sectionLabel: {
-    fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.5)",
-    textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8,
-  },
-  otherGrid: {
-    display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10,
-  },
-  otherCard: {
-    border: "1px solid rgba(0,0,0,0.08)", borderRadius: 10,
-    padding: 10, background: "white",
-  },
-  otherBadge: {
-    fontSize: 10, fontWeight: 700, color: "rgba(0,0,100,0.5)",
-    textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4,
-  },
+  refreshBtn: { padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)", background: "white", cursor: "pointer", fontWeight: 800 },
+  errBox: { background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)", padding: 10, borderRadius: 12 },
 };

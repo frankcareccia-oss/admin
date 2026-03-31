@@ -1,0 +1,531 @@
+/**
+ * MerchantProducts.jsx
+ *
+ * Product catalog management for a merchant.
+ * Accessible by pv_admin (read + manage) and merchant_admin / owner.
+ *
+ * Template: List + Create (style guide)
+ * Breadcrumb → Page Title → Helper Text → Create Card → Filter → Table
+ */
+
+import React from "react";
+import { Link, useParams } from "react-router-dom";
+import {
+  getMerchant,
+  getSystemRole,
+  merchantListProducts,
+  merchantCreateProduct,
+  merchantUpdateProduct,
+  merchantDeactivateProduct,
+  merchantReactivateProduct,
+  adminListMerchantProducts,
+} from "../api/client";
+import PageContainer from "../components/layout/PageContainer";
+import PageHeader from "../components/layout/PageHeader";
+import SupportInfo from "../components/SupportInfo";
+
+// ─── pvUiHook ────────────────────────────────────────────────
+function pvUiHook(event, fields = {}) {
+  try {
+    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
+  } catch {
+    // never break UI
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+const STATUS_COLORS = {
+  active:   { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  inactive: { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_COLORS[status] || STATUS_COLORS.inactive;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
+      {status || "unknown"}
+    </span>
+  );
+}
+
+
+const EMPTY_FORM = { name: "", description: "", sku: "" };
+
+export default function MerchantProducts() {
+  const { merchantId } = useParams();
+  const systemRole = getSystemRole();
+  const isPvAdmin = systemRole === "pv_admin";
+
+  const [merchant, setMerchant] = React.useState(null);
+  const [products, setProducts] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("active");
+
+  // Create panel
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [form, setForm] = React.useState(EMPTY_FORM);
+  const [formError, setFormError] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  // Edit row
+  const [editingId, setEditingId] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({});
+  const [editError, setEditError] = React.useState("");
+  const [editSaving, setEditSaving] = React.useState(false);
+
+  // Last error for SupportInfo
+  const [lastError, setLastError] = React.useState("");
+  const [lastSuccessTs, setLastSuccessTs] = React.useState("");
+
+  // ─── Load ──────────────────────────────────────────────────
+  async function load(filter = statusFilter) {
+    setLoading(true);
+    setError("");
+    try {
+      const [mRes, pRes] = await Promise.all([
+        getMerchant(merchantId),
+        isPvAdmin
+          ? adminListMerchantProducts(merchantId, { status: filter })
+          : merchantListProducts({ status: filter }),
+      ]);
+      setMerchant(mRes?.merchant || mRes);
+      setProducts(pRes?.items || []);
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.products.list.loaded", { merchantId, count: (pRes?.items || []).length, statusFilter: filter });
+    } catch (e) {
+      const msg = e?.message || "Failed to load products";
+      setError(msg);
+      setLastError(msg);
+      pvUiHook("merchant.products.list.error", { merchantId, error: msg });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    load(statusFilter);
+  }, [merchantId, statusFilter]);
+
+  // ─── Create ────────────────────────────────────────────────
+  async function handleCreate(e) {
+    e.preventDefault();
+    setFormError("");
+    const name = form.name.trim();
+    if (!name) { setFormError("Name is required"); return; }
+
+    setSaving(true);
+    pvUiHook("merchant.products.create.submit", { merchantId, hasCustomSku: Boolean(form.sku.trim()) });
+    try {
+      await merchantCreateProduct({
+        name,
+        description: form.description.trim() || undefined,
+        sku: form.sku.trim() || undefined,
+      });
+      setForm(EMPTY_FORM);
+      setShowCreate(false);
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.products.create.success", { merchantId });
+      await load(statusFilter);
+    } catch (e) {
+      const msg = e?.message || "Failed to create product";
+      setFormError(msg);
+      setLastError(msg);
+      pvUiHook("merchant.products.create.error", { merchantId, error: msg });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ─── Edit ──────────────────────────────────────────────────
+  function startEdit(product) {
+    if (showCreate) setShowCreate(false);
+    setEditingId(product.id);
+    setEditForm({ name: product.name, description: product.description || "" });
+    setEditError("");
+    pvUiHook("merchant.products.edit.open", { merchantId, productId: product.id, sku: product.sku });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm({});
+    setEditError("");
+    pvUiHook("merchant.products.edit.cancel", { merchantId });
+  }
+
+  async function handleEditSave(productId) {
+    setEditError("");
+    const name = (editForm.name || "").trim();
+    if (!name) { setEditError("Name is required"); return; }
+
+    setEditSaving(true);
+    pvUiHook("merchant.products.edit.submit", { merchantId, productId });
+    try {
+      await merchantUpdateProduct(productId, {
+        name,
+        description: editForm.description?.trim() || undefined,
+      });
+      setEditingId(null);
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.products.edit.success", { merchantId, productId });
+      await load(statusFilter);
+    } catch (e) {
+      const msg = e?.message || "Failed to update product";
+      setEditError(msg);
+      setLastError(msg);
+      pvUiHook("merchant.products.edit.error", { merchantId, productId, error: msg });
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  // ─── Deactivate / Reactivate ───────────────────────────────
+  async function handleDeactivate(product) {
+    pvUiHook("merchant.products.deactivate.submit", { merchantId, productId: product.id, sku: product.sku });
+    try {
+      await merchantDeactivateProduct(product.id);
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.products.deactivate.success", { merchantId, productId: product.id });
+      await load(statusFilter);
+    } catch (e) {
+      const msg = e?.message || "Failed to deactivate product";
+      setLastError(msg);
+      pvUiHook("merchant.products.deactivate.error", { merchantId, productId: product.id, error: msg });
+    }
+  }
+
+  async function handleReactivate(product) {
+    pvUiHook("merchant.products.reactivate.submit", { merchantId, productId: product.id, sku: product.sku });
+    try {
+      await merchantReactivateProduct(product.id);
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.products.reactivate.success", { merchantId, productId: product.id });
+      await load(statusFilter);
+    } catch (e) {
+      const msg = e?.message || "Failed to reactivate product";
+      setLastError(msg);
+      pvUiHook("merchant.products.reactivate.error", { merchantId, productId: product.id, error: msg });
+    }
+  }
+
+  // ─── Render ────────────────────────────────────────────────
+  const merchantName = merchant?.name || `Merchant ${merchantId}`;
+
+  return (
+    <PageContainer>
+      {/* Breadcrumb */}
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+        {" / "}
+        <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+        {" / "}
+        <span>Products</span>
+      </div>
+
+      <PageHeader
+        title="Products"
+        subtitle={`Catalog for ${merchantName}`}
+      />
+
+      <div style={{ marginTop: 24 }} />
+
+      {/* ── Create Card ── */}
+      {!showCreate ? (
+        <div
+          style={{
+            border: "1px solid rgba(0,0,0,0.10)",
+            borderRadius: 14,
+            padding: "16px 20px",
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "rgba(0,0,0,0.02)",
+          }}
+        >
+          <div>
+            <div style={{ fontWeight: 700 }}>Add a product</div>
+            <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 13, marginTop: 2 }}>
+              SKU is auto-generated if not provided.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setShowCreate(true);
+              setEditingId(null);
+              pvUiHook("merchant.products.create.open", { merchantId });
+            }}
+            style={btnPrimary}
+          >
+            + Add Product
+          </button>
+        </div>
+      ) : (
+        <div style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 14, padding: 20, marginBottom: 20, background: "#fff" }}>
+          <div style={{ fontWeight: 800, marginBottom: 14 }}>New Product</div>
+          <form onSubmit={handleCreate}>
+            <div style={fieldRow}>
+              <label style={labelStyle}>Name <span style={{ color: "red" }}>*</span></label>
+              <input
+                style={inputStyle}
+                value={form.name}
+                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Latte"
+                autoFocus
+              />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>Description</label>
+              <input
+                style={inputStyle}
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Optional"
+              />
+            </div>
+            <div style={fieldRow}>
+              <label style={labelStyle}>SKU</label>
+              <input
+                style={inputStyle}
+                value={form.sku}
+                onChange={e => setForm(f => ({ ...f, sku: e.target.value }))}
+                placeholder="Leave blank to auto-generate (e.g. PRD-0001)"
+              />
+            </div>
+            {formError && <div style={errorStyle}>{formError}</div>}
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+              <button type="submit" style={btnPrimary} disabled={saving}>
+                {saving ? "Saving…" : "Save Product"}
+              </button>
+              <button
+                type="button"
+                style={btnSecondary}
+                onClick={() => {
+                  setShowCreate(false);
+                  setForm(EMPTY_FORM);
+                  setFormError("");
+                  pvUiHook("merchant.products.create.cancel", { merchantId });
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Filter ── */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {["active", "inactive", ""].map(f => (
+          <button
+            key={f || "all"}
+            type="button"
+            style={statusFilter === f ? btnFilterActive : btnFilter}
+            onClick={() => {
+              setStatusFilter(f);
+              pvUiHook("merchant.products.filter.change", { merchantId, statusFilter: f || "all" });
+            }}
+          >
+            {f === "" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Table ── */}
+      {loading ? (
+        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>Loading…</div>
+      ) : error ? (
+        <div style={errorStyle}>{error}</div>
+      ) : products.length === 0 ? (
+        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>No products found.</div>
+      ) : (
+        <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: "rgba(0,0,0,0.03)", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+                <th style={th}>Name</th>
+                <th style={th}>SKU</th>
+                <th style={th}>Description</th>
+                <th style={th}>Status</th>
+                <th style={{ ...th, textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p, idx) => (
+                <React.Fragment key={p.id}>
+                  <tr style={{ borderTop: idx === 0 ? "none" : "1px solid rgba(0,0,0,0.06)", background: editingId === p.id ? "rgba(0,0,0,0.015)" : "transparent" }}>
+                    <td style={td}>
+                      <span style={{ fontWeight: 700 }}>{p.name}</span>
+                    </td>
+                    <td style={{ ...td, fontFamily: "monospace", fontSize: 12 }}>{p.sku}</td>
+                    <td style={{ ...td, color: "rgba(0,0,0,0.55)" }}>{p.description || "—"}</td>
+                    <td style={td}><StatusBadge status={p.status} /></td>
+                    <td style={{ ...td, textAlign: "right" }}>
+                      <div style={{ display: "inline-flex", gap: 8 }}>
+                        {editingId !== p.id && (
+                          <button type="button" style={btnSmall} onClick={() => startEdit(p)}>Edit</button>
+                        )}
+                        {p.status === "active" ? (
+                          <button type="button" style={btnSmallDanger} onClick={() => handleDeactivate(p)}>Deactivate</button>
+                        ) : (
+                          <button type="button" style={btnSmall} onClick={() => handleReactivate(p)}>Reactivate</button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+
+                  {/* Inline edit row */}
+                  {editingId === p.id && (
+                    <tr style={{ borderTop: "1px solid rgba(0,0,0,0.06)", background: "rgba(0,0,0,0.015)" }}>
+                      <td colSpan={5} style={{ padding: "12px 16px" }}>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                          <div>
+                            <label style={labelStyle}>Name <span style={{ color: "red" }}>*</span></label>
+                            <input
+                              style={{ ...inputStyle, width: 220 }}
+                              value={editForm.name || ""}
+                              onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                              autoFocus
+                            />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Description</label>
+                            <input
+                              style={{ ...inputStyle, width: 280 }}
+                              value={editForm.description || ""}
+                              onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                              placeholder="Optional"
+                            />
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button type="button" style={btnPrimary} disabled={editSaving} onClick={() => handleEditSave(p.id)}>
+                              {editSaving ? "Saving…" : "Save"}
+                            </button>
+                            <button type="button" style={btnSecondary} onClick={cancelEdit}>Cancel</button>
+                          </div>
+                        </div>
+                        {editError && <div style={{ ...errorStyle, marginTop: 8 }}>{editError}</div>}
+                        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.40)", marginTop: 6 }}>
+                          SKU <strong>{p.sku}</strong> is stable and cannot be changed.
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <SupportInfo
+        context={{
+          page: "MerchantProducts",
+          merchantId,
+          lastError,
+          lastSuccessTs,
+        }}
+      />
+    </PageContainer>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────
+const btnPrimary = {
+  background: "#0B2A33",
+  color: "#fff",
+  border: "none",
+  borderRadius: 999,
+  padding: "8px 18px",
+  fontWeight: 800,
+  fontSize: 13,
+  cursor: "pointer",
+};
+
+const btnSecondary = {
+  background: "transparent",
+  color: "#0B2A33",
+  border: "1px solid rgba(0,0,0,0.18)",
+  borderRadius: 999,
+  padding: "8px 18px",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: "pointer",
+};
+
+const btnSmall = {
+  background: "transparent",
+  color: "#0B2A33",
+  border: "1px solid rgba(0,0,0,0.18)",
+  borderRadius: 999,
+  padding: "4px 12px",
+  fontWeight: 700,
+  fontSize: 12,
+  cursor: "pointer",
+};
+
+const btnSmallDanger = {
+  ...btnSmall,
+  color: "rgba(160,0,0,0.85)",
+  borderColor: "rgba(160,0,0,0.20)",
+};
+
+const btnFilter = {
+  background: "white",
+  border: "1px solid rgba(0,0,0,0.18)",
+  borderRadius: 999,
+  padding: "6px 14px",
+  fontWeight: 700,
+  fontSize: 12,
+  cursor: "pointer",
+  color: "#0B2A33",
+};
+
+const btnFilterActive = {
+  ...btnFilter,
+  background: "rgba(0,0,0,0.08)",
+  borderColor: "rgba(0,0,0,0.30)",
+};
+
+const fieldRow = { marginBottom: 12 };
+
+const labelStyle = {
+  display: "block",
+  fontSize: 12,
+  fontWeight: 700,
+  color: "rgba(0,0,0,0.60)",
+  marginBottom: 4,
+};
+
+const inputStyle = {
+  width: "100%",
+  padding: "8px 12px",
+  border: "1px solid rgba(0,0,0,0.18)",
+  borderRadius: 8,
+  fontSize: 14,
+  boxSizing: "border-box",
+};
+
+const errorStyle = {
+  color: "rgba(160,0,0,0.90)",
+  fontSize: 13,
+  padding: "8px 12px",
+  background: "rgba(160,0,0,0.06)",
+  borderRadius: 8,
+  marginTop: 4,
+};
+
+const th = {
+  padding: "10px 16px",
+  textAlign: "left",
+  fontWeight: 700,
+  fontSize: 12,
+  color: "rgba(0,0,0,0.55)",
+};
+
+const td = {
+  padding: "12px 16px",
+  verticalAlign: "middle",
+};

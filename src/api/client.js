@@ -1595,3 +1595,47 @@ export async function posCustomerCreate({ phone, firstName, lastName } = {}) {
     raw,
   };
 }
+
+/* =============================================================
+   Catalog — Products (E.2)
+============================================================= */
+
+export async function merchantListProducts({ status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/merchant/products${qs}`, { auth: "jwt" });
+}
+
+export async function merchantCreateProduct({ name, description, sku } = {}) {
+  return request("/merchant/products", {
+    method: "POST",
+    auth: "jwt",
+    body: { name, description, sku },
+  });
+}
+
+export async function merchantUpdateProduct(productId, fields = {}) {
+  return request(`/merchant/products/${productId}`, {
+    method: "PATCH",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function merchantDeactivateProduct(productId) {
+  return request(`/merchant/products/${productId}`, {
+    method: "DELETE",
+    auth: "jwt",
+  });
+}
+
+export async function merchantReactivateProduct(productId) {
+  return request(`/merchant/products/${productId}/reactivate`, {
+    method: "POST",
+    auth: "jwt",
+  });
+}
+
+export async function adminListMerchantProducts(merchantId, { status } = {}) {
+  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+  return request(`/admin/merchants/${merchantId}/products${qs}`, { auth: "jwt" });
+}
