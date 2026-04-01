@@ -2049,10 +2049,10 @@ export async function merchantListBundles({ status } = {}) {
   return request(`/merchant/bundles${qs}`, { auth: "jwt" });
 }
 
-export async function merchantCreateBundle({ name, categoryId, quantity, price, expiresAt } = {}) {
+export async function merchantCreateBundle({ name, price, ruleTree, startAt, endAt } = {}) {
   return request("/merchant/bundles", {
     method: "POST", auth: "jwt",
-    body: { name, categoryId, quantity, price, expiresAt },
+    body: { name, price, ruleTree, startAt, endAt },
   });
 }
 

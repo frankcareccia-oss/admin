@@ -136,6 +136,31 @@ function MerchantPromotionsGate() {
   return <div style={{ padding: 24, color: "rgba(0,0,0,0.5)" }}>Loading promotions…</div>;
 }
 
+function MerchantBundlesGate() {
+  const navigate = useNavigate();
+  const [err, setErr] = React.useState(null);
+
+  React.useEffect(() => {
+    me().then((res) => {
+      const merchantId =
+        res?.user?.merchantUsers?.[0]?.merchantId ??
+        res?.user?.merchantUsers?.[0]?.merchant?.id ??
+        null;
+      if (merchantId) {
+        navigate(`/merchants/${merchantId}/bundles`, { replace: true });
+      } else {
+        setErr("Bundles are not available for this account.");
+      }
+    }).catch((e) => {
+      setErr(e?.message || "Failed to load bundles.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (err) return <div style={{ padding: 24, color: "rgba(140,0,0,1)" }}>{err}</div>;
+  return <div style={{ padding: 24, color: "rgba(0,0,0,0.5)" }}>Loading bundles…</div>;
+}
+
 function computeHome() {
   const authed = Boolean(getAccessToken());
   if (!authed) return "/login";
@@ -684,6 +709,10 @@ function Layout({ children }) {
                           Promotions
                         </NavLink>
 
+                        <NavLink to="/merchant/bundles" style={navPill}>
+                          Bundles
+                        </NavLink>
+
                         {canSeeInvoices(merchantRole) ? (
                           <NavLink to="/merchant/invoices" style={navPill}>
                             Invoices
@@ -901,6 +930,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantPromotionsGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/bundles"
+            element={
+              <RequireAuth>
+                <MerchantBundlesGate />
               </RequireAuth>
             }
           />

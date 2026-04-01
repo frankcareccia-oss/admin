@@ -370,7 +370,7 @@ export default function MerchantBundles() {
     try {
       const params = filter ? { status: filter } : {};
       const [mRes, bRes, pRes] = await Promise.all([
-        getMerchant(merchantId),
+        isPvAdmin ? getMerchant(merchantId) : Promise.resolve(null),
         isPvAdmin ? adminListMerchantBundles(merchantId, params) : merchantListBundles(params),
         isPvAdmin ? adminListMerchantProducts(merchantId, { status: "active" }) : merchantListProducts({ status: "active" }),
       ]);

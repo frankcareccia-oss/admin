@@ -103,15 +103,22 @@ const input = {
 
 // ── Sub-components ────────────────────────────────────────────
 
+function formatPhoneDisplay(consumer) {
+  const raw = consumer.phoneRaw || consumer.phoneE164 || "";
+  const digits = raw.replace(/\D/g, "").slice(-10);
+  if (digits.length === 10) return `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  return raw;
+}
+
 function ConsumerCard({ consumer }) {
   if (!consumer) return null;
   const name = [consumer.firstName, consumer.lastName].filter(Boolean).join(" ") || "—";
   return (
-    <div style={{ ...card, background: "rgba(37,99,235,0.04)", border: "1px solid rgba(37,99,235,0.18)", marginBottom: 10 }}>
-      <div style={{ fontWeight: 900, marginBottom: 4 }}>Consumer Found</div>
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>{name}</div>
-      {consumer.phoneE164 ? <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{consumer.phoneE164}</div> : null}
-      {consumer.email ? <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{consumer.email}</div> : null}
+    <div style={{ padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(0,170,0,0.30)", background: "rgba(0,200,0,0.07)", marginBottom: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 950, color: "rgba(0,100,0,0.80)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Consumer found ✓</div>
+      <div style={{ fontWeight: 950, fontSize: 18, marginBottom: 2 }}>{name}</div>
+      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", fontWeight: 850 }}>{formatPhoneDisplay(consumer)}</div>
+      {consumer.email ? <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 2 }}>{consumer.email}</div> : null}
     </div>
   );
 }
@@ -470,8 +477,8 @@ export default function PosBundles() {
               ))}
             </div>
           ) : consumer && instances.length === 0 && !sellResult ? (
-            <div style={{ ...card, color: "rgba(0,0,0,0.55)", fontSize: 13 }}>
-              No active bundle instances for this consumer.
+            <div style={{ padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "white", color: "rgba(0,0,0,0.55)", fontSize: 13, fontWeight: 850, marginBottom: 14 }}>
+              No active bundles for this customer — sell one below.
             </div>
           ) : null}
 
@@ -556,9 +563,6 @@ export default function PosBundles() {
         </>
       ) : null}
 
-      <div style={{ marginTop: 14, fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
-        Screen <code>PosBundles</code> · Phase C simple mode
-      </div>
     </div>
   );
 }
