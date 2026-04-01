@@ -3,6 +3,7 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { me, merchantCreateStore } from "../api/client";
 import useBreakpoint from "../hooks/useBreakpoint";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -129,47 +130,41 @@ function normalizeStatusValue(v) {
   return raw;
 }
 
-/* Neutral pill styling (no surprise-blue) */
+/* Neutral pill styling */
 const pill = (disabled = false) => ({
   padding: "10px 14px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: disabled ? "rgba(0,0,0,0.03)" : "white",
+  border: `1px solid ${color.border}`,
+  background: disabled ? color.borderSubtle : color.cardBg,
   cursor: disabled ? "not-allowed" : "pointer",
   fontWeight: 800,
-  color: "rgba(0,0,0,0.85)",
+  color: color.text,
   opacity: disabled ? 0.55 : 1,
 });
 
 const label = {
   fontSize: 12,
   fontWeight: 800,
-  color: "rgba(0,0,0,0.65)",
+  color: color.textMuted,
   marginBottom: 6,
 };
 
 const inputBase = {
-  width: "100%",
+  ...themeInput,
   maxWidth: "100%",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
-  boxSizing: "border-box",
   minWidth: 0,
 };
 
 const helpText = {
   marginTop: 6,
   fontSize: 12,
-  color: "rgba(0,0,0,0.55)",
+  color: color.textMuted,
 };
 
 const errorText = {
   marginTop: 6,
   fontSize: 12,
-  color: "rgba(180, 0, 0, 0.85)",
+  color: color.danger,
   fontWeight: 700,
 };
 
@@ -184,14 +179,14 @@ const grid2 = {
 const crumbLink = {
   textDecoration: "none",
   fontWeight: 800,
-  color: "#2563EB",
+  color: color.primary,
 };
 
 function fieldStyle(hasError) {
   return {
     ...inputBase,
-    border: hasError ? "1px solid rgba(200, 0, 0, 0.40)" : inputBase.border,
-    background: hasError ? "rgba(255, 0, 0, 0.03)" : inputBase.background,
+    border: hasError ? `1px solid ${color.dangerBorder}` : inputBase.border,
+    background: hasError ? color.dangerSubtle : inputBase.background,
   };
 }
 
@@ -227,14 +222,13 @@ function validateAll({ name, address1, city, state, postal, status }) {
 }
 
 /**
- * ✅ EXACT expanded-box scheme from MerchantStores.jsx (expandInner)
- * Apply to the Create Store panel wrapper.
+ * Expanded-box scheme matching MerchantStores.jsx expandInner.
  */
 const expandedBoxScheme = {
   padding: 14,
   borderRadius: 16,
-  border: "2px solid rgba(0,0,0,0.18)",
-  background: "rgba(0,0,0,0.02)",
+  border: `2px solid ${color.border}`,
+  background: color.pageBg,
   boxShadow: "0 3px 10px rgba(0,0,0,0.10)",
   boxSizing: "border-box",
 };
@@ -396,12 +390,12 @@ export default function MerchantStoreCreate() {
       </div>
 
       <h2 style={{ marginTop: 0, marginBottom: 6 }}>Create Store</h2>
-      <div style={{ marginBottom: 16, fontSize: 13, color: "rgba(0,0,0,0.60)", maxWidth: 700 }}>
+      <div style={{ marginBottom: 16, fontSize: 13, color: color.textMuted, maxWidth: 700 }}>
         Add a new location where your business operates.
       </div>
 
       {DEV_MODE ? (
-        <div style={{ color: "rgba(0,0,0,0.45)", marginBottom: 12, fontSize: 12 }}>
+        <div style={{ color: color.textFaint, marginBottom: 12, fontSize: 12 }}>
           Scope <code>{merchantId ?? "unknown"}</code>
         </div>
       ) : null}
@@ -410,8 +404,8 @@ export default function MerchantStoreCreate() {
         <div
           style={{
             marginTop: 10,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
             padding: 10,
             borderRadius: 12,
             whiteSpace: "pre-wrap",
@@ -563,7 +557,7 @@ export default function MerchantStoreCreate() {
       </div>
 
       {DEV_MODE ? (
-        <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+        <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
           Screen <code>MerchantStoreCreate</code>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { Elements } from "@stripe/react-stripe-js";
 import GuestPayCheckout from "./GuestPayCheckout";
 import { stripePromise, backendBaseUrl as backendBaseUrlRaw } from "../../payments/stripeClient";
+import { color } from "../../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -193,7 +194,7 @@ export default function GuestPayPage() {
           border: "none",
           padding: 0,
           marginBottom: 12,
-          color: "rgba(0,0,0,0.6)",
+          color: color.textMuted,
           cursor: "pointer",
           fontWeight: 800,
         }}
@@ -203,16 +204,16 @@ export default function GuestPayPage() {
 
       <div style={{ fontSize: 34, fontWeight: 900, marginBottom: 14 }}>Pay Invoice</div>
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)" }}>Loading…</div> : null}
+      {loading ? <div style={{ color: color.textMuted }}>Loading…</div> : null}
 
       {error ? (
         <div
           style={{
             padding: 14,
             borderRadius: 14,
-            border: "1px solid rgba(255,0,0,0.18)",
-            background: "rgba(255,0,0,0.06)",
-            color: "rgba(160,0,0,0.95)",
+            border: `1px solid ${color.dangerBorder}`,
+            background: color.dangerSubtle,
+            color: color.danger,
             fontWeight: 800,
             marginTop: 10,
           }}
@@ -224,13 +225,13 @@ export default function GuestPayPage() {
       {!loading && !error && summary ? (
         <>
           <div style={{ fontSize: 16, fontWeight: 900 }}>{summary.merchantName || "Merchant"}</div>
-          <div style={{ marginTop: 2, color: "rgba(0,0,0,0.70)" }}>Invoice #{summary.invoiceId}</div>
+          <div style={{ marginTop: 2, color: color.textMuted }}>Invoice #{summary.invoiceId}</div>
 
           <div style={{ marginTop: 6, fontWeight: 900 }}>
             Amount due: {moneyUsd(summary.amountDueCents)}
           </div>
 
-          <div style={{ marginTop: 6, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <div style={{ marginTop: 6, fontSize: 12, color: color.textMuted }}>
             Cards only (Stripe Elements). Card data never touches PerkValet servers.
           </div>
 
@@ -241,9 +242,9 @@ export default function GuestPayPage() {
                   marginTop: 16,
                   padding: 14,
                   borderRadius: 14,
-                  border: "1px solid rgba(255,0,0,0.18)",
-                  background: "rgba(255,0,0,0.06)",
-                  color: "rgba(160,0,0,0.95)",
+                  border: `1px solid ${color.dangerBorder}`,
+                  background: color.dangerSubtle,
+                  color: color.danger,
                   fontWeight: 800,
                 }}
               >
@@ -255,9 +256,9 @@ export default function GuestPayPage() {
                   marginTop: 12,
                   padding: 12,
                   borderRadius: 14,
-                  border: "1px solid rgba(0,0,0,0.08)",
-                  background: "rgba(0,0,0,0.03)",
-                  color: "rgba(0,0,0,0.72)",
+                  border: `1px solid ${color.border}`,
+                  background: color.borderSubtle,
+                  color: color.textMuted,
                   fontWeight: 700,
                 }}
               >
@@ -272,7 +273,7 @@ export default function GuestPayPage() {
             </div>
           )}
 
-          <div style={{ marginTop: 16, fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+          <div style={{ marginTop: 16, fontSize: 12, color: color.textFaint }}>
             Backend: {BACKEND_BASE} • Mode: {summary.mode}
           </div>
         </>

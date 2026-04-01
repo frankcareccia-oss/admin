@@ -23,6 +23,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
@@ -541,7 +542,7 @@ export default function AdminMerchantUsers() {
 
   return (
     <PageContainer size="page">
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName || `Merchant ${merchantId}`}</Link>
@@ -555,7 +556,7 @@ export default function AdminMerchantUsers() {
           merchant ? (
             <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <StatusBadge status={merchant.status} />
-              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+              <span style={{ fontSize: 12, color: color.textMuted }}>
                 {merchantName} · ID: {merchant.id}
                 {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
               </span>
@@ -1056,24 +1057,12 @@ const styles = {
     marginBottom: 6,
   },
   recoverySelect: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "10px 12px",
+    ...themeInput,
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    color: TOKENS.navy,
-    fontSize: 14,
   },
   recoveryInput: {
-    width: "100%",
-    boxSizing: "border-box",
-    padding: "10px 12px",
+    ...themeInput,
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    color: TOKENS.navy,
-    fontSize: 14,
   },
   recoveryActionsRow: {
     gridColumn: "1 / span 2",
@@ -1085,12 +1074,8 @@ const styles = {
   },
   recoveryBtn: {
     padding: "10px 14px",
+    ...btn.secondary,
     borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
-    color: TOKENS.navy,
     whiteSpace: "nowrap",
     minHeight: 44,
   },
@@ -1167,21 +1152,21 @@ const styles = {
   refreshBtn: {
     padding: "10px 12px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     cursor: "pointer",
     fontWeight: 800,
-    color: TOKENS.navy,
+    color: color.text,
   },
 
   errBox: {
     marginTop: 12,
-    background: "rgba(255,0,0,0.06)",
-    border: "1px solid rgba(255,0,0,0.15)",
+    background: color.dangerSubtle,
+    border: `1px solid ${color.dangerBorder}`,
     padding: 10,
     borderRadius: 12,
     whiteSpace: "pre-wrap",
-    color: TOKENS.navy,
+    color: color.danger,
   },
 
   okBox: {

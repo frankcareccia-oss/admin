@@ -5,6 +5,7 @@ import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { getStore, updateStore, adminGetStoreTeam, adminAssignStoreTeam, adminRemoveStoreTeamMember, adminListMerchantUsers, adminListStoreProducts, adminSetStoreProduct } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 function validateStoreFields({ name, address1, city, state, postal }) {
   const errors = [];
@@ -35,8 +36,8 @@ const card = {
   marginTop: 16,
   padding: 20,
   borderRadius: 14,
-  border: `1px solid ${COLORS.border}`,
-  background: "#FFFFFF",
+  border: `1px solid ${color.border}`,
+  background: color.cardBg,
   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
 };
 
@@ -56,17 +57,12 @@ const statusPill = (status) => ({
 });
 
 const inputStyle = {
-  width: "100%",
-  padding: "9px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  fontSize: 14,
-  boxSizing: "border-box",
+  ...themeInput,
   fontFamily: "inherit",
 };
 
-const teamTh = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", fontSize: 12, color: "rgba(0,0,0,0.55)", fontWeight: 700 };
-const teamTd = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 13, verticalAlign: "middle" };
+const teamTh = { padding: "10px 12px", borderBottom: `1px solid ${color.borderSubtle}`, fontSize: 12, color: color.textMuted, fontWeight: 700 };
+const teamTd = { padding: "10px 12px", borderBottom: `1px solid ${color.borderSubtle}`, fontSize: 13, verticalAlign: "middle" };
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA",
   "KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND",
@@ -442,14 +438,14 @@ export default function AdminMerchantStoreDetail() {
       </div>
 
       {err ? (
-        <div style={{ borderRadius: 12, border: "1px solid rgba(255,0,0,0.15)", background: "rgba(255,0,0,0.06)", padding: "12px 16px", marginTop: 16 }}>
-          <span style={{ fontSize: 13, color: "rgba(180,0,0,0.85)" }}>{err}</span>
+        <div style={{ borderRadius: 12, border: `1px solid ${color.dangerBorder}`, background: color.dangerSubtle, padding: "12px 16px", marginTop: 16 }}>
+          <span style={{ fontSize: 13, color: color.danger }}>{err}</span>
         </div>
       ) : null}
 
       {saveOk && !editing ? (
         <div style={{ borderRadius: 12, border: "1px solid rgba(0,128,0,0.18)", background: "rgba(0,128,0,0.06)", padding: "12px 16px", marginTop: 16 }}>
-          <span style={{ fontSize: 13, color: "rgba(0,100,0,0.85)" }}>{saveOk}</span>
+          <span style={{ fontSize: 13, color: "rgba(0,100,0,1)" }}>{saveOk}</span>
         </div>
       ) : null}
 
@@ -526,7 +522,7 @@ export default function AdminMerchantStoreDetail() {
                 </div>
 
                 {saveErr ? (
-                  <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)", fontSize: 13, color: "rgba(180,0,0,0.85)" }}>
+                  <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, fontSize: 13, color: color.danger }}>
                     {saveErr}
                   </div>
                 ) : null}
@@ -539,12 +535,12 @@ export default function AdminMerchantStoreDetail() {
                     style={{
                       padding: "9px 20px",
                       borderRadius: 999,
-                      border: "1px solid rgba(0,0,0,0.18)",
-                      background: "#fff",
+                      border: `1px solid ${color.border}`,
+                      background: color.cardBg,
                       fontWeight: 800,
                       fontSize: 13,
                       cursor: "pointer",
-                      color: COLORS.text,
+                      color: color.text,
                     }}
                   >
                     Cancel
@@ -555,10 +551,7 @@ export default function AdminMerchantStoreDetail() {
                     style={{
                       padding: "9px 20px",
                       borderRadius: 999,
-                      border: "none",
-                      background: COLORS.primary,
-                      color: "#fff",
-                      fontWeight: 800,
+                      ...btn.primary,
                       fontSize: 13,
                       cursor: saveBusy ? "not-allowed" : "pointer",
                       opacity: saveBusy ? 0.7 : 1,
@@ -657,7 +650,7 @@ export default function AdminMerchantStoreDetail() {
             {spLoading ? (
               <div style={{ fontSize: 13, color: COLORS.neutral }}>Loading products…</div>
             ) : spErr ? (
-              <div style={{ fontSize: 13, color: "rgba(180,0,0,0.85)", marginBottom: 8 }}>{spErr}</div>
+              <div style={{ fontSize: 13, color: color.danger, marginBottom: 8 }}>{spErr}</div>
             ) : storeProducts.length === 0 ? (
               <div style={{ fontSize: 13, color: COLORS.neutral }}>No products in this merchant's catalog yet.</div>
             ) : (
@@ -761,7 +754,7 @@ export default function AdminMerchantStoreDetail() {
                                 type="button"
                                 disabled={removeBusy === m.storeUserId}
                                 onClick={() => onRemove(m.storeUserId)}
-                                style={{ all: "unset", cursor: "pointer", fontSize: 12, color: "rgba(180,0,0,0.75)", fontWeight: 700 }}
+                                style={{ all: "unset", cursor: "pointer", fontSize: 12, color: color.danger, fontWeight: 700 }}
                               >
                                 {removeBusy === m.storeUserId ? "..." : "Remove"}
                               </button>
@@ -779,10 +772,10 @@ export default function AdminMerchantStoreDetail() {
 
                 {/* Add member — collapsible */}
                 <div style={{
-                  border: addTeamOpen ? "1.5px solid rgba(0,80,200,0.30)" : "1px solid rgba(0,0,0,0.10)",
+                  border: addTeamOpen ? `1.5px solid ${color.primaryBorder}` : `1px solid ${color.border}`,
                   borderRadius: 10,
                   padding: "10px 14px",
-                  boxShadow: addTeamOpen ? "0 2px 8px rgba(0,80,200,0.08)" : "none",
+                  boxShadow: addTeamOpen ? "0 2px 8px rgba(47,143,139,0.10)" : "none",
                 }}>
                   <button
                     type="button"
@@ -826,16 +819,16 @@ export default function AdminMerchantStoreDetail() {
                           </select>
                         </div>
                       </div>
-                      {addErr && <div style={{ fontSize: 12, color: "rgba(180,0,0,0.85)", marginBottom: 8 }}>{addErr}</div>}
-                      {addOk  && <div style={{ fontSize: 12, color: "rgba(0,100,0,0.85)", marginBottom: 8 }}>{addOk}</div>}
+                      {addErr && <div style={{ fontSize: 12, color: color.danger, marginBottom: 8 }}>{addErr}</div>}
+                      {addOk  && <div style={{ fontSize: 12, color: "rgba(0,100,0,1)", marginBottom: 8 }}>{addOk}</div>}
                       <div style={{ display: "flex", justifyContent: "flex-end" }}>
                         <button
                           type="submit"
                           disabled={addBusy}
                           style={{
                             padding: "8px 20px", borderRadius: 999,
-                            border: "none", background: COLORS.primary,
-                            color: "#fff", fontWeight: 800, fontSize: 13,
+                            ...btn.primary,
+                            fontSize: 13,
                             cursor: addBusy ? "not-allowed" : "pointer",
                             opacity: addBusy ? 0.7 : 1,
                           }}

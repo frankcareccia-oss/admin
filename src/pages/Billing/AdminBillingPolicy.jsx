@@ -49,6 +49,7 @@ import { getBillingPolicy, updateBillingPolicy } from "../../api/client";
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
 import useBreakpoint from "../../hooks/useBreakpoint";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 function parseCsvInts(text) {
   const raw = String(text || "")
@@ -74,27 +75,22 @@ function dollarsStringToCents(dollarsStr) {
 }
 
 const controlBase = {
+  ...themeInput,
   padding: "7px 10px",
   borderRadius: 8,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
 };
 
 const buttonBase = {
   padding: "10px 12px",
+  ...btn.secondary,
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: 900,
 };
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 12,
-  background: "white",
+  background: color.cardBg,
 };
 
 export default function AdminBillingPolicy() {
@@ -206,7 +202,7 @@ export default function AdminBillingPolicy() {
 
   return (
     <PageContainer size="form">
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/admin" style={{ color: "inherit", textDecoration: "none" }}>Dashboard</Link>
         {" / "}
         <span>Billing Policy</span>
@@ -227,19 +223,19 @@ export default function AdminBillingPolicy() {
         }
       />
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading…</div> : null}
+      {loading ? <div style={{ color: color.textMuted, padding: "6px 2px" }}>Loading…</div> : null}
 
       {error ? (
         <div
           style={{
             ...card,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
             marginBottom: 12,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Error</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{error}</div>
+          <div style={{ fontWeight: 900, marginBottom: 6, color: color.danger }}>Error</div>
+          <div style={{ whiteSpace: "pre-wrap", color: color.danger }}>{error}</div>
         </div>
       ) : null}
 
@@ -247,8 +243,8 @@ export default function AdminBillingPolicy() {
         <div
           style={{
             ...card,
-            background: "rgba(0,120,255,0.08)",
-            border: "1px solid rgba(0,120,255,0.18)",
+            background: color.primarySubtle,
+            border: `1px solid ${color.primaryBorder}`,
             marginBottom: 12,
           }}
         >
@@ -343,7 +339,7 @@ export default function AdminBillingPolicy() {
         </div>
 
         {updatedAt ? (
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+          <div style={{ fontSize: 12, color: color.textMuted }}>
             Last updated: <code>{updatedAt}</code>
           </div>
         ) : null}
@@ -357,7 +353,7 @@ const styles = {
     fontWeight: 900,
     fontSize: 14,
     marginBottom: 6,
-    color: "rgba(0,0,0,0.78)",
+    color: color.text,
   },
   grid: {
     display: "grid",
@@ -368,12 +364,12 @@ const styles = {
   },
   label: {
     fontSize: 12,
-    color: "rgba(0,0,0,0.65)",
+    color: color.textMuted,
     fontWeight: 800,
   },
   note: {
     marginTop: 10,
     fontSize: 12,
-    color: "rgba(0,0,0,0.60)",
+    color: color.textMuted,
   },
 };

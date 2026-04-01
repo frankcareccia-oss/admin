@@ -8,6 +8,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAccessToken } from "../api/client";
+import { color, btn } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -317,8 +318,8 @@ export default function PosRegisterVisit() {
         </Link>
       </div>
 
-      <h2>Register Visit</h2>
-      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>
+      <h2 style={{ color: color.text }}>Register Visit</h2>
+      <div style={{ color: color.textMuted, marginBottom: 10 }}>
         Confirm with the customer, then register the visit.
       </div>
 
@@ -396,38 +397,26 @@ export default function PosRegisterVisit() {
 
 const styles = {
   pill: {
+    ...btn.pill,
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
     textDecoration: "none",
-    color: "inherit",
-    fontWeight: 700,
   },
   pillBtn: {
+    ...btn.pill,
     padding: "10px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
   },
   primaryBtn: {
+    ...btn.primary,
     padding: "12px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "black",
-    color: "white",
-    cursor: "pointer",
-    fontWeight: 950,
     minWidth: 170,
     opacity: 1,
   },
   confirmPanel: {
     padding: 12,
     borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
   },
   identityGrid: {
     display: "grid",
@@ -435,20 +424,20 @@ const styles = {
     gap: 10,
     alignItems: "center",
   },
-  identityLabel: { color: "rgba(0,0,0,0.60)", fontWeight: 950, fontSize: 12 },
-  identityValue: { fontWeight: 950, fontSize: 16 },
-  identityValueMuted: { fontWeight: 900, fontSize: 16, color: "rgba(0,0,0,0.45)" },
-  metaLine: { color: "rgba(0,0,0,0.55)", fontSize: 12, fontWeight: 850 },
-  helperLine: { color: "rgba(0,0,0,0.55)", fontWeight: 750, fontSize: 12 },
-  inlineErr: { marginTop: 8, fontSize: 12, color: "rgba(150,0,0,0.85)", fontWeight: 900 },
+  identityLabel: { color: color.textMuted, fontWeight: 950, fontSize: 12 },
+  identityValue: { fontWeight: 950, fontSize: 16, color: color.text },
+  identityValueMuted: { fontWeight: 900, fontSize: 16, color: color.textFaint },
+  metaLine: { color: color.textFaint, fontSize: 12, fontWeight: 850 },
+  helperLine: { color: color.textFaint, fontWeight: 750, fontSize: 12 },
+  inlineErr: { marginTop: 8, fontSize: 12, color: color.danger, fontWeight: 900 },
 
   errorBox: {
     marginTop: 12,
     padding: 12,
     borderRadius: 12,
-    color: "rgba(140,0,0,1)",
-    border: "1px solid rgba(255,0,0,0.18)",
-    background: "rgba(255,0,0,0.04)",
+    color: color.danger,
+    border: `1px solid ${color.dangerBorder}`,
+    background: color.dangerSubtle,
     fontWeight: 900,
     whiteSpace: "pre-wrap",
   },
@@ -466,24 +455,21 @@ const styles = {
     marginTop: 12,
     padding: 12,
     borderRadius: 12,
-    border: "1px dashed rgba(0,0,0,0.25)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px dashed ${color.border}`,
+    background: color.cardBg,
   },
   debugBtn: {
+    ...btn.secondary,
     padding: "8px 10px",
     borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
   },
-  debugHint: { marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)", lineHeight: 1.35 },
+  debugHint: { marginTop: 10, fontSize: 12, color: color.textFaint, lineHeight: 1.35 },
   pre: {
     marginTop: 12,
     padding: 12,
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     overflowX: "auto",
   },
 };

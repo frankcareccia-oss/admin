@@ -3,6 +3,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import PageContainer from "../components/layout/PageContainer";
 import { listMerchantStores, me, getSystemRole, merchantUpdateStoreProfile } from "../api/client";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -485,7 +486,7 @@ export default function MerchantStores() {
                 View and update your existing store locations.
               </div>
             </div>
-            <div style={{ color: "rgba(0,0,0,0.6)" }}>
+            <div style={{ color: color.textMuted }}>
               ({items.length} store{items.length === 1 ? "" : "s"})
             </div>
           </div>
@@ -526,7 +527,7 @@ export default function MerchantStores() {
                       </div>
 
                       <div style={rowSubLine}>
-                        <span style={{ color: "rgba(0,0,0,0.55)" }}>
+                        <span style={{ color: color.textMuted }}>
                           {[s.address1 ? String(s.address1) : "", s.postal ? String(s.postal) : ""]
                             .filter(Boolean)
                             .join(" · ") || "—"}
@@ -565,7 +566,7 @@ export default function MerchantStores() {
                           <div style={{ fontWeight: 900, color: TOKENS.text }}>Store settings</div>
 
                           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                            <div style={{ fontSize: 12, color: color.textMuted }}>
                               {canManageStores ? (dirty ? "Unsaved changes" : "No changes") : "View only"}
                               {saving ? " · Saving…" : ""}
                             </div>
@@ -595,7 +596,7 @@ export default function MerchantStores() {
                         </div>
 
                         {!canManageStores ? (
-                          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+                          <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
                             You can view stores, but you don’t have permission to edit store profile fields.
                           </div>
                         ) : (
@@ -701,7 +702,7 @@ export default function MerchantStores() {
                         )}
 
                         {DEV_MODE ? (
-                          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                          <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
                             Screen <code>MerchantStores</code> · StoreId <code>{sid}</code> · SystemRole{" "}
                             <code>{systemRole || "?"}</code> · MerchantRole <code>{merchantRole || "unknown"}</code>
                           </div>
@@ -714,7 +715,7 @@ export default function MerchantStores() {
             })}
 
             {!loading && items.length === 0 && !err ? (
-              <div style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+              <div style={{ padding: 14, color: color.textMuted }}>
                 No stores available for this user.
                 {canManageStores ? (
                   <>
@@ -728,7 +729,7 @@ export default function MerchantStores() {
         </div>
 
         {profile ? (
-          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
             Logged in as <code>{profile?.user?.email}</code> (system role <code>{profile?.user?.systemRole}</code>,
             merchant role <code>{merchantRole || "unknown"}</code>)
           </div>
@@ -774,7 +775,7 @@ const headerRow = {
 const headerSub = {
   marginTop: 6,
   fontSize: 13,
-  color: "rgba(0,0,0,0.60)",
+  color: color.textMuted,
   maxWidth: 760,
   lineHeight: 1.45,
 };
@@ -793,7 +794,7 @@ const listBody = {
 const card = {
   width: "100%",
   boxSizing: "border-box",
-  border: "1px solid rgba(0,0,0,0.14)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   overflow: "hidden",
   background: "rgba(0,0,0,0.015)",
@@ -804,20 +805,20 @@ const cardHeader = {
   width: "100%",
   boxSizing: "border-box",
   padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.08)",
+  borderBottom: `1px solid ${color.borderSubtle}`,
   display: "flex",
   gap: 10,
   alignItems: "center",
   justifyContent: "space-between",
   flexWrap: "wrap",
-  background: "white",
+  background: color.cardBg,
 };
 
 const rowWrap = {
   width: "100%",
   boxSizing: "border-box",
-  borderBottom: "1px solid rgba(0,0,0,0.06)",
-  background: "white",
+  borderBottom: `1px solid ${color.borderSubtle}`,
+  background: color.cardBg,
 };
 
 const rowTopGrid = {
@@ -828,15 +829,15 @@ const rowTopGrid = {
   gap: 10,
   alignItems: "center",
   padding: "10px 12px",
-  background: "white",
+  background: color.cardBg,
 };
 
 const caretBtn = {
   width: 28,
   height: 28,
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.14)",
-  background: "rgba(0,0,0,0.02)",
+  border: `1px solid ${color.border}`,
+  background: color.borderSubtle,
   cursor: "pointer",
   fontWeight: 900,
   lineHeight: "26px",
@@ -867,7 +868,7 @@ const rowMetaCell = {
 
 const rowMetaLabel = {
   fontSize: 11,
-  color: "rgba(0,0,0,0.50)",
+  color: color.textMuted,
   fontWeight: 800,
 };
 
@@ -896,7 +897,7 @@ const statusCol = {
 
 const statusPlaceholder = {
   fontSize: 12,
-  color: "rgba(0,0,0,0.35)",
+  color: color.textFaint,
 };
 
 const statusChip = {
@@ -904,11 +905,11 @@ const statusChip = {
   alignItems: "center",
   padding: "2px 10px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.12)",
-  background: "rgba(0,0,0,0.03)",
+  border: `1px solid ${color.border}`,
+  background: color.borderSubtle,
   fontSize: 12,
   fontWeight: 800,
-  color: "rgba(0,0,0,0.70)",
+  color: color.textMuted,
   maxWidth: "100%",
 };
 
@@ -920,15 +921,15 @@ const actionsCol = {
 
 const expandOuter = {
   padding: "0 12px 12px 12px",
-  background: "white",
+  background: color.cardBg,
 };
 
 const expandInner = {
   marginLeft: 38,
   padding: 14,
   borderRadius: 16,
-  border: "2px solid rgba(0,0,0,0.18)",
-  background: "rgba(0,0,0,0.02)",
+  border: `2px solid ${color.border}`,
+  background: color.pageBg,
   boxShadow: "0 3px 10px rgba(0,0,0,0.10)",
 };
 
@@ -945,19 +946,13 @@ const row = { marginBottom: 10, minWidth: 0 };
 const label = {
   fontSize: 12,
   fontWeight: 800,
-  color: "rgba(0,0,0,0.65)",
+  color: color.textMuted,
   marginBottom: 6,
 };
 
 const input = {
-  width: "100%",
+  ...themeInput,
   maxWidth: "100%",
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
-  boxSizing: "border-box",
   minWidth: 0,
 };
 
@@ -986,10 +981,10 @@ const pillLinkMuted = {
   justifyContent: "center",
   padding: "8px 12px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.14)",
+  border: `1px solid ${color.border}`,
   textDecoration: "none",
   color: "inherit",
-  background: "rgba(0,0,0,0.02)",
+  background: color.borderSubtle,
   fontWeight: 800,
 };
 
@@ -997,8 +992,8 @@ function pillButtonMuted(disabled) {
   return {
     padding: "8px 12px",
     borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.14)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.borderSubtle,
     cursor: disabled ? "not-allowed" : "pointer",
     fontWeight: 800,
     opacity: disabled ? 0.55 : 1,
@@ -1007,8 +1002,8 @@ function pillButtonMuted(disabled) {
 
 const errorBox = {
   marginTop: 14,
-  background: "rgba(255,0,0,0.06)",
-  border: "1px solid rgba(255,0,0,0.15)",
+  background: color.dangerSubtle,
+  border: `1px solid ${color.dangerBorder}`,
   padding: 10,
   borderRadius: 12,
   whiteSpace: "pre-wrap",

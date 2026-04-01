@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { forgotPassword } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 export default function ForgotPassword() {
   const [email, setEmail] = React.useState("");
@@ -30,23 +31,24 @@ export default function ForgotPassword() {
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 6 }}>Forgot password</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
-          Enter your email and we’ll send a reset link if an account exists.
+        <h2 style={{ marginTop: 0, marginBottom: 6, color: color.text }}>Forgot password</h2>
+        <div style={{ color: color.textMuted, marginBottom: 14 }}>
+          Enter your email and we'll send a reset link if an account exists.
         </div>
 
         {done ? (
           <div
             style={{
-              background: "rgba(0,120,255,0.08)",
-              border: "1px solid rgba(0,120,255,0.18)",
+              background: color.primarySubtle,
+              border: `1px solid ${color.primaryBorder}`,
               padding: 12,
               borderRadius: 12,
+              color: color.text,
             }}
           >
             If an account exists, a reset link has been sent.
             <div style={{ marginTop: 10 }}>
-              <Link to="/login" style={{ textDecoration: "none" }}>
+              <Link to="/login" style={{ textDecoration: "none", color: color.primary }}>
                 Back to login
               </Link>
             </div>
@@ -57,23 +59,19 @@ export default function ForgotPassword() {
             style={{
               display: "grid",
               gap: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
+              border: `1px solid ${color.border}`,
               borderRadius: 14,
               padding: 14,
-              background: "white",
+              background: color.cardBg,
             }}
           >
             <label style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>Email</div>
+              <div style={{ fontSize: 13, color: color.textMuted }}>Email</div>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="username"
-                style={{
-                  padding: 10,
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,0,0,0.22)",
-                }}
+                style={{ ...themeInput }}
               />
             </label>
 
@@ -81,26 +79,24 @@ export default function ForgotPassword() {
               disabled={busy}
               type="submit"
               style={{
+                ...(busy ? btn.primaryDisabled : btn.primary),
                 padding: 12,
                 borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                cursor: busy ? "not-allowed" : "pointer",
-                fontWeight: 800,
               }}
             >
               {busy ? "Sending…" : "Send reset link"}
             </button>
 
-            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-              For security, we don’t confirm whether an email is registered.
+            <div style={{ fontSize: 12, color: color.textFaint }}>
+              For security, we don't confirm whether an email is registered.
             </div>
 
             {error ? (
               <div
                 style={{
-                  background: "rgba(255,0,0,0.06)",
-                  border: "1px solid rgba(255,0,0,0.15)",
+                  background: color.dangerSubtle,
+                  border: `1px solid ${color.dangerBorder}`,
+                  color: color.danger,
                   padding: 10,
                   borderRadius: 12,
                   whiteSpace: "pre-wrap",
@@ -111,7 +107,7 @@ export default function ForgotPassword() {
             ) : null}
 
             <div style={{ marginTop: 6 }}>
-              <Link to="/login" style={{ fontSize: 12, textDecoration: "none" }}>
+              <Link to="/login" style={{ fontSize: 12, textDecoration: "none", color: color.primary }}>
                 Back to login
               </Link>
             </div>

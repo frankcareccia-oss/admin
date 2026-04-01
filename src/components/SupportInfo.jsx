@@ -9,6 +9,7 @@ import {
   pvSupportGetSnapshot,
   pvSupportGetRecentApiEvents,
 } from "../api/client";
+import { color, palette } from "../theme";
 
 /**
  * SupportInfo (Global Support / Troubleshooting Footer)
@@ -139,24 +140,24 @@ export default function SupportInfo({
       fontFamily:
         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
       fontSize: 12,
-      color: "#0B2A33",
+      color: color.text,
       textAlign: "right",
       wordBreak: "break-word",
     };
   }
 
   function keyStyle() {
-    return { color: "rgba(11,42,51,0.60)", fontSize: 12 };
+    return { color: color.textMuted, fontSize: 12 };
   }
 
   function sectionTitleStyle() {
-    return { fontWeight: 900, color: "#0B2A33", margin: "12px 0 8px" };
+    return { fontWeight: 900, color: color.text, margin: "12px 0 8px" };
   }
 
   function actionPillStyle() {
     return {
-      border: "1px solid rgba(0,0,0,0.10)",
-      background: "#FFFFFF",
+      border: `1px solid ${color.border}`,
+      background: color.cardBg,
       borderRadius: 999,
       padding: "6px 10px",
       fontWeight: 800,
@@ -178,7 +179,7 @@ export default function SupportInfo({
         }}
       >
         <div style={keyStyle()}>{k}</div>
-        <div style={{ ...valueStyle(), color: warn ? "rgba(160,0,0,0.95)" : "#0B2A33" }}>{v}</div>
+        <div style={{ ...valueStyle(), color: warn ? color.danger : color.text }}>{v}</div>
       </div>
     );
   }
@@ -246,7 +247,7 @@ export default function SupportInfo({
           borderTop: "1px solid rgba(0,0,0,0.08)",
           position: "sticky",
           bottom: 0,
-          background: "#FFFFFF",
+          background: color.cardBg,
         }}
       >
         <button
@@ -276,12 +277,12 @@ export default function SupportInfo({
           type="button"
           onClick={() => setOpen(true)}
           style={{
-            border: "1px solid rgba(0,0,0,0.10)",
-            background: "#FFFFFF",
+            border: `1px solid ${color.border}`,
+            background: color.cardBg,
             borderRadius: 999,
             padding: "6px 10px",
             fontWeight: 800,
-            color: "#0B2A33",
+            color: color.text,
             cursor: "pointer",
             boxShadow: "0 8px 20px rgba(0,0,0,0.10)",
           }}
@@ -295,15 +296,15 @@ export default function SupportInfo({
             maxWidth: "calc(100vw - 20px)",
             maxHeight: "70vh",
             overflow: "auto",
-            background: "#FFFFFF",
-            border: "1px solid rgba(0,0,0,0.12)",
+            background: color.cardBg,
+            border: `1px solid ${color.border}`,
             borderRadius: 14,
             padding: 14,
             boxShadow: "0 18px 40px rgba(0,0,0,0.18)",
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
-            <div style={{ fontWeight: 900, color: "#0B2A33" }}>Support / Troubleshooting</div>
+            <div style={{ fontWeight: 900, color: color.text }}>Support / Troubleshooting</div>
 
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <button
@@ -325,7 +326,7 @@ export default function SupportInfo({
             </div>
           </div>
 
-          <div style={{ marginTop: 8, color: "rgba(11,42,51,0.60)", fontSize: 12 }}>
+          <div style={{ marginTop: 8, color: color.textMuted, fontSize: 12 }}>
             Use <strong>Copy</strong> and paste the diagnostics into a support ticket (or to the chatbot). Do not paste tokens.
           </div>
 

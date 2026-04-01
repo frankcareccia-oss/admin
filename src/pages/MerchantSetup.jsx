@@ -12,6 +12,7 @@ import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 import useBreakpoint from "../hooks/useBreakpoint";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -120,7 +121,7 @@ export default function MerchantSetup() {
   return (
     <PageContainer>
       {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -133,7 +134,7 @@ export default function MerchantSetup() {
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <StatusBadge status={merchant.status} />
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+            <span style={{ fontSize: 12, color: color.textFaint }}>
               {merchantName} · ID: {merchant.id}
               {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
             </span>
@@ -180,7 +181,7 @@ export default function MerchantSetup() {
         </div>
 
         {!ownerUser && (
-          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.5)" }}>
+          <div style={{ fontSize: 13, color: color.textMuted }}>
             No users yet.{" "}
             <Link to={`/merchants/${merchantId}/team`} style={{ textDecoration: "none" }}>Add one →</Link>
           </div>
@@ -197,7 +198,7 @@ export default function MerchantSetup() {
               {ownerUser.phone && <div style={styles.contactRow}>{formatPhone(ownerUser.phone)}</div>}
             </div>
             {otherContacts.length > 0 && (
-              <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 10 }}>
+              <div style={{ fontSize: 12, color: color.textMuted, marginTop: 10 }}>
                 +{otherContacts.length} more team member{otherContacts.length !== 1 ? "s" : ""} —{" "}
                 <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>view all</Link>
               </div>
@@ -212,24 +213,24 @@ export default function MerchantSetup() {
 }
 
 const styles = {
-  refreshBtn: { padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)", background: "white", cursor: "pointer", fontWeight: 800 },
-  card: { marginTop: 16, border: "1px solid rgba(0,0,0,0.12)", borderRadius: 14, padding: 16, background: "white" },
+  refreshBtn: { padding: "10px 12px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 800 },
+  card: { marginTop: 16, border: `1px solid ${color.border}`, borderRadius: 14, padding: 16, background: color.cardBg },
   cardTitle: { fontWeight: 800, marginBottom: 10 },
   statusForm: { display: "grid", gridTemplateColumns: "180px minmax(240px, 1fr) 100px", gap: 12, alignItems: "end" },
   saveCell: { display: "flex", justifyContent: "flex-end", alignItems: "end" },
-  label: { display: "block", fontSize: 12, color: "rgba(0,0,0,0.65)", marginBottom: 6 },
-  input: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)", boxSizing: "border-box", fontSize: 14 },
-  saveBtn: { width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)", background: "white", cursor: "pointer", fontWeight: 900 },
-  errBox: { background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)", padding: 10, borderRadius: 12 },
+  label: { display: "block", fontSize: 12, color: color.textMuted, marginBottom: 6 },
+  input: { ...themeInput },
+  saveBtn: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 900 },
+  errBox: { background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, padding: 10, borderRadius: 12 },
   okBox: { background: "rgba(0,128,0,0.06)", border: "1px solid rgba(0,128,0,0.18)", padding: 10, borderRadius: 12 },
-  manageLink: { fontSize: 13, textDecoration: "none", fontWeight: 700, color: "rgba(0,0,150,0.7)" },
-  contactCard: { border: "1px solid rgba(0,0,0,0.1)", borderRadius: 12, padding: 14, background: "rgba(0,0,0,0.015)" },
-  contactBadge: { display: "inline-block", fontSize: 11, fontWeight: 700, color: "rgba(0,0,100,0.65)", background: "rgba(0,0,200,0.07)", padding: "2px 8px", borderRadius: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" },
+  manageLink: { fontSize: 13, textDecoration: "none", fontWeight: 700, color: color.primary },
+  contactCard: { border: `1px solid ${color.borderSubtle}`, borderRadius: 12, padding: 14, background: "rgba(0,0,0,0.015)" },
+  contactBadge: { display: "inline-block", fontSize: 11, fontWeight: 700, color: color.primary, background: color.primarySubtle, padding: "2px 8px", borderRadius: 6, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" },
   contactName: { fontWeight: 800, fontSize: 16, marginBottom: 4 },
-  contactRow: { fontSize: 14, color: "rgba(0,0,0,0.7)", lineHeight: 1.5 },
-  empty: { color: "rgba(0,0,0,0.35)", fontStyle: "italic", fontWeight: 400 },
-  sectionLabel: { fontSize: 11, fontWeight: 700, color: "rgba(0,0,0,0.5)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 },
+  contactRow: { fontSize: 14, color: color.textMuted, lineHeight: 1.5 },
+  empty: { color: color.textFaint, fontStyle: "italic", fontWeight: 400 },
+  sectionLabel: { fontSize: 11, fontWeight: 700, color: color.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 },
   otherGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 },
-  otherCard: { border: "1px solid rgba(0,0,0,0.08)", borderRadius: 10, padding: 10, background: "white" },
-  otherBadge: { fontSize: 10, fontWeight: 700, color: "rgba(0,0,100,0.5)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 },
+  otherCard: { border: `1px solid ${color.borderSubtle}`, borderRadius: 10, padding: 10, background: color.cardBg },
+  otherBadge: { fontSize: 10, fontWeight: 700, color: color.textMuted, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 },
 };

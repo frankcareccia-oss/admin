@@ -1,6 +1,7 @@
 // admin/src/pages/PosProvision.jsx
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -164,15 +165,15 @@ export default function PosProvision() {
         </Link>
       </div>
 
-      <h2>POS Terminal Provisioning</h2>
+      <h2 style={{ color: color.text }}>POS Terminal Provisioning</h2>
 
-      <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 12 }}>
+      <div style={{ color: color.textMuted, marginBottom: 12 }}>
         One-time setup per terminal. This binds <b>this browser</b> to a store (and assigns a terminal ID).
       </div>
 
       {(existingStoreId || existingTerminalId) && (
         <div style={styles.infoBox}>
-          <div style={{ fontWeight: 800, marginBottom: 6 }}>Current terminal provisioning</div>
+          <div style={{ fontWeight: 800, marginBottom: 6, color: color.text }}>Current terminal provisioning</div>
           <div style={styles.kvRow}>
             <div style={styles.kvKey}>Store ID</div>
             <div style={styles.kvVal}>{existingStoreId || "—"}</div>
@@ -245,7 +246,7 @@ export default function PosProvision() {
       {error ? <div style={styles.errorBox}>{error}</div> : null}
       {ok ? <div style={styles.successBox}>{ok}</div> : null}
 
-      <div style={{ marginTop: 18, color: "rgba(0,0,0,0.55)", fontSize: 13 }}>
+      <div style={{ marginTop: 18, color: color.textFaint, fontSize: 13 }}>
         <div style={{ fontWeight: 800, marginBottom: 6 }}>What this does (today)</div>
         <ul style={{ marginTop: 0 }}>
           <li>Stores Store ID + Terminal ID locally for this terminal/browser.</li>
@@ -259,44 +260,30 @@ export default function PosProvision() {
 
 const styles = {
   pill: {
+    ...btn.pill,
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
     textDecoration: "none",
-    color: "inherit",
-    fontWeight: 700,
   },
-  label: { fontSize: 13, color: "rgba(0,0,0,0.7)" },
-  hint: { fontSize: 12, color: "rgba(0,0,0,0.55)" },
-  input: {
-    padding: 12,
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.22)",
-  },
+  label: { fontSize: 13, color: color.textMuted },
+  hint: { fontSize: 12, color: color.textFaint },
+  input: { ...themeInput },
   primaryBtn: {
+    ...btn.primary,
     padding: 12,
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
     width: 260,
   },
   secondaryBtn: {
+    ...btn.secondary,
     padding: "10px 12px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 800,
   },
   infoBox: {
     margin: "12px 0 16px",
     padding: 12,
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
   },
   kvRow: {
     display: "grid",
@@ -304,15 +291,15 @@ const styles = {
     gap: 10,
     padding: "4px 0",
   },
-  kvKey: { fontWeight: 800, color: "rgba(0,0,0,0.65)" },
-  kvVal: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" },
+  kvKey: { fontWeight: 800, color: color.textMuted },
+  kvVal: { fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace", color: color.text },
   errorBox: {
     marginTop: 12,
     padding: 12,
     borderRadius: 12,
-    color: "red",
-    border: "1px solid rgba(255,0,0,0.18)",
-    background: "rgba(255,0,0,0.04)",
+    color: color.danger,
+    border: `1px solid ${color.dangerBorder}`,
+    background: color.dangerSubtle,
     whiteSpace: "pre-wrap",
     fontWeight: 700,
   },

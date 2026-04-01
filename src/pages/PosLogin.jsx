@@ -3,6 +3,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import PageContainer from "../components/layout/PageContainer";
 import { posAuthLogin, clearAccessToken } from "../api/client";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -105,7 +106,7 @@ function normalizePosCode({ provisionedStoreId }, rawInput) {
       return { ok: false, error: "PIN must be 4–8 digits." };
     }
     if (!provisionedStoreId) {
-      return { ok: false, error: "This terminal is not set up yet. Tap “Provision Terminal” first." };
+      return { ok: false, error: "This terminal is not set up yet. Tap "Provision Terminal" first." };
     }
     return { ok: true, code: `${provisionedStoreId}#${digits}`, mode: "pin" };
   }
@@ -219,7 +220,7 @@ export default function PosLogin() {
     setProv(p);
 
     if (!p.provisioned) {
-      setError("This terminal is not set up yet. Tap “Provision Terminal” first.");
+      setError("This terminal is not set up yet. Tap "Provision Terminal" first.");
       pvUiHook("pos.login.submit_failed.ui", {
         tc: "TC-POS-LOGIN-UI-04",
         sev: "warn",
@@ -342,8 +343,8 @@ export default function PosLogin() {
           </div>
         </div>
 
-        <h2 style={{ marginTop: 16, marginBottom: 6 }}>POS Associate Login</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 12 }}>
+        <h2 style={{ marginTop: 16, marginBottom: 6, color: color.text }}>POS Associate Login</h2>
+        <div style={{ color: color.textMuted, marginBottom: 12 }}>
           Enter your <b>PIN</b> to start your shift. This terminal must be set up once before use.
         </div>
 
@@ -351,8 +352,8 @@ export default function PosLogin() {
 
         {!prov.provisioned ? (
           <div style={styles.notProvisionedBox}>
-            <div style={{ fontWeight: 950, marginBottom: 6 }}>This terminal isn’t set up yet</div>
-            <div style={{ color: "rgba(0,0,0,0.70)", fontWeight: 750, lineHeight: 1.35 }}>
+            <div style={{ fontWeight: 950, marginBottom: 6, color: color.text }}>This terminal isn't set up yet</div>
+            <div style={{ color: color.textMuted, fontWeight: 750, lineHeight: 1.35 }}>
               Next step: tap <b>Provision Terminal</b> to connect this device to a store/register.
             </div>
           </div>
@@ -374,7 +375,7 @@ export default function PosLogin() {
 
         <form onSubmit={onSubmit} style={styles.form}>
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)", fontWeight: 850 }}>PIN / Code</div>
+            <div style={{ fontSize: 13, color: color.textMuted, fontWeight: 850 }}>PIN / Code</div>
             <input
               ref={inputRef}
               className="pvInput"
@@ -386,7 +387,7 @@ export default function PosLogin() {
               disabled={busy}
               style={styles.input}
             />
-            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>
+            <div style={{ fontSize: 12, color: color.textFaint, fontWeight: 700 }}>
               PIN is typically 4–8 digits.
             </div>
           </label>
@@ -398,13 +399,13 @@ export default function PosLogin() {
           {error ? <div style={styles.errorBox}>{error}</div> : null}
         </form>
 
-        <div style={{ marginTop: 14, color: "rgba(0,0,0,0.55)", fontSize: 13 }}>
+        <div style={{ marginTop: 14, color: color.textFaint, fontSize: 13 }}>
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Support notes</div>
           <ul style={{ marginTop: 0 }}>
             <li>This page never shows access tokens or raw server payloads.</li>
             <li>PIN-only becomes <b>storeId#PIN</b> behind the scenes.</li>
             <li>If terminal is not set up, go to <b>Provision Terminal</b> first.</li>
-            <li>“Clear Terminal” is for managers/support to unpair a terminal if it was set up to the wrong store.</li>
+            <li>"Clear Terminal" is for managers/support to unpair a terminal if it was set up to the wrong store.</li>
           </ul>
         </div>
       </div>
@@ -414,91 +415,74 @@ export default function PosLogin() {
 
 const styles = {
   pillBtn: {
+    ...btn.pill,
     textDecoration: "none",
-    color: "inherit",
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    fontWeight: 850,
     display: "inline-block",
   },
   pillBtnButton: {
+    ...btn.pill,
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 850,
   },
   dangerPillBtnButton: {
+    ...btn.danger,
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(255,0,0,0.35)",
-    background: "rgba(255,0,0,0.06)",
-    cursor: "pointer",
-    fontWeight: 900,
   },
   noticeBox: {
-    background: "rgba(0,120,255,0.08)",
-    border: "1px solid rgba(0,120,255,0.18)",
+    background: color.primarySubtle,
+    border: `1px solid ${color.primaryBorder}`,
     padding: 10,
     borderRadius: 12,
     marginBottom: 12,
     whiteSpace: "pre-wrap",
     fontWeight: 750,
+    color: color.text,
   },
   notProvisionedBox: {
     background: "rgba(255, 215, 0, 0.18)",
-    border: "1px solid rgba(0,0,0,0.15)",
+    border: `1px solid ${color.border}`,
     padding: 12,
     borderRadius: 14,
     marginBottom: 12,
   },
   card: {
-    border: "1px solid rgba(0,0,0,0.12)",
+    border: `1px solid ${color.border}`,
     borderRadius: 14,
     padding: 14,
-    background: "white",
+    background: color.cardBg,
     marginBottom: 12,
   },
-  cardTitle: { fontWeight: 900, marginBottom: 10 },
+  cardTitle: { fontWeight: 900, marginBottom: 10, color: color.text },
   kvRow: { display: "grid", gridTemplateColumns: "110px 1fr", gap: 10, padding: "4px 0" },
-  k: { color: "rgba(0,0,0,0.65)", fontWeight: 850 },
-  v: { fontWeight: 850 },
+  k: { color: color.textMuted, fontWeight: 850 },
+  v: { fontWeight: 850, color: color.text },
   form: {
     display: "grid",
     gap: 12,
-    border: "1px solid rgba(0,0,0,0.12)",
+    border: `1px solid ${color.border}`,
     borderRadius: 14,
     padding: 14,
-    background: "white",
+    background: color.cardBg,
   },
   input: {
-    padding: 12,
-    borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.22)",
+    ...themeInput,
     fontSize: 16,
     /* NOTE: font-weight/color controlled by .pvInput in App.css */
     fontWeight: "inherit",
-    color: "inherit",
   },
   signInBtn: {
+    ...btn.primary,
     padding: 14,
     borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 950,
     fontSize: 16,
   },
   errorBox: {
-    background: "rgba(255,0,0,0.06)",
-    border: "1px solid rgba(255,0,0,0.15)",
+    background: color.dangerSubtle,
+    border: `1px solid ${color.dangerBorder}`,
     padding: 10,
     borderRadius: 12,
     whiteSpace: "pre-wrap",
     fontWeight: 850,
-    color: "rgba(140,0,0,1)",
+    color: color.danger,
   },
 };

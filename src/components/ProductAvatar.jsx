@@ -15,6 +15,7 @@
  */
 
 import React from "react";
+import { palette } from "../theme";
 
 const PALETTE = [
   "#3B7DD8", // blue
@@ -101,7 +102,7 @@ export default function ProductAvatar({ name = "", imageUrl, size = 48, radius =
   // No URL — show initials placeholder
   return (
     <div style={{ ...base, background: bg }}>
-      <span style={{ color: "#fff", fontWeight: 800, fontSize, letterSpacing: "0.02em", userSelect: "none" }}>
+      <span style={{ color: palette.white, fontWeight: 800, fontSize, letterSpacing: "0.02em", userSelect: "none" }}>
         {initials(name)}
       </span>
     </div>

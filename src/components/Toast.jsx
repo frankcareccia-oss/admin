@@ -1,4 +1,5 @@
 import React from "react";
+import { color } from "../theme";
 
 export default function Toast({ message, type = "success", onClose, ms = 2500 }) {
   React.useEffect(() => {
@@ -20,7 +21,7 @@ export default function Toast({ message, type = "success", onClose, ms = 2500 })
         minWidth: 240,
         background: isSuccess ? "#f6ffed" : "#fff1f0",
         border: isSuccess ? "1px solid #52c41a" : "1px solid #ff4d4f",
-        color: "#000",
+        color: color.text,
         boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
         display: "flex",
         alignItems: "center",

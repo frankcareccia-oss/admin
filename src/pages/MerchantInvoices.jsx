@@ -13,6 +13,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SectionTabs from "../components/layout/SectionTabs";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -84,22 +85,22 @@ function InvoiceStatusPill({ status }) {
 const buttonBase = {
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
+  border: `1px solid ${color.border}`,
+  background: color.cardBg,
   cursor: "pointer",
   fontWeight: 900,
 };
 
 const buttonDanger = {
   ...buttonBase,
-  border: "1px solid rgba(220,0,0,0.25)",
-  background: "rgba(255,0,0,0.04)",
+  border: `1px solid ${color.dangerBorder}`,
+  background: color.dangerSubtle,
 };
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 function normalizeMoneyInput(raw) {
@@ -436,10 +437,10 @@ export default function MerchantInvoices() {
           }}
         >
           <div style={{ fontWeight: 900 }}>Results</div>
-          <div style={{ color: "rgba(0,0,0,0.6)" }}>
+          <div style={{ color: color.textMuted }}>
             ({rows.length} invoice{rows.length === 1 ? "" : "s"})
           </div>
-          <div style={{ marginLeft: "auto", color: "rgba(0,0,0,0.55)", fontSize: 12 }}>
+          <div style={{ marginLeft: "auto", color: color.textMuted, fontSize: 12 }}>
             Tip: Draft → Issue sets due date
           </div>
         </div>
@@ -460,13 +461,13 @@ export default function MerchantInvoices() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={6} style={{ padding: 14, color: color.textMuted }}>
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={6} style={{ padding: 14, color: color.textMuted }}>
                     No invoices for this merchant yet.
                   </td>
                 </tr>
@@ -511,7 +512,7 @@ export default function MerchantInvoices() {
                               title="Invoice is already paid"
                               style={{
                                 fontWeight: 900,
-                                color: "rgba(0,0,0,0.35)",
+                                color: color.textFaint,
                                 cursor: "not-allowed",
                                 userSelect: "none",
                               }}
@@ -584,7 +585,7 @@ export default function MerchantInvoices() {
             }
           }}
         >
-          <div style={{ background: "white", padding: 16, width: 440, borderRadius: 14 }}>
+          <div style={{ background: color.cardBg, padding: 16, width: 440, borderRadius: 14 }}>
             <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 10 }}>
               Create Draft Invoice — {merchant?.name || `Merchant #${merchantId}`}
             </div>
@@ -648,7 +649,7 @@ export default function MerchantInvoices() {
               </button>
             </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+            <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
               Enter totals in <b>dollars</b> (e.g. 85.50). Net terms are limited to {netTermsOptions.join("/")} days.
             </div>
           </div>
@@ -672,13 +673,10 @@ const td = {
 const label = {
   display: "block",
   fontSize: 12,
-  color: "rgba(0,0,0,0.65)",
+  color: color.textMuted,
 };
 
 const input = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
+  ...themeInput,
   marginTop: 6,
 };

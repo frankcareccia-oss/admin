@@ -6,6 +6,7 @@ import {
   merchantRemoveStoreTeamMember,
   merchantSetPrimaryContact,
 } from "../../api/client";
+import { color, palette } from "../../theme";
 
 /* ------------------------------------------------------------- */
 /* UI hook (QA / Support / Telemetry)                            */
@@ -28,19 +29,19 @@ function pvUiHook(event, fields = {}) {
 /* ------------------------------------------------------------- */
 
 const TOKENS = {
-  cardBg: "#FFFFFF",
-  text: "#0B2A33",
-  muted: "rgba(11,42,51,0.60)",
-  border: "rgba(0,0,0,0.16)",
-  divider: "rgba(0,0,0,0.06)",
-  teal: "#2F8F8B",
-  tealHover: "#277D79",
-  errBg: "rgba(255,0,0,0.06)",
-  errBorder: "rgba(255,0,0,0.15)",
-  flashBg: "rgba(47,143,139,0.08)",
-  overlay: "rgba(11,42,51,0.40)",
-  danger: "#B42318",
-  dangerHover: "#912018",
+  cardBg: color.cardBg,
+  text: color.text,
+  muted: color.textMuted,
+  border: color.border,
+  divider: color.borderSubtle,
+  teal: palette.teal,
+  tealHover: palette.tealHover,
+  errBg: color.dangerSubtle,
+  errBorder: color.dangerBorder,
+  flashBg: color.primarySubtle,
+  overlay: color.textFaint,
+  danger: color.danger,
+  dangerHover: color.danger,
 };
 
 /* ------------------------------------------------------------- */
@@ -177,7 +178,7 @@ function ConfirmDialog({
         style={{
           width: "100%",
           maxWidth: 460,
-          background: "#fff",
+          background: color.cardBg,
           borderRadius: 18,
           border: `1px solid ${TOKENS.border}`,
           boxShadow: "0 18px 50px rgba(0,0,0,0.25)",
@@ -218,7 +219,7 @@ function ConfirmDialog({
               padding: "9px 14px",
               borderRadius: 12,
               border: `1px solid ${TOKENS.border}`,
-              background: "#fff",
+              background: color.cardBg,
               color: TOKENS.text,
               cursor: busy ? "not-allowed" : "pointer",
               opacity: busy ? 0.6 : 1,
@@ -239,7 +240,7 @@ function ConfirmDialog({
               borderRadius: 12,
               border: 0,
               background: danger ? TOKENS.danger : TOKENS.teal,
-              color: "#fff",
+              color: palette.white,
               cursor: busy ? "not-allowed" : "pointer",
               opacity: busy ? 0.75 : 1,
             }}
@@ -404,9 +405,9 @@ export default function StoreTeamPanel({
       padding: "7px 12px",
       minHeight: 32,
       borderRadius: 999,
-      border: danger ? "1px solid rgba(160,0,0,0.25)" : `1px solid ${TOKENS.border}`,
-      color: danger ? "rgba(160,0,0,0.9)" : TOKENS.text,
-      background: "#fff",
+      border: danger ? `1px solid ${color.dangerBorder}` : `1px solid ${TOKENS.border}`,
+      color: danger ? color.danger : TOKENS.text,
+      background: color.cardBg,
       cursor: disabled ? "not-allowed" : "pointer",
       opacity: disabled ? 0.55 : 1,
       display: "inline-flex",
@@ -669,8 +670,8 @@ export default function StoreTeamPanel({
                 onClick={assignMember}
                 disabled={busy || !pickId || !pickPerm}
                 style={{
-                  background: busy || !pickId || !pickPerm ? "rgba(47,143,139,0.45)" : TOKENS.teal,
-                  color: "#fff",
+                  background: busy || !pickId || !pickPerm ? color.primarySubtle : TOKENS.teal,
+                  color: palette.white,
                   border: 0,
                   borderRadius: 12,
                   minHeight: 40,
@@ -757,7 +758,7 @@ export default function StoreTeamPanel({
                         <span
                           style={{
                             background: TOKENS.teal,
-                            color: "#fff",
+                            color: palette.white,
                             padding: "6px 12px",
                             minHeight: 32,
                             borderRadius: 999,

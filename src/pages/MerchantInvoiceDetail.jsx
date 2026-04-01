@@ -6,6 +6,7 @@ import { merchantGetInvoice } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import { color, btn } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -49,8 +50,8 @@ function Pill({ children }) {
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 900,
-        background: "rgba(0,0,0,0.06)",
-        border: "1px solid rgba(0,0,0,0.10)",
+        background: color.borderSubtle,
+        border: `1px solid ${color.border}`,
         textTransform: "lowercase",
       }}
     >
@@ -60,29 +61,25 @@ function Pill({ children }) {
 }
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 const buttonBase = {
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
+  border: `1px solid ${color.border}`,
+  background: color.cardBg,
   cursor: "pointer",
   fontWeight: 900,
 };
 
 const buttonPrimaryGreen = {
+  ...btn.primary,
   padding: "10px 14px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.10)",
-  background: "#1f7a3a",
-  color: "white",
-  cursor: "pointer",
-  fontWeight: 900,
   whiteSpace: "nowrap",
 };
 
@@ -270,15 +267,15 @@ export default function MerchantInvoiceDetail() {
         }
       />
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading…</div> : null}
+      {loading ? <div style={{ color: color.textMuted, padding: "6px 2px" }}>Loading…</div> : null}
 
       {error ? (
         <div
           style={{
             ...card,
             marginBottom: 12,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
           }}
         >
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Error</div>
@@ -300,7 +297,7 @@ export default function MerchantInvoiceDetail() {
               }}
             >
               <div>
-                <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 900, fontSize: 12 }}>
+                <div style={{ color: color.textMuted, fontWeight: 900, fontSize: 12 }}>
                   Amount Due
                 </div>
                 <div style={{ fontSize: 28, fontWeight: 950, letterSpacing: "-0.02em" }}>
@@ -309,7 +306,7 @@ export default function MerchantInvoiceDetail() {
               </div>
 
               <div style={{ textAlign: "right" }}>
-                <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 900, fontSize: 12 }}>
+                <div style={{ color: color.textMuted, fontWeight: 900, fontSize: 12 }}>
                   Due Date
                 </div>
                 <div style={{ fontWeight: 900 }}>{fmtDate(inv.dueAt)}</div>
@@ -323,7 +320,7 @@ export default function MerchantInvoiceDetail() {
                   marginTop: 10,
                   fontSize: 12,
                   fontWeight: 900,
-                  color: "rgba(0,0,0,0.60)",
+                  color: color.textMuted,
                 }}
               >
                 Payment link not available yet. Pay links appear when an invoice is ready for payment.
@@ -337,7 +334,7 @@ export default function MerchantInvoiceDetail() {
                   marginTop: 10,
                   fontSize: 12,
                   fontWeight: 900,
-                  color: "rgba(0,0,0,0.55)",
+                  color: color.textMuted,
                 }}
               >
                 Payment already received. This invoice is no longer payable.
@@ -399,7 +396,7 @@ export default function MerchantInvoiceDetail() {
 
                   {(detail.lineItems || []).length === 0 ? (
                     <tr>
-                      <td colSpan={3} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                      <td colSpan={3} style={{ padding: 14, color: color.textMuted }}>
                         No line items.
                       </td>
                     </tr>
@@ -413,7 +410,7 @@ export default function MerchantInvoiceDetail() {
           <div style={{ ...card }}>
             <div style={{ fontWeight: 900, marginBottom: 10 }}>Payments</div>
             {(detail.payments || []).length === 0 ? (
-              <div style={{ color: "rgba(0,0,0,0.6)" }}>No payments.</div>
+              <div style={{ color: color.textMuted }}>No payments.</div>
             ) : (
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {(detail.payments || []).map((p) => (
@@ -431,7 +428,7 @@ export default function MerchantInvoiceDetail() {
 }
 
 const styles = {
-  k: { color: "rgba(0,0,0,0.65)", fontWeight: 800, fontSize: 12 },
-  th: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)" },
-  td: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.06)" },
+  k: { color: color.textMuted, fontWeight: 800, fontSize: 12 },
+  th: { padding: 12, borderBottom: `1px solid ${color.border}` },
+  td: { padding: 12, borderBottom: `1px solid ${color.borderSubtle}` },
 };

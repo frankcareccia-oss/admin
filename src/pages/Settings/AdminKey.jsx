@@ -3,6 +3,7 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
+import { color, btn } from "../../theme";
 
 /**
  * Admin API Key page (legacy).
@@ -23,7 +24,7 @@ export default function AdminKey() {
           subtitle="PerkValet admin access now uses email device verification during sign-in."
         />
         <div style={{ maxWidth: 760 }}>
-          <div style={{ marginBottom: 12, color: "rgba(0,0,0,0.70)", lineHeight: 1.45 }}>
+          <div style={{ marginBottom: 12, color: color.textMuted, lineHeight: 1.45 }}>
             If you were sent here by an old link or bookmark, go back to Merchants.
           </div>
 
@@ -31,10 +32,9 @@ export default function AdminKey() {
             type="button"
             onClick={() => setShow(true)}
             style={{
+              ...btn.secondary,
               padding: "10px 12px",
               borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.18)",
-              background: "white",
               cursor: "pointer",
               fontWeight: 800,
             }}

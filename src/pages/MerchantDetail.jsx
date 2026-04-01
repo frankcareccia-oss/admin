@@ -13,6 +13,7 @@ import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 import useBreakpoint from "../hooks/useBreakpoint";
+import { color, btn } from "../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -38,10 +39,10 @@ function StatusBadge({ status }) {
 function HubCard({ to, icon, title, description, meta, disabled }) {
   const inner = (
     <div style={{
-      border: `1px solid ${disabled ? "rgba(0,0,0,0.07)" : "rgba(0,0,0,0.12)"}`,
+      border: `1px solid ${disabled ? color.borderSubtle : color.border}`,
       borderRadius: 16,
       padding: "20px 22px",
-      background: disabled ? "rgba(0,0,0,0.02)" : "#fff",
+      background: disabled ? "rgba(0,0,0,0.02)" : color.cardBg,
       cursor: disabled ? "default" : "pointer",
       transition: "box-shadow 0.15s",
       height: "100%",
@@ -52,13 +53,13 @@ function HubCard({ to, icon, title, description, meta, disabled }) {
       opacity: disabled ? 0.55 : 1,
     }}>
       <div style={{ fontSize: 28, lineHeight: 1 }}>{icon}</div>
-      <div style={{ fontWeight: 800, fontSize: 15, color: disabled ? "rgba(0,0,0,0.45)" : "#0B2A33" }}>
+      <div style={{ fontWeight: 800, fontSize: 15, color: disabled ? color.textFaint : color.text }}>
         {title}
-        {disabled && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,0,0,0.08)", borderRadius: 999, padding: "2px 8px", verticalAlign: "middle" }}>Coming soon</span>}
+        {disabled && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: color.border, borderRadius: 999, padding: "2px 8px", verticalAlign: "middle" }}>Coming soon</span>}
       </div>
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.50)", lineHeight: 1.4 }}>{description}</div>
+      <div style={{ fontSize: 13, color: color.textMuted, lineHeight: 1.4 }}>{description}</div>
       {meta != null && !disabled && (
-        <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.40)" }}>{meta}</div>
+        <div style={{ marginTop: "auto", paddingTop: 10, fontSize: 12, fontWeight: 700, color: color.textFaint }}>{meta}</div>
       )}
     </div>
   );
@@ -195,7 +196,7 @@ export default function MerchantDetail() {
   return (
     <PageContainer size="wide">
       {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <span>{merchant.name}</span>
@@ -206,7 +207,7 @@ export default function MerchantDetail() {
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatusBadge status={merchant.status} />
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+            <span style={{ fontSize: 12, color: color.textFaint }}>
               ID: {merchant.id}
               {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
             </span>
@@ -234,6 +235,6 @@ export default function MerchantDetail() {
 }
 
 const styles = {
-  refreshBtn: { padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)", background: "white", cursor: "pointer", fontWeight: 800 },
-  errBox: { background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)", padding: 10, borderRadius: 12 },
+  refreshBtn: { padding: "10px 12px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 800 },
+  errBox: { background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, padding: 10, borderRadius: 12 },
 };

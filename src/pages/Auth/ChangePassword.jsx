@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { changePassword, getSystemRole } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -71,12 +72,12 @@ export default function ChangePassword() {
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
-        <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 14 }}>
-          <a href={homeRoute} style={{ color: "inherit", textDecoration: "none" }}>&larr; Back</a>
+        <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 14 }}>
+          <a href={homeRoute} style={{ color: color.textMuted, textDecoration: "none" }}>&larr; Back</a>
         </div>
-        <h2 style={{ marginTop: 0, marginBottom: 6 }}>Change password</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
-          After changing your password, you’ll be signed out and asked to sign in again.
+        <h2 style={{ marginTop: 0, marginBottom: 6, color: color.text }}>Change password</h2>
+        <div style={{ color: color.textMuted, marginBottom: 14 }}>
+          After changing your password, you'll be signed out and asked to sign in again.
         </div>
 
         <form
@@ -84,58 +85,46 @@ export default function ChangePassword() {
           style={{
             display: "grid",
             gap: 12,
-            border: "1px solid rgba(0,0,0,0.12)",
+            border: `1px solid ${color.border}`,
             borderRadius: 14,
             padding: 14,
-            background: "white",
+            background: color.cardBg,
           }}
         >
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>Current password</div>
+            <div style={{ fontSize: 13, color: color.textMuted }}>Current password</div>
             <input
               value={cur}
               onChange={(e) => setCur(e.target.value)}
               type={show ? "text" : "password"}
               autoComplete="current-password"
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                border: "1px solid rgba(0,0,0,0.22)",
-              }}
+              style={{ ...themeInput }}
             />
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>New password</div>
+            <div style={{ fontSize: 13, color: color.textMuted }}>New password</div>
             <input
               value={pw1}
               onChange={(e) => setPw1(e.target.value)}
               type={show ? "text" : "password"}
               autoComplete="new-password"
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                border: "1px solid rgba(0,0,0,0.22)",
-              }}
+              style={{ ...themeInput }}
             />
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>Confirm new password</div>
+            <div style={{ fontSize: 13, color: color.textMuted }}>Confirm new password</div>
             <input
               value={pw2}
               onChange={(e) => setPw2(e.target.value)}
               type={show ? "text" : "password"}
               autoComplete="new-password"
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                border: "1px solid rgba(0,0,0,0.22)",
-              }}
+              style={{ ...themeInput }}
             />
           </label>
 
-          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "rgba(0,0,0,0.65)" }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: color.textMuted }}>
             <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />
             Show passwords
           </label>
@@ -144,12 +133,9 @@ export default function ChangePassword() {
             disabled={busy}
             type="submit"
             style={{
+              ...(busy ? btn.primaryDisabled : btn.primary),
               padding: 12,
               borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.18)",
-              background: "white",
-              cursor: busy ? "not-allowed" : "pointer",
-              fontWeight: 800,
             }}
           >
             {busy ? "Saving…" : "Change password"}
@@ -158,8 +144,9 @@ export default function ChangePassword() {
           {error ? (
             <div
               style={{
-                background: "rgba(255,0,0,0.06)",
-                border: "1px solid rgba(255,0,0,0.15)",
+                background: color.dangerSubtle,
+                border: `1px solid ${color.dangerBorder}`,
+                color: color.danger,
                 padding: 10,
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",

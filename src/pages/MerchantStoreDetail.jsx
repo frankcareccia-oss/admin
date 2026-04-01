@@ -4,6 +4,7 @@ import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { listMerchantStores, me, merchantUpdateStoreProfile } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import StoreTeamPanel from "./components/StoreTeamPanel";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -31,19 +32,19 @@ function getSystemRoleLocal() {
   }
 }
 
-/* ---------------- UI palette ---------------- */
+/* ---------------- UI palette (mapped to theme) ---------------- */
 
 const COLORS = {
-  primary: "#2F8F8B",
-  primaryHover: "#277D79",
-  text: "#0B2A33",
-  neutral: "rgba(11,42,51,0.60)",
-  border: "rgba(0,0,0,0.16)",
-  divider: "rgba(0,0,0,0.08)",
+  primary: color.primary,
+  primaryHover: color.primaryHover,
+  text: color.text,
+  neutral: color.textMuted,
+  border: color.border,
+  divider: color.borderSubtle,
 
-  dangerBg: "rgba(254, 226, 226, 0.85)",
-  dangerBorder: "rgba(252, 165, 165, 0.9)",
-  dangerText: "#991B1B",
+  dangerBg: color.dangerSubtle,
+  dangerBorder: color.dangerBorder,
+  dangerText: color.danger,
 
   okBg: "rgba(0, 160, 80, 0.08)",
   okBorder: "rgba(0, 160, 80, 0.18)",
@@ -53,23 +54,23 @@ const cardBase = {
   marginTop: 12,
   padding: 16,
   borderRadius: 14,
-  border: `1px solid ${COLORS.border}`,
-  background: "white",
+  border: `1px solid ${color.border}`,
+  background: color.cardBg,
   boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
 };
 
-const infoK = { fontSize: 12, color: COLORS.neutral, marginBottom: 4 };
-const infoV = { fontSize: 14, fontWeight: 700, color: COLORS.text };
+const infoK = { fontSize: 12, color: color.textMuted, marginBottom: 4 };
+const infoV = { fontSize: 14, fontWeight: 700, color: color.text };
 const infoRow = { display: "flex", gap: 14, flexWrap: "wrap" };
 const infoCell = { minWidth: 220, flex: "1 1 220px" };
 
 const breadcrumbLink = {
   textDecoration: "none",
-  color: COLORS.primary,
+  color: color.primary,
   fontWeight: 800,
 };
 
-const sep = { color: "rgba(0,0,0,0.35)" };
+const sep = { color: color.textFaint };
 
 const tabPill = {
   display: "inline-flex",
@@ -77,27 +78,23 @@ const tabPill = {
   justifyContent: "center",
   padding: "8px 12px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.14)",
+  border: `1px solid ${color.border}`,
   textDecoration: "none",
   color: "inherit",
-  background: "rgba(0,0,0,0.02)",
+  background: color.borderSubtle,
   fontWeight: 900,
 };
 
 const tabPillActive = {
   ...tabPill,
-  border: `1px solid rgba(47, 143, 139, 0.55)`,
-  background: "rgba(47, 143, 139, 0.08)",
+  border: `1px solid ${color.primaryBorder}`,
+  background: color.primarySubtle,
 };
 
 const primaryPill = {
+  ...btn.primary,
   padding: "10px 16px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: COLORS.primary,
-  color: "white",
-  fontWeight: 900,
-  cursor: "pointer",
 };
 
 const primaryPillDisabled = {
@@ -109,8 +106,8 @@ const primaryPillDisabled = {
 const mutedPill = {
   padding: "10px 16px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.14)",
-  background: "rgba(0,0,0,0.02)",
+  border: `1px solid ${color.border}`,
+  background: color.borderSubtle,
   fontWeight: 800,
   cursor: "pointer",
 };
@@ -666,7 +663,7 @@ export default function MerchantStoreDetail() {
   }
 
   if (loading) return <div style={{ padding: 20 }}>Loading…</div>;
-  if (err) return <div style={{ padding: 20, color: "crimson" }}>{err}</div>;
+  if (err) return <div style={{ padding: 20, color: color.danger }}>{err}</div>;
   if (!store) return <div style={{ padding: 20 }}>Store not loaded</div>;
 
   const displayName = store.name || `Store #${store.id}`;
@@ -959,8 +956,8 @@ export default function MerchantStoreDetail() {
                     marginBottom: 12,
                     padding: 12,
                     borderRadius: 14,
-                    border: "1px solid rgba(0,0,0,0.12)",
-                    background: "rgba(0,0,0,0.01)",
+                    border: `1px solid ${color.border}`,
+                    background: color.pageBg,
                   }}
                 >
                   <div style={{ fontWeight: 900, marginBottom: 8, color: COLORS.text }}>Location phone</div>
@@ -1020,8 +1017,8 @@ export default function MerchantStoreDetail() {
                     marginBottom: 12,
                     padding: 12,
                     borderRadius: 14,
-                    border: "1px solid rgba(0,0,0,0.12)",
-                    background: "rgba(0,0,0,0.01)",
+                    border: `1px solid ${color.border}`,
+                    background: color.pageBg,
                   }}
                 >
                   <div style={{ fontWeight: 900, marginBottom: 8, color: COLORS.text }}>Primary contact</div>
@@ -1031,7 +1028,7 @@ export default function MerchantStoreDetail() {
                     <strong>Team &amp; Access</strong> panel for the store.
                   </div>
 
-                  <div style={{ fontSize: 12, marginTop: 8, color: "rgba(0,0,0,0.55)" }}>
+                  <div style={{ fontSize: 12, marginTop: 8, color: color.textMuted }}>
                     Assign an employee to this store and mark them as the primary contact there.
                   </div>
                 </div>
@@ -1052,19 +1049,13 @@ const row = { marginBottom: 10, minWidth: 0 };
 const label = {
   fontSize: 12,
   fontWeight: 800,
-  color: "rgba(0,0,0,0.65)",
+  color: color.textMuted,
   marginBottom: 6,
 };
 
 const input = {
-  width: "100%",
+  ...themeInput,
   maxWidth: "100%",
-  padding: "8px 10px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
-  boxSizing: "border-box",
   minWidth: 0,
 };
 
@@ -1079,9 +1070,9 @@ const grid3 = {
 const cell = { minWidth: 0 };
 
 const errorBox = {
-  background: COLORS.dangerBg,
-  border: `1px solid ${COLORS.dangerBorder}`,
-  color: COLORS.dangerText,
+  background: color.dangerSubtle,
+  border: `1px solid ${color.dangerBorder}`,
+  color: color.danger,
   padding: 10,
   borderRadius: 12,
   whiteSpace: "pre-wrap",

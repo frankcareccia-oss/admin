@@ -3,6 +3,7 @@ import React from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import PageContainer from "../components/layout/PageContainer";
 import { getAccessToken, me, startDeviceVerification, pvClearSession } from "../api/client";
+import { color, btn } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -183,8 +184,8 @@ export default function VerifyDevice() {
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 6 }}>Verify this device</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
+        <h2 style={{ marginTop: 0, marginBottom: 6, color: color.text }}>Verify this device</h2>
+        <div style={{ color: color.textMuted, marginBottom: 14 }}>
           For accounts that handle money, PerkValet requires a one-time verification for this browser.
         </div>
 
@@ -198,20 +199,17 @@ export default function VerifyDevice() {
               marginBottom: 12,
             }}
           >
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>Sign-in required</div>
-            <div style={{ color: "rgba(0,0,0,0.78)", marginBottom: 10, lineHeight: 1.35 }}>
+            <div style={{ fontWeight: 900, marginBottom: 6, color: color.text }}>Sign-in required</div>
+            <div style={{ color: color.textMuted, marginBottom: 10, lineHeight: 1.35 }}>
               Please sign in again so we can send your verification link.
             </div>
             <button
               type="button"
               onClick={onBackToLogin}
               style={{
+                ...btn.secondary,
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                cursor: "pointer",
-                fontWeight: 900,
               }}
             >
               Back to Login
@@ -221,24 +219,24 @@ export default function VerifyDevice() {
 
         <div
           style={{
-            border: "1px solid rgba(0,0,0,0.12)",
+            border: `1px solid ${color.border}`,
             borderRadius: 14,
             padding: 14,
-            background: "white",
+            background: color.cardBg,
             display: "grid",
             gap: 12,
           }}
         >
           <div style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>We’ll send the verification link to</div>
-            <div style={{ fontWeight: 900 }}>
-              {emailLabel ? emailLabel : <span style={{ color: "rgba(0,0,0,0.55)" }}>your account email</span>}
+            <div style={{ fontSize: 13, color: color.textMuted }}>We'll send the verification link to</div>
+            <div style={{ fontWeight: 900, color: color.text }}>
+              {emailLabel ? emailLabel : <span style={{ color: color.textFaint }}>your account email</span>}
             </div>
           </div>
 
-          <div style={{ color: "rgba(0,0,0,0.75)", lineHeight: 1.4 }}>
-            Click the link in the email to verify this device. When you return, you’ll be able to continue to:
-            <div style={{ marginTop: 8, fontWeight: 800 }}>
+          <div style={{ color: color.textMuted, lineHeight: 1.4 }}>
+            Click the link in the email to verify this device. When you return, you'll be able to continue to:
+            <div style={{ marginTop: 8, fontWeight: 800, color: color.text }}>
               <code>{returnTo}</code>
             </div>
           </div>
@@ -249,12 +247,9 @@ export default function VerifyDevice() {
               onClick={onSend}
               disabled={!canResend() || !authed}
               style={{
+                ...(!canResend() || !authed ? btn.primaryDisabled : btn.primary),
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                cursor: !canResend() || !authed ? "not-allowed" : "pointer",
-                fontWeight: 900,
               }}
             >
               {busy ? "Sending..." : sent ? "Resend verification email" : "Send verification email"}
@@ -267,14 +262,11 @@ export default function VerifyDevice() {
                 onBackToLogin();
               }}
               style={{
+                ...btn.secondary,
                 fontSize: 13,
-                fontWeight: 800,
-                textDecoration: "none",
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                color: "inherit",
+                textDecoration: "none",
               }}
             >
               Back to Login
@@ -284,12 +276,9 @@ export default function VerifyDevice() {
               type="button"
               onClick={onStartOver}
               style={{
+                ...btn.danger,
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid rgba(255,0,0,0.20)",
-                background: "rgba(255,0,0,0.06)",
-                cursor: "pointer",
-                fontWeight: 900,
               }}
               title="Clears session and starts over"
             >
@@ -300,11 +289,12 @@ export default function VerifyDevice() {
           {sent ? (
             <div
               style={{
-                background: "rgba(0,120,255,0.08)",
-                border: "1px solid rgba(0,120,255,0.18)",
+                background: color.primarySubtle,
+                border: `1px solid ${color.primaryBorder}`,
                 padding: 10,
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",
+                color: color.text,
               }}
             >
               Verification email sent. Check your inbox and click the link.
@@ -314,8 +304,9 @@ export default function VerifyDevice() {
           {err ? (
             <div
               style={{
-                background: "rgba(255,0,0,0.06)",
-                border: "1px solid rgba(255,0,0,0.15)",
+                background: color.dangerSubtle,
+                border: `1px solid ${color.dangerBorder}`,
+                color: color.danger,
                 padding: 10,
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",
@@ -325,8 +316,8 @@ export default function VerifyDevice() {
             </div>
           ) : null}
 
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-            Tip: If you don’t see the message within a minute, check spam/junk. You can resend after a short delay.
+          <div style={{ fontSize: 12, color: color.textFaint }}>
+            Tip: If you don't see the message within a minute, check spam/junk. You can resend after a short delay.
           </div>
         </div>
       </div>

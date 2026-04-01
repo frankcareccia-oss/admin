@@ -22,6 +22,7 @@ import { merchantListInvoices } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import { color, btn } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -54,8 +55,8 @@ function Pill({ children }) {
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 900,
-        background: "rgba(0,0,0,0.06)",
-        border: "1px solid rgba(0,0,0,0.10)",
+        background: color.borderSubtle,
+        border: `1px solid ${color.border}`,
         textTransform: "lowercase",
       }}
     >
@@ -67,27 +68,23 @@ function Pill({ children }) {
 const buttonBase = {
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
+  border: `1px solid ${color.border}`,
+  background: color.cardBg,
   cursor: "pointer",
   fontWeight: 900,
 };
 
 const buttonPrimaryGreen = {
+  ...btn.primary,
   padding: "10px 14px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.10)",
-  background: "#1f7a3a",
-  color: "white",
-  cursor: "pointer",
-  fontWeight: 900,
   whiteSpace: "nowrap",
 };
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 function calcAmountDueCents(inv) {
@@ -204,8 +201,8 @@ export default function MerchantPortalInvoices() {
             ...card,
             padding: 14,
             marginBottom: 12,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
           }}
         >
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Error</div>
@@ -223,7 +220,7 @@ export default function MerchantPortalInvoices() {
           }}
         >
           <div style={{ fontWeight: 900 }}>Results</div>
-          <div style={{ color: "rgba(0,0,0,0.6)" }}>
+          <div style={{ color: color.textMuted }}>
             ({items.length} invoice{items.length === 1 ? "" : "s"})
           </div>
         </div>
@@ -242,13 +239,13 @@ export default function MerchantPortalInvoices() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={5} style={{ padding: 14, color: color.textMuted }}>
                     Loading…
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={5} style={{ padding: 14, color: color.textMuted }}>
                     No invoices.
                   </td>
                 </tr>
@@ -308,9 +305,9 @@ export default function MerchantPortalInvoices() {
                               borderRadius: 999,
                               alignItems: "center",
                               justifyContent: "center",
-                              border: "1px solid rgba(0,0,0,0.14)",
-                              background: "white",
-                              color: "rgba(0,0,0,0.85)",
+                              border: `1px solid ${color.border}`,
+                              background: color.cardBg,
+                              color: color.text,
                               fontWeight: 900,
                               lineHeight: 1,
                               fontSize: 12,
@@ -334,9 +331,9 @@ export default function MerchantPortalInvoices() {
 
                       <td style={{ ...td, textAlign: "right" }}>
                         {isPaid ? (
-                          <span style={{ fontWeight: 900, color: "rgba(0,0,0,0.35)" }}>Paid</span>
+                          <span style={{ fontWeight: 900, color: color.textFaint }}>Paid</span>
                         ) : isDraft ? (
-                          <span style={{ fontWeight: 900, color: "rgba(0,0,0,0.45)" }}>—</span>
+                          <span style={{ fontWeight: 900, color: color.textFaint }}>—</span>
                         ) : canPayNow ? (
                           payLinkAvailable ? (
                             <button
@@ -363,7 +360,7 @@ export default function MerchantPortalInvoices() {
                               style={{
                                 fontSize: 12,
                                 fontWeight: 900,
-                                color: "rgba(0,0,0,0.45)",
+                                color: color.textFaint,
                               }}
                               title="Pay link not available yet"
                             >
@@ -382,7 +379,7 @@ export default function MerchantPortalInvoices() {
       </div>
 
       {items.length > 0 && hasAwaitingPayLink ? (
-        <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+        <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
           Pay links appear when an invoice is ready for payment.
         </div>
       ) : null}
@@ -392,10 +389,10 @@ export default function MerchantPortalInvoices() {
 
 const th = {
   padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.08)",
+  borderBottom: `1px solid ${color.border}`,
 };
 
 const td = {
   padding: 12,
-  borderBottom: "1px solid rgba(0,0,0,0.06)",
+  borderBottom: `1px solid ${color.borderSubtle}`,
 };

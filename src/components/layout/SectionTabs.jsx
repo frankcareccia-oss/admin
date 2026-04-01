@@ -1,6 +1,7 @@
 // admin/src/components/layout/SectionTabs.jsx
 import React from "react";
 import { Link } from "react-router-dom";
+import { color, palette } from "../../theme";
 
 /**
  * SectionTabs
@@ -59,7 +60,7 @@ const styles = {
   title: {
     fontSize: 12,
     fontWeight: 800,
-    color: "rgba(0,0,0,0.55)",
+    color: color.textMuted,
     marginBottom: 8,
     letterSpacing: 0.2,
     textTransform: "uppercase",
@@ -67,8 +68,8 @@ const styles = {
   panel: {
     padding: "12px 14px",
     borderRadius: 14,
-    background: "rgba(0,0,0,0.03)",
-    border: "1px solid rgba(0,0,0,0.10)",
+    background: color.borderSubtle,
+    border: `1px solid ${color.border}`,
   },
   row: {
     display: "flex",
@@ -79,8 +80,8 @@ const styles = {
   pill: {
     textDecoration: "none",
     color: "inherit",
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
+    border: `1px solid ${color.borderInput}`,
+    background: palette.white,
     padding: "8px 12px",
     borderRadius: 999,
     fontWeight: 800,
@@ -91,7 +92,7 @@ const styles = {
     font: "inherit",
   },
   pillActive: {
-    background: "rgba(0,0,0,0.08)",
+    background: color.border,
     borderColor: "rgba(0,0,0,0.30)",
   },
   count: {
@@ -104,6 +105,6 @@ const styles = {
     justifyContent: "center",
     fontSize: 12,
     fontWeight: 900,
-    background: "rgba(0,0,0,0.08)",
+    background: color.border,
   },
 };

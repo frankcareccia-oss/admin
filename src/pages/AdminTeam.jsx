@@ -15,6 +15,7 @@ import {
   adminUpdateTeamMember,
   getSystemRole,
 } from "../api/client";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -1175,8 +1176,8 @@ const PANEL = "#F4F2ED";
 
 const styles = {
   page: {
-    background: "#FEFCF7",
-    color: NAVY,
+    background: color.pageBg,
+    color: color.text,
     minHeight: "100%",
   },
   frame: {
@@ -1185,8 +1186,8 @@ const styles = {
     padding: 16,
   },
   elevatedPanel: {
-    background: "#FEFCF7",
-    border: "1px solid rgba(0,0,0,0.10)",
+    background: color.pageBg,
+    border: `1px solid ${color.border}`,
     borderRadius: 18,
     boxShadow: "0 10px 26px rgba(0,0,0,0.05)",
     padding: 16,
@@ -1212,12 +1213,13 @@ const styles = {
     fontWeight: 800,
   },
   refreshBtn: {
-    border: "1px solid rgba(0,0,0,0.16)",
-    background: "#FFFFFF",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     borderRadius: 12,
     padding: "8px 12px",
     cursor: "pointer",
     fontWeight: 900,
+    color: color.text,
   },
 
   errBox: {
@@ -1254,8 +1256,8 @@ const styles = {
     justifyContent: "space-between",
     alignItems: "center",
     gap: 12,
-    background: "#FFFFFF",
-    border: "1px solid rgba(0,0,0,0.10)",
+    background: color.cardBg,
+    border: `1px solid ${color.border}`,
     borderRadius: 16,
     padding: 12,
     cursor: "pointer",
@@ -1274,8 +1276,8 @@ const styles = {
   },
 
   createPanel: {
-    background: "#FFFFFF",
-    border: "1px solid rgba(0,0,0,0.08)",
+    background: color.cardBg,
+    border: `1px solid ${color.borderSubtle}`,
     borderRadius: 16,
     padding: 12,
   },
@@ -1327,26 +1329,14 @@ const styles = {
     fontWeight: 900,
   },
   input: {
-    width: "100%",
-    minWidth: 0,
-    border: "1px solid rgba(0,0,0,0.18)",
+    ...themeInput,
     borderRadius: 12,
     padding: "10px 10px",
-    outline: "none",
-    background: "#FFFFFF",
-    color: NAVY,
-    boxSizing: "border-box",
   },
   select: {
-    width: "100%",
-    minWidth: 0,
-    border: "1px solid rgba(0,0,0,0.18)",
+    ...themeInput,
     borderRadius: 12,
     padding: "10px 10px",
-    outline: "none",
-    background: "#FFFFFF",
-    color: NAVY,
-    boxSizing: "border-box",
   },
 
   passwordWrap: { position: "relative", display: "flex", alignItems: "center" },
@@ -1355,8 +1345,8 @@ const styles = {
     right: 10,
     top: "50%",
     transform: "translateY(-50%)",
-    border: "1px solid rgba(0,0,0,0.16)",
-    background: "rgba(255,255,255,0.96)",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     borderRadius: 10,
     padding: "6px 8px",
     cursor: "pointer",
@@ -1396,11 +1386,11 @@ const styles = {
   scrollArea: {
     overflowY: "visible",
     overflowX: "auto",
-    border: "1px solid rgba(0,0,0,0.06)",
+    border: `1px solid ${color.borderSubtle}`,
     borderRadius: 14,
     minHeight: 0,
     maxHeight: "none",
-    background: "#FEFCF7",
+    background: color.pageBg,
   },
   th: {
     padding: 12,
@@ -1448,8 +1438,8 @@ const styles = {
     width: 56,
   },
   caretBtn: {
-    border: "1px solid rgba(0,0,0,0.14)",
-    background: "#FFFFFF",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     borderRadius: 12,
     width: 34,
     height: 34,
@@ -1467,8 +1457,8 @@ const styles = {
     borderBottom: "1px solid rgba(0,0,0,0.06)",
   },
   detailPanel: {
-    background: "#FFFFFF",
-    border: "1px solid rgba(0,0,0,0.10)",
+    background: color.cardBg,
+    border: `1px solid ${color.border}`,
     borderRadius: 16,
     padding: 14,
     display: "flex",

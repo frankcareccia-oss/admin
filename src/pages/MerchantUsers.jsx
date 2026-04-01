@@ -8,6 +8,7 @@ import {
   merchantUpdateUserProfile,
   me,
 } from "../api/client";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 // PV Admin UI Contract v1.0 (LOCKED)
 // Landscape: Model B (single scroll)
@@ -109,18 +110,18 @@ function resolveMerchantContextFromMe(meRes) {
 }
 
 const TOKENS = {
-  pageBg: "#FEFCF7",
-  surface: "#FFFFFF",
-  text: "#0B2A33",
-  muted: "rgba(11,42,51,0.60)",
-  border: "rgba(0,0,0,0.10)",
-  divider: "rgba(0,0,0,0.06)",
-  teal: "#2F8F8B",
-  tealHover: "#277D79",
-  errBg: "rgba(255,0,0,0.06)",
-  errBorder: "rgba(255,0,0,0.15)",
-  okBg: "rgba(47,143,139,0.10)",
-  okBorder: "rgba(47,143,139,0.50)",
+  pageBg: color.pageBg,
+  surface: color.cardBg,
+  text: color.text,
+  muted: color.textMuted,
+  border: color.border,
+  divider: color.borderSubtle,
+  teal: color.primary,
+  tealHover: color.primaryHover,
+  errBg: color.dangerSubtle,
+  errBorder: color.dangerBorder,
+  okBg: color.primarySubtle,
+  okBorder: color.primaryBorder,
   mono:
     'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
 };
@@ -215,32 +216,20 @@ const styles = {
 
   toolbar: { display: "flex", gap: 10, flexWrap: "nowrap", alignItems: "center" },
   input: {
+    ...themeInput,
     flex: 1,
     minWidth: 0,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    color: "#0B2A33",
   },
   select: {
+    ...themeInput,
     minWidth: 140,
     flexShrink: 0,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    color: "#0B2A33",
   },
 
   btnPrimary: {
+    ...btn.primary,
     padding: "9px 14px",
     borderRadius: 10,
-    border: "1px solid transparent",
-    background: TOKENS.teal,
-    color: "white",
-    fontWeight: 800,
-    cursor: "pointer",
   },
   btnPrimaryDisabled: { opacity: 0.55, cursor: "not-allowed" },
 
@@ -248,7 +237,7 @@ const styles = {
     padding: "10px 12px",
     borderRadius: 10,
     border: `1px solid ${TOKENS.border}`,
-    background: "white",
+    background: color.cardBg,
     color: TOKENS.text,
     fontWeight: 800,
     cursor: "pointer",
@@ -322,22 +311,15 @@ const styles = {
   label: { display: "block", fontSize: 12, color: TOKENS.muted, marginBottom: 6, fontWeight: 800 },
   phoneFieldRow: { display: "flex", alignItems: "stretch", gap: 8 },
   phonePrefixSelect: {
+    ...themeInput,
     width: 86,
     flexShrink: 0,
     padding: "10px 10px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    color: "#0B2A33",
   },
   phoneInput: {
+    ...themeInput,
     flex: 1,
     minWidth: 0,
-    padding: "10px 12px",
-    borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
-    color: "#0B2A33",
   },
   formActions: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 12 },
 };
@@ -1329,7 +1311,7 @@ export default function MerchantUsers({ readOnly = false }) {
               >
                 <div
                   style={{
-                    background: "white",
+                    background: color.cardBg,
                     borderRadius: 12,
                     padding: 20,
                     width: 360,

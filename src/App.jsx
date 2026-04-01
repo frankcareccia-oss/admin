@@ -13,6 +13,7 @@ import {
 } from "react-router-dom";
 
 import RequireAuth from "./components/RequireAuth";
+import { color, btn, palette } from "./theme";
 
 import GuestPayPage from "./pages/pay/GuestPayPage";
 
@@ -132,8 +133,8 @@ function MerchantPromotionsGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (err) return <div style={{ padding: 24, color: "rgba(140,0,0,1)" }}>{err}</div>;
-  return <div style={{ padding: 24, color: "rgba(0,0,0,0.5)" }}>Loading promotions…</div>;
+  if (err) return <div style={{ padding: 24, color: color.danger }}>{err}</div>;
+  return <div style={{ padding: 24, color: color.textMuted }}>Loading promotions…</div>;
 }
 
 function MerchantBundlesGate() {
@@ -157,8 +158,8 @@ function MerchantBundlesGate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (err) return <div style={{ padding: 24, color: "rgba(140,0,0,1)" }}>{err}</div>;
-  return <div style={{ padding: 24, color: "rgba(0,0,0,0.5)" }}>Loading bundles…</div>;
+  if (err) return <div style={{ padding: 24, color: color.danger }}>{err}</div>;
+  return <div style={{ padding: 24, color: color.textMuted }}>Loading bundles…</div>;
 }
 
 function computeHome() {
@@ -177,11 +178,11 @@ function computeHome() {
 
 const navPill = ({ isActive }) => ({
   textDecoration: "none",
-  color: "inherit",
+  color: isActive ? color.primary : color.text,
   padding: "8px 12px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: isActive ? "rgba(0,0,0,0.08)" : "white",
+  border: isActive ? `1px solid ${color.primaryBorder}` : "1px solid rgba(0,0,0,0.18)",
+  background: isActive ? color.primarySubtle : color.cardBg,
   fontWeight: isActive ? 700 : 600,
 });
 
@@ -286,19 +287,19 @@ function MerchantAdminOnly({ children }) {
           style={{
             padding: 14,
             borderRadius: 14,
-            border: "1px solid rgba(160,0,0,0.18)",
-            background: "rgba(255,0,0,0.06)",
+            border: `1px solid ${color.dangerBorder}`,
+            background: color.dangerSubtle,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Forbidden</div>
-          <div style={{ color: "rgba(0,0,0,0.70)" }}>
+          <div style={{ fontWeight: 900, marginBottom: 6, color: color.text }}>Forbidden</div>
+          <div style={{ color: color.textMuted }}>
             Store profile editing is available only to <code>merchant_admin</code> (or <code>owner</code>).
           </div>
-          <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
             Merchant role: <code>{merchantRole || "unknown"}</code>
           </div>
           {merchantRolePath ? (
-            <div style={{ marginTop: 6, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+            <div style={{ marginTop: 6, fontSize: 12, color: color.textMuted }}>
               Merchant role path: <code>{merchantRolePath}</code>
             </div>
           ) : null}
@@ -602,7 +603,7 @@ function Layout({ children }) {
 
   return (
     <MerchantCtx.Provider value={{ merchantRole, merchantRolePath, loading: merchantRoleLoading }}>
-      <div style={{ height: "100vh", display: "grid", gridTemplateRows: "56px 1fr", background: "#F7F5F1" }}>
+      <div style={{ height: "100vh", display: "grid", gridTemplateRows: "56px 1fr", background: color.pageBg }}>
         <header
           style={{
             background: "#FEFCF7",
@@ -650,7 +651,7 @@ function Layout({ children }) {
                       padding: "8px 12px",
                       borderRadius: 999,
                       border: "1px solid rgba(0,0,0,0.18)",
-                      background: "white",
+                      background: color.cardBg,
                       cursor: "pointer",
                       fontWeight: 700,
                       flexShrink: 0,
@@ -683,7 +684,7 @@ function Layout({ children }) {
                     {sysRole === "pv_admin" ? (
                       <>
                         {!deviceTrustedLoading && deviceTrusted === false ? (
-                          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.60)", fontWeight: 800 }}>
+                          <div style={{ fontSize: 12, color: color.textMuted, fontWeight: 800 }}>
                             Device verification required
                           </div>
                         ) : (
@@ -737,7 +738,7 @@ function Layout({ children }) {
                         padding: "8px 12px",
                         borderRadius: 999,
                         border: "1px solid rgba(0,0,0,0.18)",
-                        background: "white",
+                        background: color.cardBg,
                         cursor: "pointer",
                         fontWeight: 700,
                         flexShrink: 0,

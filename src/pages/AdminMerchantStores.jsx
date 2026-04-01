@@ -12,6 +12,7 @@ import { getMerchant, createStore } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -167,7 +168,7 @@ export default function AdminMerchantStores() {
 
   return (
     <PageContainer size="page">
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -180,7 +181,7 @@ export default function AdminMerchantStores() {
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatusBadge status={merchant.status} />
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+            <span style={{ fontSize: 12, color: color.textMuted }}>
               {merchantName}
               {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
             </span>
@@ -212,7 +213,7 @@ export default function AdminMerchantStores() {
           style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
         >
           <span style={{ fontWeight: 900 }}>Add Store Location</span>
-          <span style={{ marginLeft: "auto", fontSize: 13, color: "rgba(0,0,0,0.5)" }}>
+          <span style={{ marginLeft: "auto", fontSize: 13, color: color.textMuted }}>
             {addOpen ? "Hide" : "Show"}
           </span>
         </button>
@@ -293,7 +294,7 @@ export default function AdminMerchantStores() {
       <div style={styles.storesCard}>
         <div style={styles.storesHeader}>
           <div style={{ fontWeight: 800 }}>Store Locations</div>
-          <div style={{ color: "rgba(0,0,0,0.6)" }}>
+          <div style={{ color: color.textMuted }}>
             ({stores.length} store{stores.length === 1 ? "" : "s"})
           </div>
         </div>
@@ -323,7 +324,7 @@ export default function AdminMerchantStores() {
                   <td style={td}>{s.id}</td>
                   <td style={td}>
                     <div style={{ fontWeight: 700 }}>{s.name}</div>
-                    <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{s.address1 || ""}</div>
+                    <div style={{ fontSize: 12, color: color.textMuted }}>{s.address1 || ""}</div>
                   </td>
                   <td style={td}>{s.city || ""}</td>
                   <td style={td}>{s.state || ""}</td>
@@ -337,7 +338,7 @@ export default function AdminMerchantStores() {
               ))}
               {stores.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={6} style={{ padding: 14, color: color.textMuted }}>
                     No stores yet. Use the form above to add the first location.
                   </td>
                 </tr>
@@ -355,21 +356,20 @@ export default function AdminMerchantStores() {
 const styles = {
   refreshBtn: {
     padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 800,
+    border: `1px solid ${color.border}`, background: color.cardBg,
+    cursor: "pointer", fontWeight: 800, color: color.text,
   },
   card: {
-    marginTop: 16, border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14, padding: 16, background: "white",
+    marginTop: 16, border: `1px solid ${color.border}`,
+    borderRadius: 14, padding: 16, background: color.cardBg,
   },
   label: {
     display: "block", fontSize: 12,
-    color: "rgba(0,0,0,0.65)", marginBottom: 6,
+    color: color.textMuted, marginBottom: 6,
   },
   input: {
-    width: "100%", minWidth: 0, padding: "10px 12px",
-    borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)",
-    boxSizing: "border-box", fontSize: 14,
+    ...themeInput,
+    minWidth: 0,
   },
   formGrid: {
     display: "grid",
@@ -381,26 +381,25 @@ const styles = {
   },
   saveBtn: {
     padding: "10px 24px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 900,
+    ...btn.primary,
   },
   errBox: {
-    background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)",
-    padding: 10, borderRadius: 12, whiteSpace: "pre-wrap",
+    background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`,
+    padding: 10, borderRadius: 12, whiteSpace: "pre-wrap", color: color.danger,
   },
   okBox: {
     background: "rgba(0,128,0,0.06)", border: "1px solid rgba(0,128,0,0.18)",
     padding: 10, borderRadius: 12,
   },
   storesCard: {
-    marginTop: 16, border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14, overflow: "hidden", background: "white",
+    marginTop: 16, border: `1px solid ${color.border}`,
+    borderRadius: 14, overflow: "hidden", background: color.cardBg,
   },
   storesHeader: {
-    padding: "14px 16px", borderBottom: "1px solid rgba(0,0,0,0.08)",
+    padding: "14px 16px", borderBottom: `1px solid ${color.borderSubtle}`,
     display: "flex", gap: 10, alignItems: "baseline",
   },
 };
 
-const th = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", fontSize: 13, color: "rgba(0,0,0,0.55)", fontWeight: 700 };
-const td = { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)", verticalAlign: "middle" };
+const th = { padding: "10px 12px", borderBottom: `1px solid ${color.borderSubtle}`, fontSize: 13, color: color.textMuted, fontWeight: 700 };
+const td = { padding: "10px 12px", borderBottom: `1px solid ${color.borderSubtle}`, verticalAlign: "middle" };

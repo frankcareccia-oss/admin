@@ -16,6 +16,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /* ── pvUiHook ── */
 function pvUiHook(event, fields = {}) {
@@ -300,7 +301,7 @@ export default function AdminMerchantInvoices() {
   return (
     <PageContainer size="page">
       {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -313,7 +314,7 @@ export default function AdminMerchantInvoices() {
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {merchant && <StatusBadge status={merchant.status} />}
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+            <span style={{ fontSize: 12, color: color.textMuted }}>
               {merchantLoading ? "" : merchantName}
               {merchant?.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
             </span>
@@ -328,13 +329,13 @@ export default function AdminMerchantInvoices() {
 
       {/* Error / success banners */}
       {error && (
-        <div style={{ ...styles.card, background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)", marginBottom: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Error</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{error}</div>
+        <div style={{ ...styles.card, background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, color: color.danger }}>Error</div>
+          <div style={{ whiteSpace: "pre-wrap", color: color.danger }}>{error}</div>
         </div>
       )}
       {genMsg && (
-        <div style={{ ...styles.card, background: "rgba(0,120,255,0.08)", border: "1px solid rgba(0,120,255,0.18)", marginBottom: 12 }}>
+        <div style={{ ...styles.card, background: color.primarySubtle, border: `1px solid ${color.primaryBorder}`, marginBottom: 12 }}>
           {genMsg}
         </div>
       )}
@@ -360,7 +361,7 @@ export default function AdminMerchantInvoices() {
           style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
         >
           <span style={{ fontWeight: 900 }}>Generate Draft Invoice (dev)</span>
-          <span style={{ marginLeft: "auto", fontSize: 13, color: "rgba(0,0,0,0.45)" }}>{genOpen ? "Hide" : "Show"}</span>
+          <span style={{ marginLeft: "auto", fontSize: 13, color: color.textMuted }}>{genOpen ? "Hide" : "Show"}</span>
         </button>
 
         {genOpen && (
@@ -393,7 +394,7 @@ export default function AdminMerchantInvoices() {
             <button type="submit" disabled={busy || loading} style={styles.btn}>
               {busy ? "Working..." : "Generate"}
             </button>
-            <div style={{ width: "100%", fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 0 }}>
+            <div style={{ width: "100%", fontSize: 12, color: color.textMuted, marginTop: 0 }}>
               Creates a <code>draft</code> invoice. Open it and click <b>Issue invoice</b>.
             </div>
           </form>
@@ -432,7 +433,7 @@ export default function AdminMerchantInvoices() {
       <div style={{ ...styles.card, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "12px 14px", borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", gap: 8, alignItems: "baseline" }}>
           <div style={{ fontWeight: 900 }}>Invoices</div>
-          <div style={{ color: "rgba(0,0,0,0.5)", fontSize: 13 }}>({items.length})</div>
+          <div style={{ color: color.textMuted, fontSize: 13 }}>({items.length})</div>
         </div>
         <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: genOpen ? "45vh" : "55vh", minHeight: 120 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
@@ -453,7 +454,7 @@ export default function AdminMerchantInvoices() {
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={4} style={{ padding: 14, color: color.textMuted }}>
                     {loading ? "Loading..." : "No invoices found."}
                   </td>
                 </tr>
@@ -491,19 +492,18 @@ export default function AdminMerchantInvoices() {
 const styles = {
   btn: {
     padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 800,
+    border: `1px solid ${color.border}`, background: color.cardBg,
+    cursor: "pointer", fontWeight: 800, color: color.text,
   },
   card: {
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14, padding: 14, background: "white",
+    border: `1px solid ${color.border}`,
+    borderRadius: 14, padding: 14, background: color.cardBg,
   },
-  label: { display: "block", fontSize: 12, color: "rgba(0,0,0,0.65)", marginBottom: 6, fontWeight: 700 },
+  label: { display: "block", fontSize: 12, color: color.textMuted, marginBottom: 6, fontWeight: 700 },
   control: {
-    padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    outline: "none", width: 190,
+    ...themeInput,
+    width: 190,
   },
-  th: { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.08)", position: "sticky", top: 0, background: "white", zIndex: 1, fontSize: 13, color: "rgba(0,0,0,0.55)", fontWeight: 700 },
-  td: { padding: "10px 12px", borderBottom: "1px solid rgba(0,0,0,0.06)", fontSize: 13 },
+  th: { padding: "10px 12px", borderBottom: `1px solid ${color.borderSubtle}`, position: "sticky", top: 0, background: color.cardBg, zIndex: 1, fontSize: 13, color: color.textMuted, fontWeight: 700 },
+  td: { padding: "10px 12px", borderBottom: `1px solid ${color.borderSubtle}`, fontSize: 13 },
 };

@@ -11,6 +11,7 @@ import {
 
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -97,26 +98,22 @@ function Badge({ text }) {
 }
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 const buttonBase = {
   padding: "10px 12px",
+  ...btn.secondary,
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: 900,
 };
 
 const inputSm = {
+  ...themeInput,
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
   width: 160,
 };
 
@@ -574,7 +571,7 @@ export default function AdminInvoiceDetail() {
   return (
     <PageContainer size="page">
       {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         {returnMerchantId ? (
           <>
             <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
@@ -618,19 +615,19 @@ export default function AdminInvoiceDetail() {
         }
       />
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading…</div> : null}
+      {loading ? <div style={{ color: color.textMuted, padding: "6px 2px" }}>Loading…</div> : null}
 
       {error ? (
         <div
           style={{
             ...card,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
             marginBottom: 12,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Error</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{error}</div>
+          <div style={{ fontWeight: 900, marginBottom: 6, color: color.danger }}>Error</div>
+          <div style={{ whiteSpace: "pre-wrap", color: color.danger }}>{error}</div>
         </div>
       ) : null}
 
@@ -638,8 +635,8 @@ export default function AdminInvoiceDetail() {
         <div
           style={{
             ...card,
-            background: "rgba(0,120,255,0.08)",
-            border: "1px solid rgba(0,120,255,0.18)",
+            background: color.primarySubtle,
+            border: `1px solid ${color.primaryBorder}`,
             marginBottom: 12,
           }}
         >
@@ -655,7 +652,7 @@ export default function AdminInvoiceDetail() {
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800 }}>Net terms</span>
+                <span style={{ color: color.textMuted, fontWeight: 800 }}>Net terms</span>
                 <select
                   value={netTermsDays}
                   onChange={(e) => setNetTermsDays(e.target.value)}
@@ -694,11 +691,11 @@ export default function AdminInvoiceDetail() {
                     alignItems: "center",
                     padding: "10px 12px",
                     borderRadius: 12,
-                    border: "1px solid rgba(160,0,0,0.18)",
-                    background: "rgba(160,0,0,0.04)",
+                    border: `1px solid ${color.dangerBorder}`,
+                    background: color.dangerSubtle,
                   }}
                 >
-                  <div style={{ fontWeight: 800, color: "rgba(120,0,0,0.95)" }}>
+                  <div style={{ fontWeight: 800, color: color.danger }}>
                     This will void invoice #{invoiceId}. This cannot be undone.
                   </div>
 
@@ -725,8 +722,8 @@ export default function AdminInvoiceDetail() {
                     disabled={actionBusy}
                     style={{
                       ...buttonBase,
-                      border: "1px solid rgba(160,0,0,0.25)",
-                      color: "rgba(140,0,0,0.95)",
+                      border: `1px solid ${color.dangerBorder}`,
+                      color: color.danger,
                     }}
                   >
                     {actionBusy ? "Voiding…" : "Confirm Void"}
@@ -753,7 +750,7 @@ export default function AdminInvoiceDetail() {
 
               <div style={{ flex: 1 }} />
 
-              <div style={{ color: "rgba(0,0,0,0.60)" }}>Server enforces rules.</div>
+              <div style={{ color: color.textMuted }}>Server enforces rules.</div>
             </div>
 
             {/* Pay Link (Thread Q) */}
@@ -872,7 +869,7 @@ export default function AdminInvoiceDetail() {
 
                 <div style={{ flex: 1 }} />
 
-                <div style={{ color: "rgba(0,0,0,0.60)" }}>
+                <div style={{ color: color.textMuted }}>
                   Amount due: <b>{moneyUsd(amountDueCents)}</b>
                 </div>
               </div>
@@ -881,11 +878,12 @@ export default function AdminInvoiceDetail() {
                 <div
                   style={{
                     marginTop: 10,
-                    background: "rgba(255,0,0,0.06)",
-                    border: "1px solid rgba(255,0,0,0.15)",
+                    background: color.dangerSubtle,
+                    border: `1px solid ${color.dangerBorder}`,
                     padding: 10,
                     borderRadius: 12,
                     whiteSpace: "pre-wrap",
+                    color: color.danger,
                   }}
                 >
                   {payErr}
@@ -900,7 +898,7 @@ export default function AdminInvoiceDetail() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 8 }}>
                   <div style={styles.k}>Eligible</div>
-                  <div>{String(!!preview?.eligible)}</div>
+                  <div style={{ color: color.text }}>{String(!!preview?.eligible)}</div>
 
                   <div style={styles.k}>Reason</div>
                   <div>{preview?.reason || "—"}</div>
@@ -997,7 +995,7 @@ export default function AdminInvoiceDetail() {
                   ))}
                   {(detail.lineItems || []).length === 0 ? (
                     <tr>
-                      <td colSpan={3} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                      <td colSpan={3} style={{ padding: 14, color: color.textMuted }}>
                         No line items.
                       </td>
                     </tr>
@@ -1011,7 +1009,7 @@ export default function AdminInvoiceDetail() {
           <div style={{ ...card }}>
             <div style={{ fontWeight: 900, marginBottom: 10 }}>Payments</div>
             {(detail.payments || []).length === 0 ? (
-              <div style={{ color: "rgba(0,0,0,0.6)" }}>No payments.</div>
+              <div style={{ color: color.textMuted }}>No payments.</div>
             ) : (
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {(detail.payments || []).map((p) => (
@@ -1030,7 +1028,7 @@ export default function AdminInvoiceDetail() {
 }
 
 const styles = {
-  k: { color: "rgba(0,0,0,0.65)", fontWeight: 800, fontSize: 12 },
-  th: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)" },
-  td: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.06)" },
+  k: { color: color.textMuted, fontWeight: 800, fontSize: 12 },
+  th: { padding: 12, borderBottom: `1px solid ${color.borderSubtle}` },
+  td: { padding: 12, borderBottom: `1px solid ${color.borderSubtle}` },
 };

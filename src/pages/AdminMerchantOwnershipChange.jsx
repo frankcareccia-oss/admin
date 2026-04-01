@@ -5,6 +5,7 @@
 import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PageContainer from "../components/layout/PageContainer";
+import { color, btn, inputStyle as themeInput } from "../theme";
 import {
   adminListMerchantUsers,
   adminTransferOwnership,
@@ -379,9 +380,9 @@ export default function AdminMerchantOwnershipChange() {
 
 const styles = {
   page: {
-    background: "#FEFCF7",
+    background: color.pageBg,
     minHeight: "calc(100vh - 72px)",
-    color: TOKENS.navy,
+    color: color.text,
     paddingTop: 28,
     paddingBottom: 28,
   },
@@ -421,8 +422,8 @@ const styles = {
   },
 
   card: {
-    background: TOKENS.surface,
-    border: `1px solid ${TOKENS.border}`,
+    background: color.cardBg,
+    border: `1px solid ${color.border}`,
     borderRadius: 16,
     padding: 18,
     boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
@@ -463,15 +464,9 @@ const styles = {
   },
 
   select: {
-    width: "100%",
-    boxSizing: "border-box",
+    ...themeInput,
     padding: "12px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "#fff",
-    color: TOKENS.navy,
-    fontSize: 14,
-    outline: "none",
   },
 
   buttonRow: {
@@ -485,22 +480,14 @@ const styles = {
     minWidth: 180,
     padding: "12px 16px",
     borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.16)",
-    background: "#fff",
-    color: TOKENS.navy,
-    fontWeight: 900,
-    cursor: "pointer",
+    ...btn.primary,
   },
 
   secondaryBtn: {
     minWidth: 110,
     padding: "12px 16px",
     borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.16)",
-    background: "#fff",
-    color: TOKENS.navy,
-    fontWeight: 800,
-    cursor: "pointer",
+    ...btn.secondary,
   },
 
   btnDisabled: {
@@ -531,10 +518,10 @@ const styles = {
   infoBox: {
     marginTop: 16,
     padding: 12,
-    border: `1px solid ${TOKENS.border}`,
+    border: `1px solid ${color.border}`,
     borderRadius: 12,
-    background: "#fff",
-    color: TOKENS.navy,
+    background: color.cardBg,
+    color: color.text,
     whiteSpace: "pre-wrap",
   },
 

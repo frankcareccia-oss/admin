@@ -1,5 +1,6 @@
 // src/components/layout/PageHeader.jsx
 import React from "react";
+import { color } from "../../theme";
 
 /**
  * Minimal PageHeader component (compat layer).
@@ -27,7 +28,7 @@ export default function PageHeader({ title, subtitle, right, children }) {
           {title}
         </div>
         {subtitle ? (
-          <div style={{ color: "rgba(0,0,0,0.65)", marginTop: 4 }}>
+          <div style={{ color: color.textMuted, marginTop: 4 }}>
             {subtitle}
           </div>
         ) : null}

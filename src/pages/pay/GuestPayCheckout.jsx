@@ -2,6 +2,7 @@
 import React from "react";
 import { CardElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { backendBaseUrl } from "../../payments/stripeClient";
+import { color, btn } from "../../theme";
 
 /**
  * Thread P — Canonical Pay Flow
@@ -301,11 +302,11 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
           }}
         >
           <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Payment received</div>
-          <div style={{ color: "rgba(0,0,0,0.75)", marginBottom: 10 }}>
+          <div style={{ color: color.textMuted, marginBottom: 10 }}>
             Your payment of <b>{money(receipt.amountCents)}</b> was successful.
           </div>
 
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.65)", display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 12, color: color.textMuted, display: "grid", gap: 6 }}>
             <div>
               Paid at: <b>{new Date(receipt.paidAtIso).toLocaleString()}</b>
             </div>
@@ -324,9 +325,9 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
           style={{
             padding: 12,
             borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.10)",
-            background: "rgba(0,0,0,0.03)",
-            color: "rgba(0,0,0,0.70)",
+            border: `1px solid ${color.border}`,
+            background: color.borderSubtle,
+            color: color.textMuted,
             fontWeight: 800,
             fontSize: 13,
           }}
@@ -349,10 +350,10 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #ccc",
+              border: `1px solid ${color.border}`,
               fontWeight: 800,
               cursor: "pointer",
-              background: "white",
+              background: color.cardBg,
             }}
           >
             Refresh invoice status
@@ -364,10 +365,10 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #ccc",
+              border: `1px solid ${color.border}`,
               fontWeight: 800,
               cursor: "pointer",
-              background: "white",
+              background: color.cardBg,
             }}
           >
             Done
@@ -379,10 +380,10 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #ccc",
+              border: `1px solid ${color.border}`,
               fontWeight: 800,
               cursor: "pointer",
-              background: "white",
+              background: color.cardBg,
             }}
             title="Log in to your PerkValet account"
           >
@@ -390,7 +391,7 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
           </button>
         </div>
 
-        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+        <div style={{ fontSize: 12, color: color.textMuted }}>
           If the invoice page still shows an amount due, wait a moment and refresh (webhook processing can take a few
           seconds).
         </div>
@@ -410,7 +411,7 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
           }}
         >
           <div style={{ fontWeight: 900, marginBottom: 6 }}>Payment session already created</div>
-          <div style={{ color: "rgba(0,0,0,0.75)", marginBottom: 10 }}>{intentExistsMsg}</div>
+          <div style={{ color: color.textMuted, marginBottom: 10 }}>{intentExistsMsg}</div>
 
           <button
             type="button"
@@ -426,16 +427,16 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
             style={{
               padding: "10px 14px",
               borderRadius: 10,
-              border: "1px solid #ccc",
+              border: `1px solid ${color.border}`,
               fontWeight: 800,
               cursor: "pointer",
-              background: "white",
+              background: color.cardBg,
             }}
           >
             Refresh page
           </button>
 
-          <div style={{ marginTop: 8, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <div style={{ marginTop: 8, fontSize: 12, color: color.textMuted }}>
             This can happen if you double-clicked Pay or opened the link in multiple tabs.
           </div>
         </div>
@@ -447,14 +448,14 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
           value={payerEmail}
           onChange={(e) => setPayerEmail(e.target.value)}
           placeholder="you@example.com"
-          style={{ padding: 10, borderRadius: 8, border: "1px solid #ddd" }}
+          style={{ padding: 10, borderRadius: 8, border: `1px solid ${color.borderInput}`, background: color.inputBg, color: color.text, fontSize: 14, width: "100%", boxSizing: "border-box" }}
           disabled={busy || Boolean(intentExistsMsg)}
         />
       </label>
 
       <label style={{ display: "grid", gap: 6 }}>
         Card
-        <div style={{ padding: 12, borderRadius: 8, border: "1px solid #ddd" }}>
+        <div style={{ padding: 12, borderRadius: 8, border: `1px solid ${color.borderInput}`, background: color.inputBg }}>
           <CardElement
             options={{
               hidePostalCode: false,
@@ -467,7 +468,7 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
         </div>
       </label>
 
-      {error ? <div style={{ color: "crimson" }}>{error}</div> : null}
+      {error ? <div style={{ color: color.danger }}>{error}</div> : null}
 
       <button
         type="submit"
@@ -475,7 +476,7 @@ export default function GuestPayCheckout({ code, token, amountDueCents }) {
         style={{
           padding: "10px 14px",
           borderRadius: 10,
-          border: "1px solid #ccc",
+          border: `1px solid ${color.border}`,
           fontWeight: 700,
           cursor: busy || !stripe || intentExistsMsg ? "not-allowed" : "pointer",
         }}

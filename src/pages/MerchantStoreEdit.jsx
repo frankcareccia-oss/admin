@@ -3,6 +3,7 @@ import React from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { listMerchantStores, merchantUpdateStoreProfile, me } from "../api/client";
 import useBreakpoint from "../hooks/useBreakpoint";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -22,36 +23,36 @@ function pvUiHook(event, fields = {}) {
   }
 }
 
-/* ---------------- UI palette ---------------- */
+/* ---------------- UI palette (mapped to theme) ---------------- */
 
 const COLORS = {
-  primary: "#2563EB",
-  neutral: "rgba(0,0,0,0.55)",
-  dangerBg: "rgba(254, 226, 226, 0.85)",
-  dangerBorder: "rgba(252, 165, 165, 0.9)",
-  dangerText: "#991B1B",
+  primary: color.primary,
+  neutral: color.textMuted,
+  dangerBg: color.dangerSubtle,
+  dangerBorder: color.dangerBorder,
+  dangerText: color.danger,
   okBg: "rgba(22, 163, 74, 0.10)",
   okBorder: "rgba(22, 163, 74, 0.25)",
-  okText: "rgba(0,0,0,0.80)",
+  okText: color.text,
 };
 
 const breadcrumbLink = {
-  textDecoration: "underline",
-  color: COLORS.primary,
+  textDecoration: "none",
+  color: color.primary,
   fontWeight: 700,
 };
 
 const sep = { color: "rgba(0,0,0,0.35)" };
 
-/* Neutral pill styling (no surprise-blue) */
+/* Neutral pill styling */
 const pill = (disabled = false) => ({
   padding: "10px 16px",
   borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: disabled ? "rgba(0,0,0,0.03)" : "white",
+  border: `1px solid ${color.border}`,
+  background: disabled ? color.borderSubtle : color.cardBg,
   cursor: disabled ? "not-allowed" : "pointer",
   fontWeight: 800,
-  color: "rgba(0,0,0,0.85)",
+  color: color.text,
   opacity: disabled ? 0.55 : 1,
 });
 
@@ -494,7 +495,7 @@ export default function MerchantStoreEdit() {
             style={{ ...input, maxWidth: 120 }}
             autoComplete="off"
           />
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.50)", marginTop: 4 }}>
+          <div style={{ fontSize: 12, color: color.textMuted, marginTop: 4 }}>
             How long a POS associate session stays active without any interaction. Default: 5 min. Range: 1–120.
           </div>
         </div>
@@ -539,12 +540,12 @@ export default function MerchantStoreEdit() {
 
 const alertError = {
   marginTop: 10,
-  background: COLORS.dangerBg,
-  border: `1px solid ${COLORS.dangerBorder}`,
+  background: color.dangerSubtle,
+  border: `1px solid ${color.dangerBorder}`,
   padding: 10,
   borderRadius: 12,
   whiteSpace: "pre-wrap",
-  color: COLORS.dangerText,
+  color: color.danger,
 };
 
 const alertOk = {
@@ -554,16 +555,16 @@ const alertOk = {
   padding: 10,
   borderRadius: 12,
   whiteSpace: "pre-wrap",
-  color: COLORS.okText,
+  color: color.text,
 };
 
 const card = {
   marginTop: 12,
   width: "100%",
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
   boxSizing: "border-box",
   overflow: "hidden",
 };
@@ -573,19 +574,13 @@ const row = { marginBottom: 10, minWidth: 0 };
 const label = {
   fontSize: 12,
   fontWeight: 900,
-  color: "rgba(0,0,0,0.65)",
+  color: color.textMuted,
   marginBottom: 6,
 };
 
 const input = {
-  width: "100%",
+  ...themeInput,
   maxWidth: "100%",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
-  boxSizing: "border-box",
   minWidth: 0,
   display: "block",
 };

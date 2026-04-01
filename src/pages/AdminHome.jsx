@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import SupportInfo from "../components/SupportInfo";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -21,10 +22,10 @@ function pvUiHook(event, fields = {}) {
 function AdminCard({ to, icon, title, description, meta, disabled }) {
   const inner = (
     <div style={{
-      border: `1px solid ${disabled ? "rgba(0,0,0,0.07)" : "rgba(0,0,0,0.12)"}`,
+      border: `1px solid ${disabled ? color.borderSubtle : color.border}`,
       borderRadius: 16,
       padding: "24px 24px 20px",
-      background: disabled ? "rgba(0,0,0,0.02)" : "#fff",
+      background: disabled ? "rgba(0,0,0,0.02)" : color.cardBg,
       cursor: disabled ? "default" : "pointer",
       height: "100%",
       boxSizing: "border-box",
@@ -35,24 +36,24 @@ function AdminCard({ to, icon, title, description, meta, disabled }) {
       transition: "box-shadow 0.15s, border-color 0.15s",
     }}>
       <div style={{ fontSize: 36, lineHeight: 1, marginBottom: 4 }}>{icon}</div>
-      <div style={{ fontWeight: 800, fontSize: 16, color: disabled ? "rgba(0,0,0,0.40)" : "#0B2A33" }}>
+      <div style={{ fontWeight: 800, fontSize: 16, color: disabled ? color.textFaint : color.text }}>
         {title}
         {disabled && (
           <span style={{
             marginLeft: 8, fontSize: 11, fontWeight: 700,
             background: "rgba(0,0,0,0.07)", borderRadius: 999,
             padding: "2px 8px", verticalAlign: "middle",
-            color: "rgba(0,0,0,0.40)",
+            color: color.textFaint,
           }}>
             Coming soon
           </span>
         )}
       </div>
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.50)", lineHeight: 1.5, flex: 1 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, lineHeight: 1.5, flex: 1 }}>
         {description}
       </div>
       {meta && !disabled && (
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.35)", marginTop: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: color.textFaint, marginTop: 4 }}>
           {meta}
         </div>
       )}

@@ -11,6 +11,7 @@ import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
 import SectionTabs from "../../components/layout/SectionTabs";
 import useBreakpoint from "../../hooks/useBreakpoint";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 const STATUS_COLORS = {
   active:    { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
@@ -62,27 +63,22 @@ function dollarsStringToCents(dollarsStr) {
 }
 
 const controlBase = {
+  ...themeInput,
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
 };
 
 const buttonBase = {
   padding: "10px 12px",
+  ...btn.secondary,
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: 900,
 };
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 export default function AdminMerchantBillingPolicy() {
@@ -233,7 +229,7 @@ export default function AdminMerchantBillingPolicy() {
           merchant ? (
             <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <StatusBadge status={merchant.status} />
-              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+              <span style={{ fontSize: 12, color: color.textMuted }}>
                 ID: {merchant.id}
                 {merchant.billingAccount?.pvAccountNumber ? ` · ${merchant.billingAccount.pvAccountNumber}` : ""}
               </span>
@@ -257,19 +253,19 @@ export default function AdminMerchantBillingPolicy() {
         <SectionTabs title="Sections" items={tabs} />
       </PageHeader>
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading…</div> : null}
+      {loading ? <div style={{ color: color.textMuted, padding: "6px 2px" }}>Loading…</div> : null}
 
       {error ? (
         <div
           style={{
             ...card,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
             marginBottom: 12,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Error</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{error}</div>
+          <div style={{ fontWeight: 900, marginBottom: 6, color: color.danger }}>Error</div>
+          <div style={{ whiteSpace: "pre-wrap", color: color.danger }}>{error}</div>
         </div>
       ) : null}
 
@@ -277,8 +273,8 @@ export default function AdminMerchantBillingPolicy() {
         <div
           style={{
             ...card,
-            background: "rgba(0,120,255,0.08)",
-            border: "1px solid rgba(0,120,255,0.18)",
+            background: color.primarySubtle,
+            border: `1px solid ${color.primaryBorder}`,
             marginBottom: 12,
           }}
         >
@@ -367,7 +363,7 @@ export default function AdminMerchantBillingPolicy() {
                   </select>
                 </div>
 
-                <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+                <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
                   Leave a field blank to inherit from global policy. Money values are stored as cents internally.
                 </div>
               </fieldset>
@@ -400,14 +396,14 @@ const styles = {
     gridTemplateColumns: "220px 1fr",
     gap: 8,
   },
-  k: { color: "rgba(0,0,0,0.65)", fontWeight: 800, fontSize: 12 },
+  k: { color: color.textMuted, fontWeight: 800, fontSize: 12 },
   gridForm: {
     display: "grid",
     gridTemplateColumns: "220px 1fr",
     gap: 10,
     alignItems: "center",
   },
-  label: { fontSize: 12, color: "rgba(0,0,0,0.65)", fontWeight: 900 },
+  label: { fontSize: 12, color: color.textMuted, fontWeight: 900 },
   pre: {
     margin: 0,
     padding: 10,

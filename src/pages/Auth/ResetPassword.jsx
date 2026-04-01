@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { resetPassword } from "../../api/client";
 
 import PageContainer from "../../components/layout/PageContainer";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -57,23 +58,24 @@ export default function ResetPassword() {
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 6 }}>Reset password</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
+        <h2 style={{ marginTop: 0, marginBottom: 6, color: color.text }}>Reset password</h2>
+        <div style={{ color: color.textMuted, marginBottom: 14 }}>
           Set a new password for your account.
         </div>
 
         {!token ? (
           <div
             style={{
-              background: "rgba(255,0,0,0.06)",
-              border: "1px solid rgba(255,0,0,0.15)",
+              background: color.dangerSubtle,
+              border: `1px solid ${color.dangerBorder}`,
+              color: color.danger,
               padding: 12,
               borderRadius: 12,
             }}
           >
             Missing reset token. Please request a new reset link.
             <div style={{ marginTop: 10 }}>
-              <Link to="/forgot-password" style={{ textDecoration: "none" }}>
+              <Link to="/forgot-password" style={{ textDecoration: "none", color: color.primary }}>
                 Request a reset link
               </Link>
             </div>
@@ -81,10 +83,11 @@ export default function ResetPassword() {
         ) : done ? (
           <div
             style={{
-              background: "rgba(0,120,255,0.08)",
-              border: "1px solid rgba(0,120,255,0.18)",
+              background: color.primarySubtle,
+              border: `1px solid ${color.primaryBorder}`,
               padding: 12,
               borderRadius: 12,
+              color: color.text,
             }}
           >
             Password reset successful. Redirecting to login…
@@ -95,43 +98,35 @@ export default function ResetPassword() {
             style={{
               display: "grid",
               gap: 12,
-              border: "1px solid rgba(0,0,0,0.12)",
+              border: `1px solid ${color.border}`,
               borderRadius: 14,
               padding: 14,
-              background: "white",
+              background: color.cardBg,
             }}
           >
             <label style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>New password</div>
+              <div style={{ fontSize: 13, color: color.textMuted }}>New password</div>
               <input
                 value={pw1}
                 onChange={(e) => setPw1(e.target.value)}
                 type={show ? "text" : "password"}
                 autoComplete="new-password"
-                style={{
-                  padding: 10,
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,0,0,0.22)",
-                }}
+                style={{ ...themeInput }}
               />
             </label>
 
             <label style={{ display: "grid", gap: 6 }}>
-              <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>Confirm password</div>
+              <div style={{ fontSize: 13, color: color.textMuted }}>Confirm password</div>
               <input
                 value={pw2}
                 onChange={(e) => setPw2(e.target.value)}
                 type={show ? "text" : "password"}
                 autoComplete="new-password"
-                style={{
-                  padding: 10,
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,0,0,0.22)",
-                }}
+                style={{ ...themeInput }}
               />
             </label>
 
-            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "rgba(0,0,0,0.65)" }}>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: color.textMuted }}>
               <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} />
               Show passwords
             </label>
@@ -140,12 +135,9 @@ export default function ResetPassword() {
               disabled={busy}
               type="submit"
               style={{
+                ...(busy ? btn.primaryDisabled : btn.primary),
                 padding: 12,
                 borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                cursor: busy ? "not-allowed" : "pointer",
-                fontWeight: 800,
               }}
             >
               {busy ? "Resetting…" : "Reset password"}
@@ -154,8 +146,9 @@ export default function ResetPassword() {
             {error ? (
               <div
                 style={{
-                  background: "rgba(255,0,0,0.06)",
-                  border: "1px solid rgba(255,0,0,0.15)",
+                  background: color.dangerSubtle,
+                  border: `1px solid ${color.dangerBorder}`,
+                  color: color.danger,
                   padding: 10,
                   borderRadius: 12,
                   whiteSpace: "pre-wrap",
@@ -166,7 +159,7 @@ export default function ResetPassword() {
             ) : null}
 
             <div style={{ marginTop: 6 }}>
-              <Link to="/login" style={{ fontSize: 12, textDecoration: "none" }}>
+              <Link to="/login" style={{ fontSize: 12, textDecoration: "none", color: color.primary }}>
                 Back to login
               </Link>
             </div>

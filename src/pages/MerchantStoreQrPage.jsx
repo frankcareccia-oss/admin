@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { generateMerchantStoreQr } from "../api/client";
 import ReplaceQrCard from "../components/qr/ReplaceQrCard";
 import { printQrSheet } from "../utils/qrPrintSheet";
+import { color, btn, palette } from "../theme";
 
 export default function MerchantStoreQrPage() {
   const { storeId } = useParams();
@@ -250,12 +251,12 @@ export default function MerchantStoreQrPage() {
     minHeight: 44,
     padding: "10px 20px",
     borderRadius: 999,
-    border: variant === "primary" ? "1px solid transparent" : "1px solid rgba(0,0,0,0.18)",
-    background: variant === "primary" ? "#2F8F8B" : "#FFFFFF",
+    border: variant === "primary" ? "1px solid transparent" : `1px solid ${color.border}`,
+    background: variant === "primary" ? color.primary : color.cardBg,
     cursor: "pointer",
     fontWeight: 800,
     fontSize: 14,
-    color: variant === "primary" ? "#FFFFFF" : "#0B2A33",
+    color: variant === "primary" ? palette.white : color.text,
     boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
   });
 
@@ -264,31 +265,31 @@ export default function MerchantStoreQrPage() {
       <div style={{ marginBottom: 16 }}>
         <Link
           to={`/merchant/stores/${storeId}`}
-          style={{ fontWeight: 800, color: "#2563EB", textDecoration: "none", fontSize: 14 }}
+          style={{ fontWeight: 800, color: color.primary, textDecoration: "none", fontSize: 14 }}
         >
           ← Back to Store
         </Link>
       </div>
 
       <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, marginBottom: 4, color: "#0B2A33" }}>{storeLabel}</h2>
-        <p style={{ margin: 0, fontSize: 13, color: "rgba(11,42,51,0.60)" }}>
+        <h2 style={{ margin: 0, marginBottom: 4, color: color.text }}>{storeLabel}</h2>
+        <p style={{ margin: 0, fontSize: 13, color: color.textMuted }}>
           Scan to check in and access offers
         </p>
         {merchantLabel ? (
-          <p style={{ margin: 0, marginTop: 6, fontSize: 14, color: "rgba(11,42,51,0.70)" }}>{merchantLabel}</p>
+          <p style={{ margin: 0, marginTop: 6, fontSize: 14, color: color.textMuted }}>{merchantLabel}</p>
         ) : null}
       </div>
 
       {successMessage ? (
-        <div style={{ marginBottom: 20, borderRadius: 12, border: "1px solid rgba(47,143,139,0.50)", background: "rgba(47,143,139,0.10)", padding: "12px 16px" }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#0B2A33" }}>{successMessage}</p>
+        <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${color.primaryBorder}`, background: color.primarySubtle, padding: "12px 16px" }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: color.text }}>{successMessage}</p>
         </div>
       ) : null}
 
       {helperMessage ? (
-        <div style={{ marginBottom: 20, borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", background: "rgba(47,143,139,0.06)", padding: "12px 16px" }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#0B2A33" }}>{helperMessage}</p>
+        <div style={{ marginBottom: 20, borderRadius: 12, border: `1px solid ${color.border}`, background: color.primarySubtle, padding: "12px 16px" }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: color.text }}>{helperMessage}</p>
         </div>
       ) : null}
 
@@ -326,21 +327,21 @@ export default function MerchantStoreQrPage() {
       ) : null}
 
       {loading ? (
-        <div style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "#FFFFFF", padding: 24 }}>
-          <p style={{ margin: 0, fontSize: 13, color: "rgba(11,42,51,0.70)" }}>Generating QR…</p>
+        <div style={{ borderRadius: 14, border: `1px solid ${color.border}`, background: color.cardBg, padding: 24 }}>
+          <p style={{ margin: 0, fontSize: 13, color: color.textMuted }}>Generating QR…</p>
         </div>
       ) : null}
 
       {!loading && error ? (
-        <div style={{ borderRadius: 14, border: "1px solid rgba(255,0,0,0.15)", background: "rgba(255,0,0,0.06)", padding: 24 }}>
-          <p style={{ margin: 0, fontSize: 13, color: "rgba(180,0,0,0.85)" }}>{error}</p>
+        <div style={{ borderRadius: 14, border: `1px solid ${color.dangerBorder}`, background: color.dangerSubtle, padding: 24 }}>
+          <p style={{ margin: 0, fontSize: 13, color: color.danger }}>{error}</p>
         </div>
       ) : null}
 
       {!loading && !error && qrPayload && !showReplaceCard ? (
-        <div style={{ borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "#FFFFFF", padding: 24 }}>
+        <div style={{ borderRadius: 14, border: `1px solid ${color.border}`, background: color.cardBg, padding: 24 }}>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
-            <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", background: "#FFFFFF", padding: 16 }}>
+            <div style={{ borderRadius: 12, border: `1px solid ${color.border}`, background: color.cardBg, padding: 16 }}>
               {qrImageSrc ? (
                 <img
                   src={qrImageSrc}
@@ -357,11 +358,11 @@ export default function MerchantStoreQrPage() {
             </div>
 
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.10)", background: "#FEFCF7", padding: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(11,42,51,0.55)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
+              <div style={{ borderRadius: 12, border: `1px solid ${color.border}`, background: color.pageBg, padding: 16 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: color.textMuted, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>
                   Placement Guidance
                 </div>
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: "rgba(11,42,51,0.80)" }}>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: color.textMuted }}>
                   Place this printed QR near the register or checkout area where
                   it is easy to see and scan. Reprint this same code if signage
                   is damaged or additional copies are needed. Replace the QR

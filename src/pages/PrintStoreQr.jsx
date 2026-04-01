@@ -6,6 +6,7 @@ import { getStore } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import { color, btn, palette } from "../theme";
 
 const PRINT_STATE_KEY_PREFIX = "pv:store-qr-print:";
 
@@ -79,8 +80,8 @@ export default function PrintStoreQr() {
     <PageContainer size="page">
       <style>{`
         .pv-sheet {
-          background: white;
-          border: 1px solid rgba(0,0,0,0.12);
+          background: ${color.cardBg};
+          border: 1px solid ${color.border};
           border-radius: 16px;
           padding: 28px;
         }
@@ -116,25 +117,25 @@ export default function PrintStoreQr() {
           margin-top: 8px;
           text-align: center;
           font-size: 13px;
-          color: rgba(0,0,0,0.65);
+          color: ${color.textMuted};
         }
 
         .pv-btn {
           padding: 10px 16px;
           border-radius: 999px;
-          border: 1px solid rgba(0,0,0,0.18);
-          background: #2F8F8B;
-          color: white;
+          border: none;
+          background: ${color.primary};
+          color: ${palette.white};
           font-weight: 900;
           cursor: pointer;
         }
 
         .pv-error {
-          background: rgba(255,0,0,0.06);
-          border: 1px solid rgba(255,0,0,0.15);
+          background: ${color.dangerSubtle};
+          border: 1px solid ${color.dangerBorder};
           padding: 12px;
           border-radius: 12px;
-          color: crimson;
+          color: ${color.danger};
         }
 
         @media print {
@@ -160,7 +161,7 @@ export default function PrintStoreQr() {
       <div style={{ marginBottom: 12 }}>
         <Link
           to={`/merchant/stores/${storeId}`}
-          style={{ fontWeight: 800, color: "#2F8F8B", textDecoration: "none" }}
+          style={{ fontWeight: 800, color: color.primary, textDecoration: "none" }}
         >
           ← Back to Store
         </Link>

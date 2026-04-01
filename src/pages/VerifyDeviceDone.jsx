@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import PageContainer from "../components/layout/PageContainer";
 import { authDeviceStatus, getAccessToken } from "../api/client";
+import { color, btn } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -137,31 +138,31 @@ export default function VerifyDeviceDone() {
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 6 }}>Device verified</h2>
+        <h2 style={{ marginTop: 0, marginBottom: 6, color: color.text }}>Device verified</h2>
 
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>
+        <div style={{ color: color.textMuted, marginBottom: 14 }}>
           This browser has been enabled for PerkValet admin actions.
         </div>
 
         <div
           style={{
-            border: "1px solid rgba(0,0,0,0.12)",
+            border: `1px solid ${color.border}`,
             borderRadius: 14,
             padding: 14,
-            background: "white",
+            background: color.cardBg,
             display: "grid",
             gap: 12,
           }}
         >
-          <div style={{ color: "rgba(0,0,0,0.78)", lineHeight: 1.4 }}>
-            Next you’ll continue to:
-            <div style={{ marginTop: 8, fontWeight: 800 }}>
+          <div style={{ color: color.textMuted, lineHeight: 1.4 }}>
+            Next you'll continue to:
+            <div style={{ marginTop: 8, fontWeight: 800, color: color.text }}>
               <code>{returnTo}</code>
             </div>
           </div>
 
           {checking ? (
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)" }}>
+            <div style={{ fontSize: 13, color: color.textMuted }}>
               Confirming device trust…
             </div>
           ) : null}
@@ -174,9 +175,10 @@ export default function VerifyDeviceDone() {
                 padding: 10,
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",
+                color: color.text,
               }}
             >
-              We couldn’t confirm trust yet in this tab. If you just verified, this is usually a session/tab issue —
+              We couldn't confirm trust yet in this tab. If you just verified, this is usually a session/tab issue —
               sign in again and it should be recognized.
             </div>
           ) : null}
@@ -184,8 +186,9 @@ export default function VerifyDeviceDone() {
           {err ? (
             <div
               style={{
-                background: "rgba(255,0,0,0.06)",
-                border: "1px solid rgba(255,0,0,0.15)",
+                background: color.dangerSubtle,
+                border: `1px solid ${color.dangerBorder}`,
+                color: color.danger,
                 padding: 10,
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",
@@ -200,20 +203,17 @@ export default function VerifyDeviceDone() {
               type="button"
               onClick={onContinue}
               style={{
+                ...btn.primary,
                 padding: "10px 12px",
                 borderRadius: 12,
-                border: "1px solid rgba(0,0,0,0.18)",
-                background: "white",
-                cursor: "pointer",
-                fontWeight: 900,
               }}
             >
               Continue
             </button>
           </div>
 
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
-            Tip: If you verified in another tab, it’s normal to need to sign in again in this tab.
+          <div style={{ fontSize: 12, color: color.textFaint }}>
+            Tip: If you verified in another tab, it's normal to need to sign in again in this tab.
           </div>
         </div>
       </div>

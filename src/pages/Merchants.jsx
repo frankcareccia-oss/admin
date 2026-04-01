@@ -9,6 +9,7 @@ import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 import ProductAvatar from "../components/ProductAvatar";
 import useBreakpoint from "../hooks/useBreakpoint";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -45,7 +46,7 @@ function StatusBadge({ status }) {
 
 function Badge({ children }) {
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "rgba(0,0,0,0.06)" }}>
+    <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: color.borderSubtle }}>
       {children}
     </span>
   );
@@ -54,17 +55,17 @@ function Badge({ children }) {
 const buttonBase = {
   padding: "10px 12px",
   borderRadius: 12,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
+  border: `1px solid ${color.border}`,
+  background: color.cardBg,
   cursor: "pointer",
   fontWeight: 800,
 };
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 function isDeviceGateError(err) {
@@ -280,9 +281,9 @@ export default function Merchants() {
         />
 
         <div style={{ maxWidth: 760 }}>
-          <div style={{ ...card, background: "rgba(0,120,255,0.05)", borderColor: "rgba(0,120,255,0.18)" }}>
+          <div style={{ ...card, background: color.primarySubtle, borderColor: color.primaryBorder }}>
             <div style={{ fontWeight: 900, marginBottom: 6 }}>One-time email link</div>
-            <div style={{ color: "rgba(0,0,0,0.75)", lineHeight: 1.45 }}>
+            <div style={{ color: color.textMuted, lineHeight: 1.45 }}>
               Click the button below and we’ll email you a verification link. Open the email on <b>this computer</b>
               and click the link to finish.
             </div>
@@ -293,10 +294,8 @@ export default function Merchants() {
                 onClick={sendVerifyLink}
                 disabled={verifying}
                 style={{
-                  ...buttonBase,
-                  background: "rgba(0,0,0,0.92)",
-                  color: "white",
-                  borderColor: "rgba(0,0,0,0.92)",
+                  ...btn.primary,
+                  padding: "10px 12px",
                   cursor: verifying ? "not-allowed" : "pointer",
                 }}
               >
@@ -315,7 +314,7 @@ export default function Merchants() {
             </div>
 
             {verifySent ? (
-              <div style={{ marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.60)" }}>
+              <div style={{ marginTop: 10, fontSize: 12, color: color.textMuted }}>
                 Tip: if you don’t see it, check spam/junk.
               </div>
             ) : null}
@@ -324,8 +323,8 @@ export default function Merchants() {
               <div
                 style={{
                   marginTop: 12,
-                  background: "rgba(255,0,0,0.06)",
-                  border: "1px solid rgba(255,0,0,0.15)",
+                  background: color.dangerSubtle,
+                  border: `1px solid ${color.dangerBorder}`,
                   padding: 10,
                   borderRadius: 12,
                   whiteSpace: "pre-wrap",
@@ -336,7 +335,7 @@ export default function Merchants() {
             ) : null}
           </div>
 
-          <div style={{ marginTop: 12, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <div style={{ marginTop: 12, fontSize: 12, color: color.textFaint }}>
             Why this exists: admin accounts can change billing and access sensitive data. This step helps prevent
             accidental access from an untrusted machine.
           </div>
@@ -349,7 +348,7 @@ export default function Merchants() {
 
   return (
     <PageContainer>
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/admin" style={{ color: "inherit", textDecoration: "none" }}>Dashboard</Link>
         {" / "}
         <span>Merchants</span>
@@ -359,11 +358,11 @@ export default function Merchants() {
 
       <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
         <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "rgba(0,0,0,0.70)", fontWeight: 800 }}>Status</span>
+          <span style={{ fontSize: 13, color: color.textMuted, fontWeight: 800 }}>Status</span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)" }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: `1px solid ${color.borderInput}` }}
           >
             <option value="">All</option>
             <option value="active">Active</option>
@@ -396,7 +395,7 @@ export default function Merchants() {
             onChange={(e) => setNewName(e.target.value)}
             placeholder="Merchant name"
             disabled={creating}
-            style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.18)", minWidth: 240, flex: 1 }}
+            style={{ ...themeInput, minWidth: 240, flex: 1 }}
           />
           <button type="submit" disabled={creating} style={buttonBase}>
             {creating ? "Creating…" : "Create Merchant"}
@@ -408,8 +407,8 @@ export default function Merchants() {
         <div
           style={{
             ...card,
-            background: "rgba(255,0,0,0.06)",
-            borderColor: "rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            borderColor: color.dangerBorder,
             marginBottom: 12,
             whiteSpace: "pre-wrap",
           }}
@@ -422,7 +421,7 @@ export default function Merchants() {
         {loading ? (
           <div style={{ padding: 8 }}>Loading…</div>
         ) : merchants.length === 0 ? (
-          <div style={{ padding: 8, color: "rgba(0,0,0,0.60)" }}>No merchants found.</div>
+          <div style={{ padding: 8, color: color.textMuted }}>No merchants found.</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(320px, 1fr))", gap: 10 }}>
             {merchants.map((m) => (
@@ -434,8 +433,8 @@ export default function Merchants() {
                   color: "inherit",
                   padding: 14,
                   borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.12)",
-                  background: "white",
+                  border: `1px solid ${color.border}`,
+                  background: color.cardBg,
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
@@ -445,7 +444,7 @@ export default function Merchants() {
                 <ProductAvatar name={m.name} size={44} radius={10} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: "rgba(0,0,0,0.50)", marginTop: 2 }}>
+                  <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>
                     ID: {m.id}
                     {m.pvAccountNumber ? ` · ${m.pvAccountNumber}` : ""}
                     {m.storeCount != null ? ` · ${m.storeCount} store${m.storeCount === 1 ? "" : "s"}` : ""}

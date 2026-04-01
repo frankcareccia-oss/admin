@@ -23,6 +23,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 
 function pvUiHook(event, fields = {}) {
@@ -279,7 +280,7 @@ export default function AdminMerchantBilling() {
 
   return (
     <PageContainer size="page">
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -292,7 +293,7 @@ export default function AdminMerchantBilling() {
         subtitle={
           <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatusBadge status={merchant?.status} />
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>
+            <span style={{ fontSize: 12, color: color.textMuted }}>
               {merchantName}
               {ba?.pvAccountNumber ? ` · ${ba.pvAccountNumber}` : ""}
             </span>
@@ -503,22 +504,22 @@ export default function AdminMerchantBilling() {
 const styles = {
   refreshBtn: {
     padding: "10px 12px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 800,
+    border: `1px solid ${color.border}`, background: color.cardBg,
+    cursor: "pointer", fontWeight: 800, color: color.text,
   },
   card: {
-    marginTop: 16, border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14, padding: 16, background: "white",
+    marginTop: 16, border: `1px solid ${color.border}`,
+    borderRadius: 14, padding: 16, background: color.cardBg,
   },
   cardHeader: {
     display: "flex", justifyContent: "space-between",
     alignItems: "center", marginBottom: 14,
   },
-  cardTitle: { fontWeight: 800, fontSize: 16 },
+  cardTitle: { fontWeight: 800, fontSize: 16, color: color.text },
   editBtn: {
     padding: "6px 14px", borderRadius: 8,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 700, fontSize: 13,
+    border: `1px solid ${color.border}`, background: color.cardBg,
+    cursor: "pointer", fontWeight: 700, fontSize: 13, color: color.text,
   },
   viewGrid: {
     display: "grid",
@@ -532,24 +533,23 @@ const styles = {
   },
   label: {
     display: "block", fontSize: 11,
-    color: "rgba(0,0,0,0.5)", textTransform: "uppercase",
+    color: color.textMuted, textTransform: "uppercase",
     letterSpacing: "0.04em", marginBottom: 4,
   },
-  value: { fontSize: 14, fontWeight: 500 },
-  empty: { color: "rgba(0,0,0,0.35)", fontStyle: "italic" },
+  value: { fontSize: 14, fontWeight: 500, color: color.text },
+  empty: { color: color.textFaint, fontStyle: "italic" },
   adminBadge: {
     fontSize: 10, fontWeight: 700,
-    color: "rgba(0,0,120,0.6)", marginLeft: 4,
+    color: color.textMuted, marginLeft: 4,
     textTransform: "none", letterSpacing: 0,
   },
   input: {
-    width: "100%", minWidth: 0, padding: "10px 12px",
-    borderRadius: 10, border: "1px solid rgba(0,0,0,0.18)",
-    boxSizing: "border-box", fontSize: 14,
+    ...themeInput,
+    width: "100%", minWidth: 0,
   },
   sectionDivider: {
     fontSize: 12, fontWeight: 700,
-    color: "rgba(0,0,0,0.5)", borderBottom: "1px solid rgba(0,0,0,0.08)",
+    color: color.textMuted, borderBottom: `1px solid ${color.borderSubtle}`,
     paddingBottom: 4, marginTop: 4,
   },
   formActions: {
@@ -557,24 +557,22 @@ const styles = {
   },
   cancelBtn: {
     padding: "10px 16px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 700,
+    ...btn.secondary,
   },
   saveBtn: {
     padding: "10px 20px", borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)", background: "white",
-    cursor: "pointer", fontWeight: 900,
+    ...btn.primary,
   },
   errBox: {
-    background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.15)",
-    padding: 10, borderRadius: 12, whiteSpace: "pre-wrap",
+    background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`,
+    padding: 10, borderRadius: 12, whiteSpace: "pre-wrap", color: color.danger,
   },
   okBox: {
     background: "rgba(0,128,0,0.06)", border: "1px solid rgba(0,128,0,0.18)",
     padding: 10, borderRadius: 12,
   },
   tip: {
-    marginTop: 10, fontSize: 12, color: "rgba(0,0,0,0.55)",
+    marginTop: 10, fontSize: 12, color: color.textMuted,
   },
   placeholderNote: {
     fontSize: 11, fontWeight: 600,

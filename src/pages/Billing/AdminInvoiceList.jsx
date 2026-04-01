@@ -5,6 +5,7 @@ import { adminListInvoices, adminGenerateInvoice, listMerchants, adminGetMerchan
 
 import PageContainer from "../../components/layout/PageContainer";
 import PageHeader from "../../components/layout/PageHeader";
+import { color, btn, inputStyle as themeInput } from "../../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -25,11 +26,9 @@ function pvUiHook(event, fields = {}) {
 }
 
 const controlBase = {
+  ...themeInput,
   padding: "10px 12px",
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  outline: "none",
 };
 
 const controlSm = {
@@ -44,18 +43,15 @@ const controlMd = {
 
 const buttonBase = {
   padding: "10px 12px",
+  ...btn.secondary,
   borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: "white",
-  cursor: "pointer",
-  fontWeight: 800,
 };
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
 };
 
 function normalizeMoneyInput(raw) {
@@ -502,13 +498,13 @@ export default function AdminInvoiceList() {
         <div
           style={{
             ...card,
-            background: "rgba(255,0,0,0.06)",
-            border: "1px solid rgba(255,0,0,0.15)",
+            background: color.dangerSubtle,
+            border: `1px solid ${color.dangerBorder}`,
             marginBottom: 12,
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>Error</div>
-          <div style={{ whiteSpace: "pre-wrap" }}>{error}</div>
+          <div style={{ fontWeight: 900, marginBottom: 6, color: color.danger }}>Error</div>
+          <div style={{ whiteSpace: "pre-wrap", color: color.danger }}>{error}</div>
         </div>
       ) : null}
 
@@ -516,8 +512,8 @@ export default function AdminInvoiceList() {
         <div
           style={{
             ...card,
-            background: "rgba(0,120,255,0.08)",
-            border: "1px solid rgba(0,120,255,0.18)",
+            background: color.primarySubtle,
+            border: `1px solid ${color.primaryBorder}`,
             marginBottom: 12,
           }}
         >
@@ -533,7 +529,7 @@ export default function AdminInvoiceList() {
           style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, width: "100%" }}
         >
           <span style={{ fontWeight: 900 }}>Generate Draft Invoice (dev)</span>
-          <span style={{ marginLeft: "auto", fontSize: 13, color: "rgba(0,0,0,0.45)" }}>{genOpen ? "▲ Hide" : "▼ Show"}</span>
+          <span style={{ marginLeft: "auto", fontSize: 13, color: color.textMuted }}>{genOpen ? "▲ Hide" : "▼ Show"}</span>
         </button>
 
         {genOpen && (
@@ -592,7 +588,7 @@ export default function AdminInvoiceList() {
               {busy ? "Working…" : "Generate"}
             </button>
 
-            <div style={{ width: "100%", fontSize: 12, color: "rgba(0,0,0,0.60)", marginTop: 0 }}>
+            <div style={{ width: "100%", fontSize: 12, color: color.textMuted, marginTop: 0 }}>
               Creates a <code>draft</code> invoice with one "Platform fee" line item. Open it and click <b>Issue invoice</b>.
             </div>
           </form>
@@ -648,13 +644,13 @@ export default function AdminInvoiceList() {
         </form>
       </div>
 
-      {loading ? <div style={{ color: "rgba(0,0,0,0.65)", padding: "6px 2px" }}>Loading...</div> : null}
+      {loading ? <div style={{ color: color.textMuted, padding: "6px 2px" }}>Loading...</div> : null}
 
       {/* Table */}
       <div style={{ ...card, padding: 0, overflow: "hidden" }}>
         <div style={{ padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)", display: "flex", gap: 10 }}>
           <div style={{ fontWeight: 900 }}>Results</div>
-          <div style={{ color: "rgba(0,0,0,0.6)" }}>
+          <div style={{ color: color.textMuted }}>
             ({items.length} invoice{items.length === 1 ? "" : "s"})
           </div>
         </div>
@@ -673,7 +669,7 @@ export default function AdminInvoiceList() {
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ padding: 14, color: "rgba(0,0,0,0.6)" }}>
+                  <td colSpan={5} style={{ padding: 14, color: color.textMuted }}>
                     No invoices found.
                   </td>
                 </tr>
@@ -736,10 +732,10 @@ export default function AdminInvoiceList() {
 }
 
 const styles = {
-  label: { display: "block", fontSize: 12, color: "rgba(0,0,0,0.65)", marginBottom: 6, fontWeight: 700 },
+  label: { display: "block", fontSize: 12, color: color.textMuted, marginBottom: 6, fontWeight: 700 },
 
-  th: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.08)", position: "sticky", top: 0, background: "white", zIndex: 1 },
-  td: { padding: 12, borderBottom: "1px solid rgba(0,0,0,0.06)" },
+  th: { padding: 12, borderBottom: `1px solid ${color.borderSubtle}`, position: "sticky", top: 0, background: color.cardBg, zIndex: 1 },
+  td: { padding: 12, borderBottom: `1px solid ${color.borderSubtle}` },
 
   // Navigation link (blue comes from Link / theme; we do NOT force a non-blue color here).
   invoiceLink: { fontWeight: 700, textDecoration: "none" },

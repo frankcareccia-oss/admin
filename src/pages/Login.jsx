@@ -3,6 +3,7 @@ import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { login, me, getAccessToken, pvClearSession } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
+import { color, btn, inputStyle as themeInput } from "../theme";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -316,21 +317,21 @@ export default function Login() {
   return (
     <PageContainer size="form">
       <div style={{ paddingTop: 12 }}>
-        <h2 style={{ marginTop: 0, marginBottom: 6 }}>PerkValet Login</h2>
-        <div style={{ color: "rgba(0,0,0,0.65)", marginBottom: 14 }}>Sign in to access your portal.</div>
+        <h2 style={{ marginTop: 0, marginBottom: 6, color: color.text }}>PerkValet Login</h2>
+        <div style={{ color: color.textMuted, marginBottom: 14 }}>Sign in to access your portal.</div>
 
         {alreadyAuthed ? (
           <div
             style={{
-              background: "rgba(0,120,255,0.08)",
-              border: "1px solid rgba(0,120,255,0.18)",
+              background: color.primarySubtle,
+              border: `1px solid ${color.primaryBorder}`,
               padding: 12,
               borderRadius: 12,
               marginBottom: 12,
             }}
           >
-            <div style={{ fontWeight: 900, marginBottom: 6 }}>You’re already signed in</div>
-            <div style={{ color: "rgba(0,0,0,0.78)", marginBottom: 10, lineHeight: 1.35 }}>
+            <div style={{ fontWeight: 900, marginBottom: 6, color: color.text }}>You're already signed in</div>
+            <div style={{ color: color.textMuted, marginBottom: 10, lineHeight: 1.35 }}>
               If things feel out of sync, you can start over on this computer.
             </div>
 
@@ -339,12 +340,9 @@ export default function Login() {
                 type="button"
                 onClick={goHome}
                 style={{
+                  ...btn.secondary,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  background: "white",
-                  cursor: "pointer",
-                  fontWeight: 800,
                 }}
               >
                 Go to Home
@@ -354,12 +352,9 @@ export default function Login() {
                 type="button"
                 onClick={() => onResetSession({ keepAdminKey: true })}
                 style={{
+                  ...btn.secondary,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  background: "white",
-                  cursor: "pointer",
-                  fontWeight: 900,
                 }}
                 title="Signs you out and returns you to the login screen (keeps admin approval for this browser)"
               >
@@ -370,12 +365,9 @@ export default function Login() {
                 type="button"
                 onClick={() => onResetSession({ keepAdminKey: false })}
                 style={{
+                  ...btn.danger,
                   padding: "10px 12px",
                   borderRadius: 12,
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  background: "rgba(255,0,0,0.06)",
-                  cursor: "pointer",
-                  fontWeight: 900,
                 }}
                 title="Signs you out and removes admin approval for this browser"
               >
@@ -388,12 +380,13 @@ export default function Login() {
         {notice ? (
           <div
             style={{
-              background: "rgba(0,120,255,0.08)",
-              border: "1px solid rgba(0,120,255,0.18)",
+              background: color.primarySubtle,
+              border: `1px solid ${color.primaryBorder}`,
               padding: 10,
               borderRadius: 12,
               marginBottom: 12,
               whiteSpace: "pre-wrap",
+              color: color.text,
             }}
           >
             {notice}
@@ -405,26 +398,26 @@ export default function Login() {
           style={{
             display: "grid",
             gap: 12,
-            border: "1px solid rgba(0,0,0,0.12)",
+            border: `1px solid ${color.border}`,
             borderRadius: 14,
             padding: 14,
-            background: "white",
+            background: color.cardBg,
             opacity: alreadyAuthed ? 0.6 : 1,
           }}
         >
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>Email</div>
+            <div style={{ fontSize: 13, color: color.textMuted }}>Email</div>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
               disabled={busy}
-              style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(0,0,0,0.22)" }}
+              style={{ ...themeInput }}
             />
           </label>
 
           <label style={{ display: "grid", gap: 6 }}>
-            <div style={{ fontSize: 13, color: "rgba(0,0,0,0.7)" }}>Password</div>
+            <div style={{ fontSize: 13, color: color.textMuted }}>Password</div>
 
             <div style={{ position: "relative" }}>
               <input
@@ -434,11 +427,8 @@ export default function Login() {
                 autoComplete="current-password"
                 disabled={busy}
                 style={{
-                  padding: "10px 44px 10px 10px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(0,0,0,0.22)",
-                  width: "100%",
-                  boxSizing: "border-box",
+                  ...themeInput,
+                  padding: "10px 44px 10px 12px",
                 }}
               />
 
@@ -454,11 +444,12 @@ export default function Login() {
                   transform: "translateY(-50%)",
                   padding: "6px 8px",
                   borderRadius: 8,
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  background: "white",
+                  border: `1px solid ${color.border}`,
+                  background: color.cardBg,
                   cursor: busy ? "not-allowed" : "pointer",
                   fontSize: 12,
                   lineHeight: 1,
+                  color: color.text,
                 }}
               >
                 {showPassword ? "Hide" : "Show"}
@@ -467,7 +458,7 @@ export default function Login() {
           </label>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+            <div style={{ fontSize: 12, color: color.textFaint }}>
               Emails are case-insensitive; passwords are case-sensitive.
             </div>
 
@@ -475,13 +466,9 @@ export default function Login() {
               <Link
                 to="/pos/login"
                 style={{
+                  ...btn.pill,
                   fontSize: 13,
-                  fontWeight: 800,
-                  textDecoration: "none",
                   padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  background: "white",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -491,13 +478,9 @@ export default function Login() {
               <Link
                 to="/forgot-password"
                 style={{
+                  ...btn.pill,
                   fontSize: 13,
-                  fontWeight: 700,
-                  textDecoration: "none",
                   padding: "6px 10px",
-                  borderRadius: 999,
-                  border: "1px solid rgba(0,0,0,0.18)",
-                  background: "white",
                   whiteSpace: "nowrap",
                 }}
               >
@@ -510,12 +493,9 @@ export default function Login() {
             disabled={busy || alreadyAuthed}
             type="submit"
             style={{
+              ...(busy || alreadyAuthed ? btn.primaryDisabled : btn.primary),
               padding: 12,
               borderRadius: 12,
-              border: "1px solid rgba(0,0,0,0.18)",
-              background: "white",
-              cursor: busy || alreadyAuthed ? "not-allowed" : "pointer",
-              fontWeight: 800,
             }}
           >
             {alreadyAuthed ? "Signed in" : busy ? "Signing in..." : "Sign in"}
@@ -524,8 +504,9 @@ export default function Login() {
           {error ? (
             <div
               style={{
-                background: "rgba(255,0,0,0.06)",
-                border: "1px solid rgba(255,0,0,0.15)",
+                background: color.dangerSubtle,
+                border: `1px solid ${color.dangerBorder}`,
+                color: color.danger,
                 padding: 10,
                 borderRadius: 12,
                 whiteSpace: "pre-wrap",

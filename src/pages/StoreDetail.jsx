@@ -6,6 +6,7 @@ import Toast from "../components/Toast";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import { color, btn } from "../theme";
 
 export default function StoreDetail() {
   const { storeId } = useParams();
@@ -103,7 +104,7 @@ export default function StoreDetail() {
   if (loading && !hasLoaded) {
     return (
       <PageContainer size="page">
-        <div style={{ padding: 16, color: "rgba(0,0,0,0.65)" }}>Loading store…</div>
+        <div style={{ padding: 16, color: color.textMuted }}>Loading store…</div>
       </PageContainer>
     );
   }
@@ -117,7 +118,7 @@ export default function StoreDetail() {
         <Link to={merchantLink} style={styles.backLink}>
           ← Back to Merchant
         </Link>
-        <span style={{ color: "rgba(0,0,0,0.35)" }}>•</span>
+        <span style={{ color: color.textFaint }}>•</span>
         <Link to="/merchants" style={styles.backLink}>
           All Merchants
         </Link>
@@ -158,7 +159,7 @@ export default function StoreDetail() {
             subtitle={
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <span style={pillStyle(store.status)}>{store.status}</span>
-                <span style={{ color: "rgba(0,0,0,0.65)" }}>
+                <span style={{ color: color.textMuted }}>
                   Merchant: <Link to={merchantLink}>{merchantName}</Link>
                 </span>
               </div>
@@ -228,7 +229,7 @@ export default function StoreDetail() {
                     <button style={styles.miniBtn} onClick={() => copy(pngSrc, "PNG link copied")}>
                       Copy PNG link
                     </button>
-                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+                    <span style={{ fontSize: 12, color: color.textMuted }}>
                       Use this to share internally or paste into support notes.
                     </span>
                   </div>
@@ -260,7 +261,7 @@ export default function StoreDetail() {
                           <td style={styles.td}>{formatDate(qr.createdAt)}</td>
                           <td style={{ ...styles.td, textAlign: "right" }}>
                             {/* Intentionally no token/payload exposure. */}
-                            <span style={{ color: "rgba(0,0,0,0.55)", fontSize: 12 }}>
+                            <span style={{ color: color.textMuted, fontSize: 12 }}>
                               Tokens hidden (internal only)
                             </span>
                           </td>
@@ -310,9 +311,9 @@ function pillStyle(status) {
     borderRadius: 999,
     fontSize: 12,
     fontWeight: 800,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.04)",
-    color: "#111",
+    border: `1px solid ${color.border}`,
+    background: color.borderSubtle,
+    color: color.text,
     textTransform: "capitalize",
   };
 
@@ -335,58 +336,55 @@ const styles = {
   pillLink: {
     textDecoration: "none",
     color: "inherit",
-    border: "1px solid rgba(0,0,0,0.18)",
+    border: `1px solid ${color.border}`,
     borderRadius: 999,
     padding: "6px 10px",
     fontWeight: 900,
-    background: "white",
+    background: color.cardBg,
   },
 
   h2: { margin: "0 0 10px 0", fontSize: 18 },
 
-  hint: { color: "rgba(0,0,0,0.65)" },
-  hintSmall: { color: "rgba(0,0,0,0.55)", fontSize: 13, marginTop: 6 },
+  hint: { color: color.textMuted },
+  hintSmall: { color: color.textMuted, fontSize: 13, marginTop: 6 },
 
   button: {
     padding: "10px 12px",
     borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "#fff",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     fontWeight: 800,
     cursor: "pointer",
   },
   buttonPrimary: {
+    ...btn.primary,
     padding: "10px 12px",
     borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "rgba(0,0,0,0.06)",
-    fontWeight: 900,
-    cursor: "pointer",
   },
 
   card: {
-    border: "1px solid rgba(0,0,0,0.10)",
+    border: `1px solid ${color.border}`,
     borderRadius: 14,
     padding: 14,
-    background: "#fff",
+    background: color.cardBg,
     boxShadow: "0 1px 0 rgba(0,0,0,0.03)",
   },
   cardHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
 
   link: { textDecoration: "none", fontWeight: 900 },
-  linkDisabled: { fontWeight: 900, color: "rgba(0,0,0,0.35)", cursor: "not-allowed" },
+  linkDisabled: { fontWeight: 900, color: color.textFaint, cursor: "not-allowed" },
 
   warnBox: {
-    border: "1px solid rgba(231, 76, 60, 0.25)",
-    background: "rgba(231, 76, 60, 0.10)",
+    border: `1px solid ${color.dangerBorder}`,
+    background: color.dangerSubtle,
     padding: "10px 12px",
     borderRadius: 12,
     margin: "10px 0 12px",
   },
 
   errorBox: {
-    border: "1px solid rgba(231, 76, 60, 0.30)",
-    background: "rgba(231, 76, 60, 0.10)",
+    border: `1px solid ${color.dangerBorder}`,
+    background: color.dangerSubtle,
     padding: "12px 14px",
     borderRadius: 12,
     marginBottom: 12,
@@ -396,11 +394,11 @@ const styles = {
     width: 180,
     height: 180,
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.10)",
+    border: `1px solid ${color.border}`,
     display: "grid",
     placeItems: "center",
     overflow: "hidden",
-    background: "#fff",
+    background: color.cardBg,
   },
   qrImg: { width: 170, height: 170, objectFit: "contain" },
   qrPlaceholder: {
@@ -409,8 +407,8 @@ const styles = {
     display: "grid",
     placeItems: "center",
     borderRadius: 10,
-    border: "1px dashed rgba(0,0,0,0.18)",
-    color: "rgba(0,0,0,0.55)",
+    border: `1px dashed ${color.border}`,
+    color: color.textMuted,
     fontWeight: 900,
     fontSize: 12,
     textAlign: "center",
@@ -421,17 +419,17 @@ const styles = {
   th: {
     textAlign: "left",
     fontSize: 12,
-    color: "rgba(0,0,0,0.65)",
+    color: color.textMuted,
     padding: "10px 8px",
-    borderBottom: "1px solid rgba(0,0,0,0.08)",
+    borderBottom: `1px solid ${color.border}`,
   },
-  td: { padding: "10px 8px", borderBottom: "1px solid rgba(0,0,0,0.06)", verticalAlign: "top" },
+  td: { padding: "10px 8px", borderBottom: `1px solid ${color.borderSubtle}`, verticalAlign: "top" },
 
   miniBtn: {
     padding: "6px 10px",
     borderRadius: 10,
-    border: "1px solid rgba(0,0,0,0.15)",
-    background: "#fff",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     fontWeight: 900,
     fontSize: 12,
     cursor: "pointer",
