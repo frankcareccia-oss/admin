@@ -406,6 +406,52 @@ export default function MerchantPos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.pathname]);
 
+  // ── Inactivity timeout ────────────────────────────────────────
+  // 5 minutes of no interaction → clear session → back to PIN entry.
+  // Keeps provisioning keys so the terminal stays paired to its store.
+  const navigateRef = React.useRef(navigate);
+  React.useEffect(() => { navigateRef.current = navigate; }, [navigate]);
+
+  React.useEffect(() => {
+    const storedMin = parseInt(localStorage.getItem("perkvalet_pos_timeout_minutes") || "5", 10);
+    const timeoutMin = Number.isInteger(storedMin) && storedMin >= 1 && storedMin <= 120 ? storedMin : 5;
+    const TIMEOUT_MS = timeoutMin * 60 * 1000;
+    let timer = null;
+
+    function reset() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        try { clearAccessToken(); } catch {}
+        [LS_ACCESS_TOKEN, LS_SYSTEM_ROLE, LS_SYSTEM_ROLE_RAW, LS_LANDING, LS_IS_POS,
+         LS_POS_AUTHED_STORE_ID, LS_POS_AUTHED_TERMINAL_ID, LS_POS_AUTHED_MERCHANT_ID]
+          .forEach(k => { try { localStorage.removeItem(k); } catch {} });
+
+        pvUiHook("pos.dashboard.session.timeout.ui", {
+          tc: "TC-POS-DASH-TIMEOUT-01",
+          sev: "info",
+          stable: "pos:session",
+          reason: "inactivity",
+          timeoutMs: TIMEOUT_MS,
+          timeoutMin,
+        });
+
+        navigateRef.current("/pos/login", {
+          replace: true,
+          state: { notice: `Session ended after ${timeoutMin} minute${timeoutMin === 1 ? "" : "s"} of inactivity. Please sign in.` },
+        });
+      }, TIMEOUT_MS);
+    }
+
+    const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    EVENTS.forEach(e => document.addEventListener(e, reset, { passive: true }));
+    reset(); // start timer on mount
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      EVENTS.forEach(e => document.removeEventListener(e, reset));
+    };
+  }, []); // mount only
+
   function normalizeTodayResponse(t) {
     const visitsCount = t?.today?.visitsCount ?? t?.visitsCount ?? t?.visits ?? 0;
     const rewardsCount = t?.today?.rewardsCount ?? t?.rewardsCount ?? t?.rewards ?? 0;
@@ -1088,6 +1134,23 @@ export default function MerchantPos() {
                     }
                   >
                     Grant Reward
+                  </button>
+                </div>
+
+                {/* Bundles — always accessible, no identity gate */}
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={() => {
+                      pvUiHook("pos.dashboard.go_bundles_clicked.ui", {
+                        tc: "TC-POS-DASH-BUNDLES-01",
+                        sev: "info",
+                        stable: "pos:dashboard",
+                      });
+                      navigate("/merchant/pos/bundles");
+                    }}
+                    style={{ ...styles.secondaryBtn, padding: "12px 14px", width: "100%", cursor: "pointer" }}
+                  >
+                    Bundle Sell & Redeem
                   </button>
                 </div>
 

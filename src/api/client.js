@@ -1620,6 +1620,49 @@ export async function posCustomerCreate({ phone, firstName, lastName } = {}) {
 }
 
 /* =============================================================
+   POS — Bundle sell / redeem (Phase C)
+============================================================= */
+
+/** GET /pos/bundles/available — live bundles this merchant can sell */
+export async function posBundlesAvailable() {
+  return request("/pos/bundles/available", { auth: "jwt" });
+}
+
+/**
+ * GET /pos/bundles/consumer?identifier=<phone|email>
+ * Returns { consumer, instances } — instances are active BundleInstances.
+ */
+export async function posBundleConsumerLookup(identifier) {
+  const qs = `?identifier=${encodeURIComponent(String(identifier || "").trim())}`;
+  return request(`/pos/bundles/consumer${qs}`, { auth: "jwt" });
+}
+
+/**
+ * POST /pos/bundles/sell
+ * { bundleId, consumerId? }
+ */
+export async function posBundleSell({ bundleId, consumerId } = {}) {
+  return request("/pos/bundles/sell", {
+    method: "POST",
+    auth: "jwt",
+    body: { bundleId, ...(consumerId != null ? { consumerId } : {}) },
+  });
+}
+
+/**
+ * POST /pos/bundles/:instanceId/redeem
+ * Sends x-idempotency-key header to prevent double-redeem.
+ */
+export async function posBundleRedeem(instanceId, idempotencyKey) {
+  return request(`/pos/bundles/${instanceId}/redeem`, {
+    method: "POST",
+    auth: "jwt",
+    body: {},
+    headers: idempotencyKey ? { "x-idempotency-key": String(idempotencyKey) } : {},
+  });
+}
+
+/* =============================================================
    Catalog — Categories (v3.5)
 ============================================================= */
 

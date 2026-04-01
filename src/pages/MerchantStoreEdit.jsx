@@ -107,6 +107,7 @@ export default function MerchantStoreEdit() {
   const [city, setCity] = React.useState("");
   const [state, setState] = React.useState("");
   const [postal, setPostal] = React.useState("");
+  const [posTimeoutMin, setPosTimeoutMin] = React.useState("5");
 
   // Snapshot for “dirty” detection
   const initialRef = React.useRef(null);
@@ -178,6 +179,7 @@ export default function MerchantStoreEdit() {
           city: norm(found.city),
           state: norm(found.state),
           postal: norm(found.postal),
+          posTimeoutMin: norm(found.posSessionTimeoutMinutes ?? 5),
         };
 
         setName(next.name);
@@ -185,6 +187,7 @@ export default function MerchantStoreEdit() {
         setCity(next.city);
         setState(next.state);
         setPostal(next.postal);
+        setPosTimeoutMin(next.posTimeoutMin);
 
         initialRef.current = next;
 
@@ -218,6 +221,7 @@ export default function MerchantStoreEdit() {
     city: "",
     state: "",
     postal: "",
+    posTimeoutMin: "5",
   };
 
   const dirty =
@@ -225,7 +229,8 @@ export default function MerchantStoreEdit() {
     address1 !== initial.address1 ||
     city !== initial.city ||
     state !== initial.state ||
-    postal !== initial.postal;
+    postal !== initial.postal ||
+    posTimeoutMin !== initial.posTimeoutMin;
 
   function validate() {
     const nm = String(name || "").trim();
@@ -233,6 +238,8 @@ export default function MerchantStoreEdit() {
     if (nm.length > 200) return "Store name is too long.";
     if (String(state || "").trim().length > 8) return "State is too long.";
     if (String(postal || "").trim().length > 20) return "Postal is too long.";
+    const t = parseInt(posTimeoutMin, 10);
+    if (!Number.isInteger(t) || t < 1 || t > 120) return "POS session timeout must be between 1 and 120 minutes.";
     return "";
   }
 
@@ -256,14 +263,13 @@ export default function MerchantStoreEdit() {
       return;
     }
 
-    // Only send fields in scope right now.
-    // NOTE: Store phone + contactName are NOT in Store schema yet (we'll add with schema update step).
     const payload = {
       name: trimOrNull(name),
       address1: trimOrNull(address1),
       city: trimOrNull(city),
       state: trimOrNull(state),
       postal: trimOrNull(postal),
+      posSessionTimeoutMinutes: parseInt(posTimeoutMin, 10),
     };
 
     setSaving(true);
@@ -281,6 +287,7 @@ export default function MerchantStoreEdit() {
         city: norm(updated?.city),
         state: norm(updated?.state),
         postal: norm(updated?.postal),
+        posTimeoutMin: norm(updated?.posSessionTimeoutMinutes ?? 5),
       };
 
       setStore(updated || store);
@@ -289,6 +296,7 @@ export default function MerchantStoreEdit() {
       setCity(next.city);
       setState(next.state);
       setPostal(next.postal);
+      setPosTimeoutMin(next.posTimeoutMin);
       initialRef.current = next;
 
       setOkMsg("Saved.");
@@ -327,6 +335,7 @@ export default function MerchantStoreEdit() {
       setCity(base.city);
       setState(base.state);
       setPostal(base.postal);
+      setPosTimeoutMin(base.posTimeoutMin);
       setOkMsg("Reverted.");
       return;
     }
@@ -471,6 +480,23 @@ export default function MerchantStoreEdit() {
             style={input}
             autoComplete="off"
           />
+        </div>
+
+        <div style={row}>
+          <div style={label}>POS session timeout (minutes)</div>
+          <input
+            value={posTimeoutMin}
+            onChange={(e) => setPosTimeoutMin(e.target.value)}
+            type="number"
+            min="1"
+            max="120"
+            placeholder="5"
+            style={{ ...input, maxWidth: 120 }}
+            autoComplete="off"
+          />
+          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.50)", marginTop: 4 }}>
+            How long a POS associate session stays active without any interaction. Default: 5 min. Range: 1–120.
+          </div>
         </div>
 
         {/* Footer actions */}

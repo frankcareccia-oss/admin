@@ -277,6 +277,9 @@ export default function PosLogin() {
       if (r?.merchantId != null) localStorage.setItem(LS_POS_AUTHED_MERCHANT_ID, String(r.merchantId));
       if (p.terminalId) localStorage.setItem(LS_POS_AUTHED_TERMINAL_ID, String(p.terminalId));
 
+      // Persist session timeout (minutes) for MerchantPos inactivity timer
+      localStorage.setItem("perkvalet_pos_timeout_minutes", String(r?.sessionTimeoutMinutes || 5));
+
       pvUiHook("pos.login.submit_succeeded.ui", {
         tc: "TC-POS-LOGIN-UI-07",
         sev: "info",

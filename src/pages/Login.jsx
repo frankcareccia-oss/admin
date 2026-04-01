@@ -48,6 +48,19 @@ export default function Login() {
   const alreadyAuthed = Boolean(getAccessToken());
 
   React.useEffect(() => {
+    // Provisioned POS terminal with no active admin session → skip admin form entirely
+    const posStoreId = String(localStorage.getItem("perkvalet_pos_store_id") || "").trim();
+    if (posStoreId && !alreadyAuthed) {
+      pvUiHook("auth.login.pos_terminal_redirect.ui", {
+        tc: "TC-LOGIN-UI-POS-01",
+        sev: "info",
+        stable: "auth:login",
+        reason: "provisioned_terminal",
+      });
+      navigate("/pos/login", { replace: true });
+      return;
+    }
+
     pvUiHook("auth.login.page_loaded.ui", {
       tc: "TC-LOGIN-UI-00",
       sev: "info",

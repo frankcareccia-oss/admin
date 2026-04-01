@@ -45,6 +45,7 @@ import PosGrantReward from "./pages/PosGrantReward";
 
 import PosProvision from "./pages/PosProvision";
 import PosLogin from "./pages/PosLogin";
+import PosBundles from "./pages/PosBundles";
 
 import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
@@ -823,6 +824,16 @@ export default function App() {
               <RequireAuth>
                 <RequirePosSession>
                   <PosGrantReward />
+                </RequirePosSession>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/merchant/pos/bundles"
+            element={
+              <RequireAuth>
+                <RequirePosSession>
+                  <PosBundles />
                 </RequirePosSession>
               </RequireAuth>
             }
