@@ -856,6 +856,8 @@ export default function MerchantPos() {
         identifierMasked: c.masked,
         consumerId: id.consumerId,
         displayName: id.displayName || null,
+        rewardLabel: id.rewardLabel || null,
+        rewardDescription: id.promotionProgress?.label || null,
       },
     });
   }
