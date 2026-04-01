@@ -178,7 +178,10 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
             onChange={e => updateItem(idx, "productId", e.target.value)}
           >
             <option value="">— select product —</option>
-            {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {products.map(p => {
+              const usedElsewhere = items.some((other, i) => i !== idx && String(other.productId) === String(p.id));
+              return <option key={p.id} value={p.id} disabled={usedElsewhere}>{p.name}{usedElsewhere ? " (already added)" : ""}</option>;
+            })}
           </select>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>×</span>
