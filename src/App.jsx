@@ -661,7 +661,7 @@ function Layout({ children }) {
                       </>
                     )}
 
-                    {(sysRole === "pv_admin"
+                    {!pos && (sysRole === "pv_admin"
                       ? !location.pathname.startsWith("/merchants/")
                       : !location.pathname.startsWith("/merchant/stores/")
                     ) && (

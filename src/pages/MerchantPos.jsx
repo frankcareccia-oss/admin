@@ -13,6 +13,7 @@ import {
   posGetRecentActivity,
   posCustomerPreview,
   posCustomerCreate,
+  posRegisterVisit,
 } from "../api/client";
 
 /**
@@ -198,9 +199,10 @@ export default function MerchantPos() {
   // POS-11: customer identity flow
   const [phoneInput, setPhoneInput] = React.useState("");
   const [confirm, setConfirm] = React.useState(null); // { digits, masked, createdAt }
-  const [identity, setIdentity] = React.useState(null); // { status, found, consumerId, firstName, lastName, displayName, previewedAt }
+  const [identity, setIdentity] = React.useState(null); // { status, found, consumerId, firstName, lastName, displayName, visitCount, lastVisitAt, previewedAt }
   const [createFirstName, setCreateFirstName] = React.useState("");
   const [createLastName, setCreateLastName] = React.useState("");
+  const [visitRegistered, setVisitRegistered] = React.useState(false);
 
   // Auto-refresh guards
   const initialLoadDoneRef = React.useRef(false);
@@ -250,6 +252,7 @@ export default function MerchantPos() {
     setCreateLastName("");
     setIdentity(null);
     setConfirm(null);
+    setVisitRegistered(false);
 
     pvUiHook("pos.dashboard.customer.reset.ui", {
       tc: "TC-POS-13-BANNER-RESET-01",
@@ -452,6 +455,14 @@ export default function MerchantPos() {
     };
   }, []); // mount only
 
+  // ── Silent 30-second auto-refresh ─────────────────────
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      refreshAll({ reason: "auto_interval" });
+    }, 30000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function normalizeTodayResponse(t) {
     const visitsCount = t?.today?.visitsCount ?? t?.visitsCount ?? t?.visits ?? 0;
     const rewardsCount = t?.today?.rewardsCount ?? t?.rewardsCount ?? t?.rewards ?? 0;
@@ -641,6 +652,8 @@ export default function MerchantPos() {
         firstName: r?.firstName || null,
         lastName: r?.lastName || null,
         displayName: display || "",
+        visitCount: r?.visitCount != null ? Number(r.visitCount) : null,
+        lastVisitAt: r?.lastVisitAt || null,
         previewedAt: new Date().toISOString(),
       });
 
@@ -766,7 +779,7 @@ export default function MerchantPos() {
     });
   }
 
-  function onGoVisit() {
+  async function onGoVisit() {
     const c = confirm;
     const id = identity;
 
@@ -775,6 +788,8 @@ export default function MerchantPos() {
       emitCtaBlocked("visit", "identity_not_resolved", { identifierMasked: c?.masked || null });
       return;
     }
+
+    if (visitRegistered) return;
 
     pvUiHook("pos.dashboard.go_visit_clicked.ui", {
       tc: "TC-POS-11-GO-01",
@@ -785,14 +800,32 @@ export default function MerchantPos() {
       namePresent: Boolean(id.displayName),
     });
 
-    navigate("/merchant/pos/visit", {
-      state: {
-        identifier: c.digits,
-        identifierMasked: c.masked,
-        consumerId: id.consumerId,
-        displayName: id.displayName || null,
-      },
-    });
+    setBusy(true);
+    setError("");
+    try {
+      await posRegisterVisit({ phone: c.digits, consumerId: id.consumerId });
+      setVisitRegistered(true);
+
+      pvUiHook("pos.dashboard.visit.registered.ui", {
+        tc: "TC-POS-11-VISIT-01S",
+        sev: "info",
+        stable: "pos:visit",
+        identifierMasked: c.masked || null,
+        consumerIdPresent: true,
+      });
+    } catch (e) {
+      const msg = e?.message || "Visit registration failed";
+      setError(msg);
+      pvUiHook("pos.dashboard.visit.register_failed.ui", {
+        tc: "TC-POS-11-VISIT-01F",
+        sev: "warn",
+        stable: "pos:visit",
+        identifierMasked: c.masked || null,
+        error: msg,
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   function onGoReward() {
@@ -814,7 +847,7 @@ export default function MerchantPos() {
       namePresent: Boolean(id.displayName),
     });
 
-    navigate("/merchant/pos/reward", {
+    navigate("/merchant/pos/grant-reward", {
       state: {
         identifier: c.digits,
         identifierMasked: c.masked,
@@ -890,173 +923,238 @@ export default function MerchantPos() {
   const activeName = identity?.displayName ? String(identity.displayName) : "";
 
   return (
-    <div style={{ maxWidth: 980, paddingBottom: 24 }}>
+    <div style={{ maxWidth: 680, paddingBottom: 24 }}>
+
+      {/* ── Header ── */}
       <div style={styles.topRow}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 950, letterSpacing: -0.2 }}>POS Dashboard</div>
-          <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 700, marginTop: 2 }}>
-            Phone → customer identity → visit/reward.
-          </div>
-        </div>
-
-        <div style={styles.topActions}>
-          <button
-            onClick={() => refreshAll({ reason: "manual_click" })}
-            disabled={busy}
-            style={{ ...styles.secondaryBtn, cursor: busy ? "not-allowed" : "pointer" }}
-          >
-            {busy ? "Refreshing..." : "Refresh"}
-          </button>
-
-          <button onClick={onEndShift} style={styles.dangerBtn}>
-            End Shift
-          </button>
-        </div>
+        <div style={{ fontSize: 22, fontWeight: 950, letterSpacing: -0.2 }}>POS Dashboard</div>
+        <button onClick={onEndShift} style={styles.dangerBtn}>End Shift</button>
       </div>
 
+      {/* ── Status bar: terminal · store · ready  +  today counts ── */}
       <div style={styles.statusBar}>
         <div style={styles.statusLeft}>
           <span style={styles.dot(isProvisioned)} />
-          <span style={styles.statusMain}>
-            {labelLine} · {storeLine} · {isProvisioned ? "Ready" : "Not ready"}
-          </span>
+          <span style={styles.statusMain}>{labelLine} · {storeLine} · {isProvisioned ? "Ready" : "Not ready"}</span>
         </div>
-        <div style={styles.statusRight}>{statusText}</div>
+        <div style={styles.statusCounts}>
+          <div style={styles.statChip}>
+            <span style={styles.statLabel}>Visits</span>
+            <span style={styles.statValue}>{Number(today.visits || 0)}</span>
+          </div>
+          <div style={styles.statDivider} />
+          <div style={styles.statChip}>
+            <span style={styles.statLabel}>Rewards</span>
+            <span style={styles.statValue}>{Number(today.rewards || 0)}</span>
+          </div>
+        </div>
       </div>
-
-      {activeReady ? (
-        <div style={styles.activeBanner}>
-          <div style={styles.activeBannerLeft}>
-            <div style={{ fontWeight: 950 }}>Active customer</div>
-            <div style={{ marginTop: 4, display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-              <div style={{ fontWeight: 950, fontSize: 16 }}>{activeMasked || "—"}</div>
-              {activeName ? (
-                <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.75)" }}>{activeName}</div>
-              ) : (
-                <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.55)" }}>Name on file</div>
-              )}
-            </div>
-          </div>
-
-          <div style={styles.activeBannerRight}>
-            <button onClick={onChangeCustomer} disabled={busy} style={styles.activeBannerBtn}>
-              Change customer
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       {error ? <div style={styles.inlineError}>{error}</div> : null}
 
       {lastActionMsg ? (
         <div style={styles.lastAction}>
-          <div style={{ fontWeight: 950 }}>✅ {lastActionMsg}</div>
-          <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 700 }}>
-            Tip: If Today/Recent don’t update immediately, press Refresh.
-          </div>
+          <div style={{ fontWeight: 950 }}>✓ {lastActionMsg}</div>
         </div>
       ) : null}
 
-      <div style={styles.grid2}>
-        <div style={styles.card}>
-          <div style={styles.cardTitle}>Register / Reward</div>
-          <div style={{ color: "rgba(0,0,0,0.70)", fontWeight: 850 }}>
-            Enter the customer’s phone number. We will preview identity first.
-          </div>
+      {/* ── Customer card — full width, center of attention ── */}
+      <div style={styles.customerCard}>
+        {activeReady ? (
+          // ── Customer resolved ──────────────────────────────
+          <>
+            {/* Identity header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div>
+                {activeName ? (
+                  <div style={{ fontSize: 28, fontWeight: 950, letterSpacing: -0.4 }}>{activeName}</div>
+                ) : (
+                  <div style={{ fontSize: 20, fontWeight: 900, color: "rgba(0,0,0,0.40)" }}>No name on file</div>
+                )}
+                <div style={{ fontSize: 13, color: "rgba(0,0,0,0.45)", fontWeight: 850, marginTop: 3 }}>{activeMasked}</div>
 
-          <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={styles.smallLabel}>Phone number</div>
-              <input
-                ref={phoneInputRef}
-                className="pvInput"
-                value={pretty || phoneInput}
-                onChange={(e) => {
-                  const nextDigits = normalizePhoneDigits(e.target.value);
-                  setPhoneInput(nextDigits);
-
-                  if (confirm) {
-                    setConfirm(null);
-                    pvUiHook("pos.dashboard.flow.confirm_invalidated.ui", {
-                      tc: "TC-POS-13-EDIT-02",
-                      sev: "info",
-                      stable: "pos:dash",
-                      reason: "typing",
-                    });
-                  }
-                  clearIdentityState();
-                }}
-                placeholder=""
-                style={styles.input}
-                inputMode="tel"
-                autoComplete="off"
-                spellCheck={false}
-                disabled={busy}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && canConfirm) onConfirmPhone();
-                }}
-              />
-
-              {/* Combined helper line */}
-              <div style={styles.helperLine}>Example: (555) 123-4567 • 10 digits required</div>
-            </div>
-
-            {!confirm ? (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <button
-                  onClick={onConfirmPhone}
-                  disabled={confirmDisabled}
-                  style={{
-                    ...(confirmDisabled ? styles.primaryDisabledBtn : styles.primaryBtn),
-                    cursor: confirmDisabled ? "not-allowed" : "pointer",
-                  }}
-                >
-                  Confirm
-                </button>
-
-                <button onClick={onClearEntry} disabled={busy} style={styles.ghostBtn}>
-                  Clear
-                </button>
-              </div>
-            ) : (
-              <div style={styles.confirmPanel}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                  <div>
-                    <div style={{ fontWeight: 950, fontSize: 14 }}>
-                      {activeReady ? "Customer confirmed" : "Phone confirmed"}
-                    </div>
-                    <div style={{ marginTop: 4, fontWeight: 950, fontSize: 16 }}>{confirm.masked || "—"}</div>
-                    <div style={styles.metaLine}>Confirmed: {formatLocal(confirm.createdAt)}</div>
-                    {activeReady ? (
-                      <div style={{ marginTop: 6, color: "rgba(0,0,0,0.65)", fontWeight: 850 }}>
-                        Use Register Visit / Grant Reward below.
-                      </div>
+                {/* Visit history */}
+                {identity?.visitCount != null ? (
+                  <div style={{ marginTop: 8, fontSize: 14, fontWeight: 900 }}>
+                    {identity.visitCount === 0
+                      ? "First visit"
+                      : `${identity.visitCount} visit${identity.visitCount === 1 ? "" : "s"}`}
+                    {identity.lastVisitAt && identity.visitCount > 0 ? (
+                      <span style={{ color: "rgba(0,0,0,0.45)", fontWeight: 800 }}>
+                        {" · Last: "}{formatLocal(identity.lastVisitAt)}
+                      </span>
                     ) : null}
                   </div>
+                ) : null}
+              </div>
 
-                  <button onClick={onEditConfirmedPhone} disabled={busy} style={styles.ghostBtn}>
-                    Edit
+              <button onClick={onChangeCustomer} disabled={busy} style={{ ...styles.ghostBtn, whiteSpace: "nowrap", fontSize: 13 }}>
+                Change
+              </button>
+            </div>
+
+            {/* ── Promotion progress — Thread 4 wires data here ── */}
+            {identity?.promotionProgress ? (
+              <div style={styles.promoStrip}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {Array.from({ length: identity.promotionProgress.target }, (_, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        width: 14, height: 14, borderRadius: 999,
+                        background: i < identity.promotionProgress.current ? "black" : "rgba(0,0,0,0.12)",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div style={{ fontWeight: 900, fontSize: 13, marginTop: 6 }}>
+                  {identity.promotionProgress.label}
+                </div>
+              </div>
+            ) : null}
+
+            {/* ── Reward earned — Thread 4 wires data here ── */}
+            {identity?.rewardEarned ? (
+              <div style={styles.rewardEarnedBanner}>
+                ★ Reward earned: {identity.rewardLabel || "Reward ready"}
+              </div>
+            ) : null}
+
+            <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "18px 0" }} />
+
+            {/* Action buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <button
+                onClick={onGoVisit}
+                disabled={visitRegistered || busy}
+                style={{
+                  ...(visitRegistered
+                    ? { ...styles.primaryDisabledBtn, background: "rgba(0,140,0,0.85)", borderColor: "rgba(0,100,0,0.4)", color: "white" }
+                    : styles.primaryBtn),
+                  padding: "15px 14px",
+                  cursor: visitRegistered ? "default" : "pointer",
+                }}
+              >
+                {visitRegistered ? "Visit Registered ✓" : busy ? "Registering..." : "Register Visit"}
+              </button>
+
+              <button
+                onClick={onGoReward}
+                style={{
+                  ...(identity?.rewardEarned ? styles.rewardBtn : styles.secondaryStrongBtn),
+                  padding: "15px 14px",
+                  cursor: "pointer",
+                }}
+              >
+                {identity?.rewardEarned ? "★ Grant Reward" : "Grant Reward"}
+              </button>
+            </div>
+
+            <button
+              onClick={() => {
+                pvUiHook("pos.dashboard.go_bundles_clicked.ui", {
+                  tc: "TC-POS-DASH-BUNDLES-01",
+                  sev: "info",
+                  stable: "pos:dashboard",
+                });
+                navigate("/merchant/pos/bundles");
+              }}
+              style={{ ...styles.secondaryBtn, padding: "13px 14px", width: "100%", cursor: "pointer", marginTop: 10 }}
+            >
+              Bundle Sell & Redeem
+            </button>
+
+            {/* Grant reward panel — auto-expands when reward earned — Thread 4 */}
+            {identity?.rewardEarned ? (
+              <div style={styles.grantPanel}>
+                <div style={{ fontWeight: 950 }}>{identity.rewardLabel || "Reward"} confirmed</div>
+                <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800, marginTop: 4 }}>
+                  Use Grant Reward to issue to {activeName || "this customer"}.
+                </div>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          // ── Idle / lookup flow ────────────────────────────
+          <>
+            <div style={{ fontWeight: 950, fontSize: 15, marginBottom: 4 }}>Customer</div>
+            <div style={{ color: "rgba(0,0,0,0.50)", fontSize: 13, fontWeight: 800, marginBottom: 14 }}>
+              Enter phone number to look up or create a customer.
+            </div>
+
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <div style={styles.smallLabel}>Phone number</div>
+                <input
+                  ref={phoneInputRef}
+                  className="pvInput"
+                  value={pretty || phoneInput}
+                  onChange={(e) => {
+                    const nextDigits = normalizePhoneDigits(e.target.value);
+                    setPhoneInput(nextDigits);
+                    if (confirm) {
+                      setConfirm(null);
+                      pvUiHook("pos.dashboard.flow.confirm_invalidated.ui", {
+                        tc: "TC-POS-13-EDIT-02",
+                        sev: "info",
+                        stable: "pos:dash",
+                        reason: "typing",
+                      });
+                    }
+                    clearIdentityState();
+                  }}
+                  placeholder=""
+                  style={styles.input}
+                  inputMode="tel"
+                  autoComplete="off"
+                  spellCheck={false}
+                  disabled={busy}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && canConfirm) onConfirmPhone();
+                  }}
+                />
+                <div style={styles.helperLine}>Example: (555) 123-4567 · 10 digits required</div>
+              </div>
+
+              {!confirm ? (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    onClick={onConfirmPhone}
+                    disabled={confirmDisabled}
+                    style={{
+                      ...(confirmDisabled ? styles.primaryDisabledBtn : styles.primaryBtn),
+                      cursor: confirmDisabled ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    Confirm
+                  </button>
+                  <button onClick={onClearEntry} disabled={busy} style={styles.ghostBtn}>
+                    Clear
                   </button>
                 </div>
+              ) : (
+                <div style={styles.confirmPanel}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ fontWeight: 900, fontSize: 13 }}>Phone confirmed: {confirm.masked || "—"}</div>
+                    <button onClick={onEditConfirmedPhone} disabled={busy} style={styles.ghostBtn}>Edit</button>
+                  </div>
 
-                {!activeReady ? (
-                  <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
                     {!identity ? (
-                      <div style={styles.panelText}>Previewing customer…</div>
+                      <div style={styles.panelText}>Looking up customer…</div>
                     ) : identity.found ? (
                       <div style={styles.identityOk}>
-                        <div style={{ fontWeight: 950 }}>✅ Customer found</div>
+                        <div style={{ fontWeight: 950 }}>Customer found</div>
                         <div style={{ fontWeight: 900, color: "rgba(0,0,0,0.75)", marginTop: 4 }}>
                           {identity.displayName || "Name on file"}
                         </div>
                       </div>
                     ) : (
                       <div style={styles.identityCreate}>
-                        <div style={{ fontWeight: 950 }}>🆕 New customer</div>
+                        <div style={{ fontWeight: 950 }}>New customer</div>
                         <div style={{ color: "rgba(0,0,0,0.65)", fontWeight: 800, marginTop: 4 }}>
-                          No customer found for this phone. Create one to proceed.
+                          No account found. Enter name to create one.
                         </div>
-
                         <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                           <div style={{ display: "grid", gap: 6 }}>
                             <div style={styles.smallLabel}>First name (required)</div>
@@ -1083,7 +1181,6 @@ export default function MerchantPos() {
                             />
                           </div>
                         </div>
-
                         <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
                           <button
                             onClick={onCreateCustomer}
@@ -1099,102 +1196,18 @@ export default function MerchantPos() {
                       </div>
                     )}
                   </div>
-                ) : null}
-
-                <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <button
-                    onClick={onGoVisit}
-                    aria-disabled={ctaGated ? "true" : "false"}
-                    style={{
-                      ...(ctaGated ? styles.primaryDisabledBtn : styles.primaryBtn),
-                      padding: "14px 14px",
-                      cursor: ctaGated ? "not-allowed" : "pointer",
-                    }}
-                    title={
-                      ctaGated
-                        ? "Confirm a customer first (phone + identity must resolve)."
-                        : "Register a visit for the active customer."
-                    }
-                  >
-                    Register Visit
-                  </button>
-
-                  <button
-                    onClick={onGoReward}
-                    aria-disabled={ctaGated ? "true" : "false"}
-                    style={{
-                      ...(ctaGated ? styles.secondaryDisabledBtn : styles.secondaryStrongBtn),
-                      padding: "14px 14px",
-                      cursor: ctaGated ? "not-allowed" : "pointer",
-                    }}
-                    title={
-                      ctaGated
-                        ? "Confirm a customer first (phone + identity must resolve)."
-                        : "Grant a reward for the active customer."
-                    }
-                  >
-                    Grant Reward
-                  </button>
                 </div>
-
-                {/* Bundles — always accessible, no identity gate */}
-                <div style={{ marginTop: 8 }}>
-                  <button
-                    onClick={() => {
-                      pvUiHook("pos.dashboard.go_bundles_clicked.ui", {
-                        tc: "TC-POS-DASH-BUNDLES-01",
-                        sev: "info",
-                        stable: "pos:dashboard",
-                      });
-                      navigate("/merchant/pos/bundles");
-                    }}
-                    style={{ ...styles.secondaryBtn, padding: "12px 14px", width: "100%", cursor: "pointer" }}
-                  >
-                    Bundle Sell & Redeem
-                  </button>
-                </div>
-
-                <div style={styles.metaLine}>
-                  {ctaGated
-                    ? `Visit/Reward are disabled until identity is resolved (reason: ${ctaGateReason}).`
-                    : "Customer identity is carried forward (visit/reward pages will show name when present)."}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div style={styles.panel}>
-          <div style={styles.panelTitle}>Today</div>
-
-          <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
-            <div style={styles.kvRow2}>
-              <div style={styles.k2}>Visits</div>
-              <div style={styles.v2}>{Number(today.visits || 0)}</div>
+              )}
             </div>
-
-            <div style={styles.kvRow2}>
-              <div style={styles.k2}>Rewards</div>
-              <div style={styles.v2}>{Number(today.rewards || 0)}</div>
-            </div>
-
-            {today.updatedAt || today.fetchedAt ? (
-              <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
-                {today.updatedAt ? <div style={styles.metaLine}>Updated: {formatLocal(today.updatedAt)}</div> : null}
-                {today.fetchedAt ? <div style={styles.metaLine}>Refreshed: {formatLocal(today.fetchedAt)}</div> : null}
-              </div>
-            ) : (
-              <div style={styles.panelText}>Press Refresh to load today’s stats.</div>
-            )}
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
-      <div style={{ marginTop: 14, display: "grid", gap: 12 }}>
+      {/* ── Recent Activity ── */}
+      <div style={{ marginTop: 14 }}>
         <div style={styles.panel}>
           <div style={styles.panelTitleRow}>
             <div style={styles.panelTitle}>Recent Activity</div>
-
             <button
               onClick={() => {
                 setRecentOpen((v) => !v);
@@ -1221,7 +1234,6 @@ export default function MerchantPos() {
                 <div>IDENTIFIER</div>
                 <div style={{ marginLeft: "auto" }}>TIME</div>
               </div>
-
               <div style={styles.activityScroll}>
                 {shownItems.map((it, idx) => (
                   <div key={`${it.type || "x"}-${it.id || idx}`} style={styles.activityRow}>
@@ -1235,11 +1247,9 @@ export default function MerchantPos() {
                   </div>
                 ))}
               </div>
-
-              {recent.fetchedAt ? <div style={styles.metaLine}>Refreshed: {formatLocal(recent.fetchedAt)}</div> : null}
             </div>
           ) : (
-            <div style={styles.panelText}>No recent activity yet. Press Refresh after a visit/reward.</div>
+            <div style={styles.panelText}>No recent activity yet.</div>
           )}
         </div>
       </div>
@@ -1260,7 +1270,6 @@ const styles = {
     justifyContent: "space-between",
     flexWrap: "wrap",
   },
-  topActions: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" },
 
   statusBar: {
     marginTop: 10,
@@ -1275,8 +1284,7 @@ const styles = {
     flexWrap: "wrap",
   },
   statusLeft: { display: "flex", alignItems: "center", gap: 8 },
-  statusMain: { fontWeight: 900, color: "rgba(0,0,0,0.75)" },
-  statusRight: { fontWeight: 850, color: "rgba(0,0,0,0.55)" },
+  statusMain: { fontWeight: 900, color: "rgba(0,0,0,0.75)", fontSize: 13 },
   dot: (ok) => ({
     width: 10,
     height: 10,
@@ -1285,28 +1293,56 @@ const styles = {
     boxShadow: "0 0 0 2px rgba(0,0,0,0.06)",
     display: "inline-block",
   }),
+  statusCounts: { display: "flex", alignItems: "center", gap: 0 },
+  statChip: { display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 12px" },
+  statLabel: { fontSize: 10, fontWeight: 950, color: "rgba(0,0,0,0.45)", textTransform: "uppercase", letterSpacing: 0.5 },
+  statValue: { fontSize: 17, fontWeight: 950, color: "rgba(0,0,0,0.85)", lineHeight: 1.2 },
+  statDivider: { width: 1, height: 28, background: "rgba(0,0,0,0.10)" },
 
-  activeBanner: {
-    marginTop: 12,
-    padding: 14,
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.03)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  activeBannerLeft: { display: "grid", gap: 4 },
-  activeBannerRight: { display: "flex", alignItems: "center", gap: 10 },
-  activeBannerBtn: {
-    padding: "10px 14px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
+  customerCard: {
+    marginTop: 14,
+    padding: "20px 20px",
+    borderRadius: 18,
+    border: "1px solid rgba(0,0,0,0.12)",
     background: "white",
-    cursor: "pointer",
+    boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+  },
+
+  promoStrip: {
+    marginTop: 14,
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "rgba(0,0,0,0.02)",
+  },
+
+  rewardEarnedBanner: {
+    marginTop: 14,
+    padding: "12px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,140,0,0.30)",
+    background: "rgba(0,170,0,0.10)",
     fontWeight: 950,
+    fontSize: 15,
+    color: "rgba(0,100,0,1)",
+  },
+
+  rewardBtn: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "2px solid rgba(0,0,0,0.85)",
+    background: "black",
+    color: "white",
+    fontWeight: 950,
+    boxShadow: "0 0 0 3px rgba(0,160,0,0.30)",
+  },
+
+  grantPanel: {
+    marginTop: 14,
+    padding: "14px 14px",
+    borderRadius: 14,
+    border: "1px solid rgba(0,140,0,0.25)",
+    background: "rgba(0,170,0,0.07)",
   },
 
   secondaryBtn: {
@@ -1344,13 +1380,6 @@ const styles = {
     background: "rgba(0,170,0,0.10)",
     display: "grid",
     gap: 6,
-  },
-
-  grid2: {
-    marginTop: 12,
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
   },
 
   card: {
@@ -1469,10 +1498,6 @@ const styles = {
     border: "1px solid rgba(0,0,0,0.10)",
     background: "rgba(0,0,0,0.02)",
   },
-
-  kvRow2: { display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, alignItems: "center" },
-  k2: { color: "rgba(0,0,0,0.65)", fontWeight: 950 },
-  v2: { fontWeight: 950, fontSize: 18 },
 
   activityHeader: {
     display: "flex",

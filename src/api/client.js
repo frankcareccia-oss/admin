@@ -1507,12 +1507,18 @@ export async function posCustomerPreview({ phone } = {}) {
   const digits = normalizePhone10(phone);
   if (digits.length !== 10) throw new Error("Phone must be 10 digits");
 
-  const raw = await request("/pos/customer/preview", {
+  const merchantId = String(localStorage.getItem("perkvalet_pos_authed_merchant_id") || "").trim();
+  const storeId = (
+    String(localStorage.getItem("perkvalet_pos_authed_store_id") || "").trim() ||
+    String(localStorage.getItem("perkvalet_pos_store_id") || "").trim()
+  );
+
+  const raw = await request("/consumers/lookup", {
     method: "POST",
     body: {
-      identityKind: "phone",
-      identityValue: digits,
       phone: digits,
+      ...(merchantId ? { merchantId } : {}),
+      ...(storeId ? { storeId } : {}),
     },
     auth: "jwt",
   });
@@ -1569,8 +1575,34 @@ export async function posCustomerPreview({ phone } = {}) {
     consumerId: consumerId != null ? String(consumerId) : null,
     firstName: firstName ? String(firstName) : null,
     lastName: lastName ? String(lastName) : null,
+    visitCount: raw?.visitCount != null ? Number(raw.visitCount) : null,
+    lastVisitAt: raw?.lastVisitAt ? String(raw.lastVisitAt) : null,
     raw,
   };
+}
+
+/**
+ * POST /pos/visit — inline visit registration from POS dashboard.
+ * Requires POS headers (timestamp, nonce, idempotency key).
+ */
+export async function posRegisterVisit({ phone, consumerId } = {}) {
+  const digits = normalizePhone10(phone);
+  if (digits.length !== 10) throw new Error("Phone must be 10 digits");
+
+  const arr = new Uint8Array(16);
+  window.crypto.getRandomValues(arr);
+  const hex = Array.from(arr).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  return request("/pos/visit", {
+    method: "POST",
+    auth: "jwt",
+    body: { identifier: digits, consumerId: consumerId ? String(consumerId) : undefined },
+    headers: {
+      "X-POS-Timestamp": new Date().toISOString(),
+      "X-POS-Nonce": hex,
+      "X-POS-Idempotency-Key": hex,
+    },
+  });
 }
 
 /**
@@ -1587,14 +1619,17 @@ export async function posCustomerCreate({ phone, firstName, lastName } = {}) {
   const ln = String(lastName || "").trim();
   if (!fn) throw new Error("First name is required");
 
-  const raw = await request("/pos/customer/create", {
+  const merchantId = String(localStorage.getItem("perkvalet_pos_authed_merchant_id") || "").trim();
+  const storeId = String(localStorage.getItem("perkvalet_pos_authed_store_id") || "").trim();
+
+  const raw = await request("/consumers", {
     method: "POST",
     body: {
-      identityKind: "phone",
-      identityValue: digits,
       phone: digits,
       firstName: fn,
-      ...(ln ? { lastName: ln } : {}),
+      lastName: ln || "",
+      ...(merchantId ? { merchantId } : {}),
+      ...(storeId ? { storeId } : {}),
     },
     auth: "jwt",
   });
