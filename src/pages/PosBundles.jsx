@@ -17,6 +17,7 @@ import {
   posBundleSell,
   posBundleRedeem,
 } from "../api/client";
+import { color, btn, palette, inputStyle } from "../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -36,42 +37,43 @@ function makeSellIdempotencyKey(instanceId) {
 // ── Styles ────────────────────────────────────────────────────
 
 const card = {
-  border: "1px solid rgba(0,0,0,0.12)",
+  border: `1px solid ${color.border}`,
   borderRadius: 14,
   padding: 14,
-  background: "white",
+  background: color.cardBg,
   marginBottom: 14,
 };
 
 const pill = (disabled = false) => ({
+  ...btn.pill,
   padding: "10px 16px",
-  borderRadius: 999,
-  border: "1px solid rgba(0,0,0,0.18)",
-  background: disabled ? "rgba(0,0,0,0.03)" : "white",
-  cursor: disabled ? "not-allowed" : "pointer",
-  fontWeight: 850,
   fontSize: 14,
   opacity: disabled ? 0.55 : 1,
+  cursor: disabled ? "not-allowed" : "pointer",
 });
 
 const pillPrimary = (disabled = false) => ({
-  ...pill(disabled),
-  background: disabled ? "rgba(37,99,235,0.08)" : "rgba(37,99,235,0.12)",
-  border: "1px solid rgba(37,99,235,0.35)",
-  color: "#1d4ed8",
+  ...btn.primary,
+  padding: "10px 16px",
+  borderRadius: 999,
+  fontSize: 14,
+  opacity: disabled ? 0.55 : 1,
+  cursor: disabled ? "not-allowed" : "pointer",
 });
 
-const pillDanger = (disabled = false) => ({
-  ...pill(disabled),
-  background: disabled ? "rgba(0,0,0,0.03)" : "rgba(22,163,74,0.10)",
-  border: "1px solid rgba(22,163,74,0.35)",
-  color: "#15803d",
+const pillRedeem = (disabled = false) => ({
+  ...btn.primary,
+  padding: "10px 16px",
+  borderRadius: 999,
+  fontSize: 14,
+  opacity: disabled ? 0.55 : 1,
+  cursor: disabled ? "not-allowed" : "pointer",
 });
 
 const errorBox = {
-  background: "rgba(254,226,226,0.85)",
-  border: "1px solid rgba(252,165,165,0.9)",
-  color: "#991B1B",
+  background: color.dangerSubtle,
+  border: `1px solid ${color.dangerBorder}`,
+  color: color.danger,
   padding: 10,
   borderRadius: 12,
   marginTop: 8,
@@ -80,9 +82,9 @@ const errorBox = {
 };
 
 const successBox = {
-  background: "rgba(22,163,74,0.10)",
-  border: "1px solid rgba(22,163,74,0.25)",
-  color: "rgba(0,0,0,0.80)",
+  background: color.primarySubtle,
+  border: `1px solid ${color.primaryBorder}`,
+  color: color.text,
   padding: 10,
   borderRadius: 12,
   marginTop: 8,
@@ -90,16 +92,9 @@ const successBox = {
   fontSize: 13,
 };
 
-const label = { fontSize: 12, fontWeight: 900, color: "rgba(0,0,0,0.65)", marginBottom: 6 };
+const fieldLabel = { fontSize: 12, fontWeight: 900, color: color.textMuted, marginBottom: 6 };
 
-const input = {
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid rgba(0,0,0,0.18)",
-  fontSize: 15,
-  width: "100%",
-  boxSizing: "border-box",
-};
+const fieldInput = { ...inputStyle, fontSize: 15 };
 
 // ── Sub-components ────────────────────────────────────────────
 
@@ -114,11 +109,11 @@ function ConsumerCard({ consumer }) {
   if (!consumer) return null;
   const name = [consumer.firstName, consumer.lastName].filter(Boolean).join(" ") || "—";
   return (
-    <div style={{ padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(0,170,0,0.30)", background: "rgba(0,200,0,0.07)", marginBottom: 10 }}>
-      <div style={{ fontSize: 11, fontWeight: 950, color: "rgba(0,100,0,0.80)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Consumer found ✓</div>
-      <div style={{ fontWeight: 950, fontSize: 18, marginBottom: 2 }}>{name}</div>
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", fontWeight: 850 }}>{formatPhoneDisplay(consumer)}</div>
-      {consumer.email ? <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginTop: 2 }}>{consumer.email}</div> : null}
+    <div style={{ padding: "12px 14px", borderRadius: 14, border: `1px solid ${color.primaryBorder}`, background: color.primarySubtle, marginBottom: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 950, color: color.primary, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Consumer found ✓</div>
+      <div style={{ fontWeight: 950, fontSize: 18, marginBottom: 2, color: color.text }}>{name}</div>
+      <div style={{ fontSize: 13, color: color.textMuted, fontWeight: 850 }}>{formatPhoneDisplay(consumer)}</div>
+      {consumer.email ? <div style={{ fontSize: 12, color: color.textFaint, marginTop: 2 }}>{consumer.email}</div> : null}
     </div>
   );
 }
@@ -126,17 +121,17 @@ function ConsumerCard({ consumer }) {
 function InstanceRow({ inst, onRedeem, redeeming }) {
   const busy = redeeming === inst.id;
   return (
-    <div style={{ borderBottom: "1px solid rgba(0,0,0,0.08)", padding: "10px 0", display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between" }}>
+    <div style={{ borderBottom: `1px solid ${color.borderSubtle}`, padding: "10px 0", display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 900, fontSize: 14 }}>{inst.bundle?.name || `Bundle #${inst.bundleId}`}</div>
-        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.65)", marginTop: 2 }}>{inst.remaining}</div>
-        <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 2 }}>Instance #{inst.id}</div>
+        <div style={{ fontWeight: 900, fontSize: 14, color: color.text }}>{inst.bundle?.name || `Bundle #${inst.bundleId}`}</div>
+        <div style={{ fontSize: 12, color: color.textMuted, marginTop: 2 }}>{inst.remaining}</div>
+        <div style={{ fontSize: 11, color: color.textFaint, marginTop: 2 }}>Instance #{inst.id}</div>
       </div>
       <button
         type="button"
         disabled={busy}
         onClick={() => onRedeem(inst.id)}
-        style={pillDanger(busy)}
+        style={pillRedeem(busy)}
       >
         {busy ? "Redeeming…" : "Redeem 1 Set"}
       </button>
@@ -387,37 +382,28 @@ export default function PosBundles() {
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
         <Link
           to="/merchant/pos"
-          style={{
-            textDecoration: "none",
-            color: "inherit",
-            padding: "8px 12px",
-            borderRadius: 999,
-            border: "1px solid rgba(0,0,0,0.18)",
-            background: "white",
-            fontWeight: 850,
-            fontSize: 14,
-          }}
+          style={{ ...btn.pill, textDecoration: "none", padding: "8px 12px", fontSize: 14 }}
         >
           ← Back
         </Link>
-        <h2 style={{ margin: 0, fontSize: 20 }}>Bundle Sell & Redeem</h2>
+        <h2 style={{ margin: 0, fontSize: 20, color: color.text }}>Bundle Sell & Redeem</h2>
       </div>
 
       {/* Step 1 — Consumer lookup */}
       <div style={card}>
-        <div style={{ fontWeight: 900, marginBottom: 10 }}>
+        <div style={{ fontWeight: 900, marginBottom: 10, color: color.text }}>
           {lookupDone ? "Consumer" : "Find Consumer (optional)"}
         </div>
 
         {!lookupDone ? (
           <form onSubmit={handleLookup} style={{ display: "grid", gap: 10 }}>
             <div>
-              <div style={label}>Phone or Email</div>
+              <div style={fieldLabel}>Phone or Email</div>
               <input
                 value={phoneInput}
                 onChange={(e) => setPhoneInput(e.target.value)}
                 placeholder="e.g. 5551234567 or name@example.com"
-                style={input}
+                style={fieldInput}
                 autoComplete="off"
                 disabled={lookingUp}
               />
@@ -437,7 +423,7 @@ export default function PosBundles() {
             {consumer ? (
               <ConsumerCard consumer={consumer} />
             ) : (
-              <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 13, marginBottom: 8 }}>
+              <div style={{ color: color.textMuted, fontSize: 13, marginBottom: 8 }}>
                 No consumer found — sale will be anonymous.
               </div>
             )}
@@ -464,7 +450,7 @@ export default function PosBundles() {
           {/* Step 2 — Active instances (redeem) */}
           {consumer && instances.length > 0 ? (
             <div style={card}>
-              <div style={{ fontWeight: 900, marginBottom: 10 }}>
+              <div style={{ fontWeight: 900, marginBottom: 10, color: color.text }}>
                 Active Bundles ({instances.length})
               </div>
               {instances.map((inst) => (
@@ -477,7 +463,7 @@ export default function PosBundles() {
               ))}
             </div>
           ) : consumer && instances.length === 0 && !sellResult ? (
-            <div style={{ padding: "12px 14px", borderRadius: 14, border: "1px solid rgba(0,0,0,0.10)", background: "white", color: "rgba(0,0,0,0.55)", fontSize: 13, fontWeight: 850, marginBottom: 14 }}>
+            <div style={{ padding: "12px 14px", borderRadius: 14, border: `1px solid ${color.border}`, background: color.cardBg, color: color.textMuted, fontSize: 13, fontWeight: 850, marginBottom: 14 }}>
               No active bundles for this customer — sell one below.
             </div>
           ) : null}
@@ -492,16 +478,16 @@ export default function PosBundles() {
           ) : (
             <div style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ fontWeight: 900 }}>Select a Bundle to Sell</div>
+                <div style={{ fontWeight: 900, color: color.text }}>Select a Bundle to Sell</div>
                 <button type="button" onClick={() => setShowSell(false)} style={pill()}>Cancel</button>
               </div>
 
               {loadingBundles ? (
-                <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 13 }}>Loading bundles…</div>
+                <div style={{ color: color.textMuted, fontSize: 13 }}>Loading bundles…</div>
               ) : bundlesErr ? (
                 <div style={errorBox}>{bundlesErr}</div>
               ) : bundles && bundles.length === 0 ? (
-                <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 13 }}>No live bundles available for this store.</div>
+                <div style={{ color: color.textMuted, fontSize: 13 }}>No live bundles available for this store.</div>
               ) : bundles ? (
                 <>
                   <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
@@ -515,8 +501,8 @@ export default function PosBundles() {
                           style={{
                             padding: "10px 12px",
                             borderRadius: 12,
-                            border: sel ? "2px solid #2563EB" : "1px solid rgba(0,0,0,0.15)",
-                            background: sel ? "rgba(37,99,235,0.07)" : "white",
+                            border: sel ? `2px solid ${color.primary}` : `1px solid ${color.border}`,
+                            background: sel ? color.primarySubtle : color.cardBg,
                             cursor: "pointer",
                             textAlign: "left",
                             display: "flex",
@@ -526,12 +512,12 @@ export default function PosBundles() {
                           }}
                         >
                           <div>
-                            <div style={{ fontWeight: 900, fontSize: 14 }}>{b.name}</div>
-                            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)", marginTop: 2 }}>
+                            <div style={{ fontWeight: 900, fontSize: 14, color: color.text }}>{b.name}</div>
+                            <div style={{ fontSize: 12, color: color.textMuted, marginTop: 2 }}>
                               Bundle #{b.id}
                             </div>
                           </div>
-                          <div style={{ fontWeight: 950, fontSize: 16, color: "#1d4ed8" }}>
+                          <div style={{ fontWeight: 950, fontSize: 16, color: color.primary }}>
                             {formatPrice(b.price)}
                           </div>
                         </button>
@@ -541,7 +527,7 @@ export default function PosBundles() {
 
                   {selectedBundle ? (
                     <div>
-                      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.65)", marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 10 }}>
                         Selling <strong>{selectedBundle.name}</strong> ({formatPrice(selectedBundle.price)})
                         {consumer ? ` to ${[consumer.firstName, consumer.lastName].filter(Boolean).join(" ") || consumer.phoneE164 || consumer.email}` : " — anonymous sale"}.
                       </div>

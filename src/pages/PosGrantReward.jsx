@@ -6,6 +6,7 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { getAccessToken } from "../api/client";
+import { color, btn, surface, palette, inputStyle } from "../theme";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -309,50 +310,41 @@ export default function PosGrantReward() {
 
 const styles = {
   pill: {
+    ...btn.pill,
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
     textDecoration: "none",
-    color: "inherit",
-    fontWeight: 700,
   },
 
   // Identity card
   identityCard: {
     padding: "12px 14px",
     borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.025)",
+    border: `1px solid ${color.border}`,
+    background: color.pageBg,
     display: "grid",
     gap: 6,
   },
   identityRow: { display: "flex", gap: 12, alignItems: "baseline" },
-  identityLabel: { color: "rgba(0,0,0,0.55)", fontWeight: 950, fontSize: 12, width: 70, flexShrink: 0 },
-  identityValue: { fontWeight: 950, fontSize: 17 },
-  identityValueMuted: { fontWeight: 900, fontSize: 15, color: "rgba(0,0,0,0.50)" },
+  identityLabel: { color: color.textMuted, fontWeight: 950, fontSize: 12, width: 70, flexShrink: 0 },
+  identityValue: { fontWeight: 950, fontSize: 17, color: color.text },
+  identityValueMuted: { fontWeight: 900, fontSize: 15, color: color.textMuted },
 
-  // Reward preview card
+  // Reward preview card — orange accent (reward moment)
   rewardCard: {
     padding: "16px 18px",
     borderRadius: 16,
-    border: "1px solid rgba(0,170,0,0.30)",
-    background: "rgba(0,200,0,0.07)",
+    border: `1px solid ${color.rewardBorder}`,
+    background: color.rewardSubtle,
   },
-  rewardCardTag: { fontSize: 11, fontWeight: 950, color: "rgba(0,100,0,0.80)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 },
-  rewardCardLabel: { fontSize: 22, fontWeight: 950, color: "rgba(0,0,0,0.85)", marginBottom: 6 },
-  rewardCardNote: { fontSize: 13, color: "rgba(0,0,0,0.55)", fontWeight: 850 },
+  rewardCardTag: { fontSize: 11, fontWeight: 950, color: palette.orange, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 },
+  rewardCardLabel: { fontSize: 22, fontWeight: 950, color: color.text, marginBottom: 6 },
+  rewardCardNote: { fontSize: 13, color: color.textMuted, fontWeight: 850 },
 
-  // Grant button
+  // Grant button — orange (reward CTA)
   grantBtn: {
+    ...btn.reward,
     padding: "15px 20px",
-    borderRadius: 14,
-    border: "none",
-    background: "black",
-    color: "white",
-    fontWeight: 950,
     fontSize: 16,
-    cursor: "pointer",
     width: "100%",
   },
 
@@ -360,41 +352,37 @@ const styles = {
   errorBox: {
     padding: "10px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(255,0,0,0.20)",
-    background: "rgba(255,0,0,0.04)",
-    color: "rgba(140,0,0,1)",
+    border: `1px solid ${color.dangerBorder}`,
+    background: color.dangerSubtle,
+    color: color.danger,
     fontWeight: 900,
     fontSize: 14,
   },
 
-  metaLine: { color: "rgba(0,0,0,0.50)", fontSize: 12, fontWeight: 850 },
+  metaLine: { color: color.textMuted, fontSize: 12, fontWeight: 850 },
 
-  // Success card (§4)
+  // Success card (§4) — orange accent (reward moment)
   successCard: {
     padding: "24px 20px",
     borderRadius: 18,
-    border: "1px solid rgba(0,140,0,0.35)",
-    background: "rgba(0,200,0,0.09)",
+    border: `1px solid ${color.rewardBorder}`,
+    background: color.rewardSubtle,
   },
-  successCheck: { fontSize: 20, fontWeight: 950, color: "rgba(0,100,0,0.90)", marginBottom: 16 },
-  successName: { fontSize: 14, fontWeight: 950, color: "rgba(0,0,0,0.60)", marginBottom: 4 },
-  successRewardLabel: { fontSize: 28, fontWeight: 950, color: "rgba(0,0,0,0.88)", marginBottom: 6 },
-  successRewardDesc: { fontSize: 14, color: "rgba(0,0,0,0.60)", fontWeight: 850, marginBottom: 8 },
-  successApplied: { fontSize: 13, color: "rgba(0,80,0,0.80)", fontWeight: 900, marginTop: 4 },
-  successProgress: { marginTop: 12, fontSize: 12, color: "rgba(0,0,0,0.50)", fontWeight: 850 },
+  successCheck: { fontSize: 20, fontWeight: 950, color: palette.orange, marginBottom: 16 },
+  successName: { fontSize: 14, fontWeight: 950, color: color.textMuted, marginBottom: 4 },
+  successRewardLabel: { fontSize: 28, fontWeight: 950, color: color.text, marginBottom: 6 },
+  successRewardDesc: { fontSize: 14, color: color.textMuted, fontWeight: 850, marginBottom: 8 },
+  successApplied: { fontSize: 13, color: palette.teal, fontWeight: 900, marginTop: 4 },
+  successProgress: { marginTop: 12, fontSize: 12, color: color.textMuted, fontWeight: 850 },
 
   backBtn: {
+    ...btn.pill,
     padding: "12px 16px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 900,
     fontSize: 14,
   },
 
   // Debug
-  debugWrap: { marginTop: 16, padding: 12, borderRadius: 12, border: "1px dashed rgba(0,0,0,0.22)", background: "rgba(0,0,0,0.02)" },
-  debugBtn: { padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.18)", background: "white", cursor: "pointer", fontWeight: 800 },
-  pre: { marginTop: 10, padding: 10, borderRadius: 10, border: "1px solid rgba(0,0,0,0.10)", background: "rgba(0,0,0,0.02)", overflowX: "auto", fontSize: 12 },
+  debugWrap: { marginTop: 16, padding: 12, borderRadius: 12, border: `1px dashed ${color.border}`, background: color.pageBg },
+  debugBtn: { ...btn.ghost, padding: "6px 10px", borderRadius: 8, fontSize: 13 },
+  pre: { marginTop: 10, padding: 10, borderRadius: 10, border: `1px solid ${color.border}`, background: color.pageBg, overflowX: "auto", fontSize: 12 },
 };

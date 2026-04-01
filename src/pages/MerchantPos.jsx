@@ -6,6 +6,7 @@
 // NOTE: Full module replacement. Builds on POS-13.4 all-in-one.
 
 import React from "react";
+import { color, btn, surface, palette, inputStyle } from "../theme";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   clearAccessToken,
@@ -1280,8 +1281,8 @@ const styles = {
     marginTop: 10,
     padding: "8px 12px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.pageBg,
     display: "flex",
     gap: 10,
     alignItems: "center",
@@ -1289,27 +1290,27 @@ const styles = {
     flexWrap: "wrap",
   },
   statusLeft: { display: "flex", alignItems: "center", gap: 8 },
-  statusMain: { fontWeight: 900, color: "rgba(0,0,0,0.75)", fontSize: 13 },
+  statusMain: { fontWeight: 900, color: color.text, fontSize: 13 },
   dot: (ok) => ({
     width: 10,
     height: 10,
     borderRadius: 999,
-    background: ok ? "rgba(0,160,0,0.85)" : "rgba(255,160,0,0.95)",
+    background: ok ? palette.teal : "#F59E0B",
     boxShadow: "0 0 0 2px rgba(0,0,0,0.06)",
     display: "inline-block",
   }),
   statusCounts: { display: "flex", alignItems: "center", gap: 0 },
   statChip: { display: "flex", flexDirection: "column", alignItems: "center", padding: "2px 12px" },
-  statLabel: { fontSize: 10, fontWeight: 950, color: "rgba(0,0,0,0.45)", textTransform: "uppercase", letterSpacing: 0.5 },
-  statValue: { fontSize: 17, fontWeight: 950, color: "rgba(0,0,0,0.85)", lineHeight: 1.2 },
-  statDivider: { width: 1, height: 28, background: "rgba(0,0,0,0.10)" },
+  statLabel: { fontSize: 10, fontWeight: 950, color: color.textFaint, textTransform: "uppercase", letterSpacing: 0.5 },
+  statValue: { fontSize: 17, fontWeight: 950, color: color.text, lineHeight: 1.2 },
+  statDivider: { width: 1, height: 28, background: color.border },
 
   customerCard: {
     marginTop: 14,
     padding: "20px 20px",
     borderRadius: 18,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "white",
+    border: `1px solid ${color.border}`,
+    background: color.cardBg,
     boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
   },
 
@@ -1317,63 +1318,49 @@ const styles = {
     marginTop: 14,
     padding: "12px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.pageBg,
   },
 
   rewardEarnedBanner: {
     marginTop: 14,
     padding: "12px 14px",
     borderRadius: 12,
-    border: "1px solid rgba(0,140,0,0.30)",
-    background: "rgba(0,170,0,0.10)",
+    border: `1px solid ${color.rewardBorder}`,
+    background: color.rewardSubtle,
     fontWeight: 950,
     fontSize: 15,
-    color: "rgba(0,100,0,1)",
+    color: palette.orange,
   },
 
   rewardBtn: {
+    ...btn.reward,
     padding: "12px 14px",
-    borderRadius: 14,
-    border: "2px solid rgba(0,0,0,0.85)",
-    background: "black",
-    color: "white",
-    fontWeight: 950,
-    boxShadow: "0 0 0 3px rgba(0,160,0,0.30)",
   },
 
   grantPanel: {
     marginTop: 14,
     padding: "14px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,140,0,0.25)",
-    background: "rgba(0,170,0,0.07)",
+    ...surface.rewardSubtle,
   },
 
   secondaryBtn: {
+    ...btn.pill,
     padding: "12px 16px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    fontWeight: 900,
   },
   dangerBtn: {
+    ...btn.danger,
     padding: "12px 16px",
-    borderRadius: 999,
-    border: "1px solid rgba(255,0,0,0.35)",
-    background: "rgba(255,0,0,0.06)",
-    cursor: "pointer",
-    fontWeight: 950,
   },
 
   inlineError: {
     marginTop: 12,
     padding: "10px 12px",
     borderRadius: 12,
-    background: "rgba(255,0,0,0.06)",
-    border: "1px solid rgba(255,0,0,0.15)",
+    background: color.dangerSubtle,
+    border: `1px solid ${color.dangerBorder}`,
     fontWeight: 850,
-    color: "rgba(140,0,0,1)",
+    color: color.danger,
     whiteSpace: "pre-wrap",
   },
 
@@ -1381,101 +1368,66 @@ const styles = {
     marginTop: 12,
     padding: 14,
     borderRadius: 14,
-    border: "1px solid rgba(0,140,0,0.28)",
-    background: "rgba(0,170,0,0.10)",
+    border: `1px solid ${color.primaryBorder}`,
+    background: color.primarySubtle,
     display: "grid",
     gap: 6,
   },
 
   card: {
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 14,
+    ...surface.card,
     padding: 14,
-    background: "white",
   },
-  cardTitle: { fontWeight: 950, marginBottom: 10 },
+  cardTitle: { fontWeight: 950, marginBottom: 10, color: color.text },
 
   panel: {
-    border: "1px solid rgba(0,0,0,0.10)",
-    borderRadius: 14,
+    ...surface.panel,
     padding: 14,
-    background: "white",
   },
   panelTitleRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  panelTitle: { fontWeight: 950, marginBottom: 6 },
-  panelText: { color: "rgba(0,0,0,0.65)", fontWeight: 700 },
+  panelTitle: { fontWeight: 950, marginBottom: 6, color: color.text },
+  panelText: { color: color.textMuted, fontWeight: 700 },
 
   disclosureBtn: {
+    ...btn.pill,
     padding: "8px 12px",
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 950,
     fontSize: 13,
     whiteSpace: "nowrap",
   },
 
   primaryBtn: {
+    ...btn.primary,
     padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "black",
-    color: "white",
-    fontWeight: 950,
   },
 
   primaryDisabledBtn: {
+    ...btn.primaryDisabled,
     padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "rgba(0,0,0,0.05)",
-    color: "rgba(0,0,0,0.55)",
-    fontWeight: 950,
   },
 
   secondaryStrongBtn: {
+    ...btn.secondary,
     padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "white",
-    color: "black",
-    fontWeight: 950,
   },
 
   secondaryDisabledBtn: {
+    ...btn.secondaryDisabled,
     padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.18)",
-    background: "rgba(0,0,0,0.02)",
-    color: "rgba(0,0,0,0.55)",
-    fontWeight: 950,
   },
 
   ghostBtn: {
+    ...btn.ghost,
     padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.14)",
-    background: "rgba(0,0,0,0.02)",
-    cursor: "pointer",
-    fontWeight: 950,
   },
 
   input: {
-    width: "100%",
-    maxWidth: "100%",
-    boxSizing: "border-box",
+    ...inputStyle,
     padding: "12px 12px",
-    borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.18)",
-    outline: "none",
-    fontSize: 14,
     fontWeight: "inherit",
-    color: "inherit",
   },
 
   helperLine: {
-    color: "rgba(0,0,0,0.55)",
+    color: color.textMuted,
     fontWeight: 750,
     fontSize: 12,
     marginTop: 6,
@@ -1484,24 +1436,24 @@ const styles = {
   identityOk: {
     padding: 12,
     borderRadius: 14,
-    border: "1px solid rgba(0,140,0,0.20)",
-    background: "rgba(0,170,0,0.08)",
+    border: `1px solid ${color.primaryBorder}`,
+    background: color.primarySubtle,
   },
 
   identityCreate: {
     padding: 12,
     borderRadius: 14,
-    border: "1px solid rgba(255,160,0,0.25)",
-    background: "rgba(255,160,0,0.06)",
+    border: "1px solid rgba(255,160,0,0.28)",
+    background: "rgba(255,160,0,0.07)",
   },
 
-  smallLabel: { color: "rgba(0,0,0,0.60)", fontWeight: 950, fontSize: 12 },
+  smallLabel: { color: color.textMuted, fontWeight: 950, fontSize: 12 },
 
   confirmPanel: {
     padding: 12,
     borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.10)",
-    background: "rgba(0,0,0,0.02)",
+    border: `1px solid ${color.border}`,
+    background: color.pageBg,
   },
 
   activityHeader: {
@@ -1509,7 +1461,7 @@ const styles = {
     alignItems: "center",
     gap: 10,
     padding: "4px 2px",
-    color: "rgba(0,0,0,0.45)",
+    color: color.textFaint,
     fontSize: 12,
     fontWeight: 950,
   },
@@ -1529,10 +1481,10 @@ const styles = {
     gap: 10,
     padding: "12px 12px",
     borderRadius: 12,
-    border: "1px solid rgba(0,0,0,0.08)",
-    background: "rgba(0,0,0,0.01)",
+    border: `1px solid ${color.borderSubtle}`,
+    background: color.cardBg,
   },
 
-  metaLine: { color: "rgba(0,0,0,0.5)", fontSize: 12, fontWeight: 850 },
-  footer: { marginTop: 18, color: "rgba(0, 0, 0, 0.5)", fontSize: 13, fontWeight: 700 },
+  metaLine: { color: color.textMuted, fontSize: 12, fontWeight: 850 },
+  footer: { marginTop: 18, color: color.textMuted, fontSize: 13, fontWeight: 700 },
 };
