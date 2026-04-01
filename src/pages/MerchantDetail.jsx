@@ -185,11 +185,10 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
-      to: null,
+      to: `/merchants/${merchantId}/reports`,
       icon: "📊",
-      title: "Reporting",
-      description: "Visit analytics, reward redemption, and revenue rollups.",
-      disabled: true,
+      title: "Reports",
+      description: "Visit analytics, reward redemption, and promotion funnel.",
     },
   ];
 

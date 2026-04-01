@@ -15,11 +15,13 @@ import {
   getMerchant,
   getSystemRole,
   merchantListCategories,
+  merchantListProducts,
   merchantListPromotions,
   merchantCreatePromotion,
   merchantUpdatePromotion,
   merchantArchivePromotion,
   adminListMerchantCategories,
+  adminListMerchantProducts,
   adminListMerchantPromotions,
   adminCreateMerchantPromotion,
   adminUpdateMerchantPromotion,
@@ -97,6 +99,7 @@ export default function MerchantPromotions() {
 
   const [merchant, setMerchant]         = React.useState(null);
   const [categories, setCategories]     = React.useState([]);
+  const [products, setProducts]         = React.useState([]);
   const [promotions, setPromotions]     = React.useState([]);
   const [loading, setLoading]           = React.useState(true);
   const [error, setError]               = React.useState("");
@@ -122,17 +125,21 @@ export default function MerchantPromotions() {
     setError("");
     pvUiHook("merchant.promotions.load.started", { stable: "promo:load", merchantId });
     try {
-      const [mRes, catRes, promoRes] = await Promise.all([
+      const [mRes, catRes, prodRes, promoRes] = await Promise.all([
         isPvAdmin ? getMerchant(merchantId) : Promise.resolve(null),
         isPvAdmin
           ? adminListMerchantCategories(merchantId)
           : merchantListCategories(),
+        isPvAdmin
+          ? adminListMerchantProducts(merchantId, { status: "active" })
+          : merchantListProducts({ status: "active" }),
         isPvAdmin
           ? adminListMerchantPromotions(merchantId, { status: filter || undefined })
           : merchantListPromotions({ status: filter || undefined }),
       ]);
       setMerchant(mRes?.merchant || mRes);
       setCategories(catRes?.categories || []);
+      setProducts(prodRes?.products || []);
       setPromotions(promoRes?.promotions || []);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.promotions.load.succeeded", {
@@ -299,9 +306,15 @@ export default function MerchantPromotions() {
     <PageContainer>
       {/* Breadcrumb */}
       <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
-        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
-        {" / "}
-        <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+        {isPvAdmin ? (
+          <>
+            <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+            {" / "}
+            <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+          </>
+        ) : (
+          <span>{merchantName}</span>
+        )}
         {" / "}
         <span>Promotions</span>
       </div>
@@ -425,9 +438,12 @@ export default function MerchantPromotions() {
                   {/* Reward detail — depends on type */}
                   {form.rewardType === "free_item" && (
                     <div style={fieldRow}>
-                      <label style={labelStyle}>Reward SKU <span style={reqStar}>*</span></label>
-                      <input style={inputStyle} value={form.rewardSku} onChange={e => setF("rewardSku", e.target.value)} placeholder="e.g. PRD-0001" />
-                      <div style={hint}>Product SKU awarded to the consumer.</div>
+                      <label style={labelStyle}>Reward Product <span style={reqStar}>*</span></label>
+                      <select style={selectStyle} value={form.rewardSku} onChange={e => setF("rewardSku", e.target.value)}>
+                        <option value="">— select product —</option>
+                        {products.map(p => <option key={p.id} value={p.sku}>{p.name} ({p.sku})</option>)}
+                      </select>
+                      <div style={hint}>Product awarded to the consumer when they hit the threshold.</div>
                     </div>
                   )}
                   {form.rewardType === "discount_pct" && (

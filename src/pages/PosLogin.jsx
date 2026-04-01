@@ -106,7 +106,7 @@ function normalizePosCode({ provisionedStoreId }, rawInput) {
       return { ok: false, error: "PIN must be 4–8 digits." };
     }
     if (!provisionedStoreId) {
-      return { ok: false, error: "This terminal is not set up yet. Tap "Provision Terminal" first." };
+      return { ok: false, error: 'This terminal is not set up yet. Tap "Provision Terminal" first.' };
     }
     return { ok: true, code: `${provisionedStoreId}#${digits}`, mode: "pin" };
   }
@@ -220,7 +220,7 @@ export default function PosLogin() {
     setProv(p);
 
     if (!p.provisioned) {
-      setError("This terminal is not set up yet. Tap "Provision Terminal" first.");
+      setError('This terminal is not set up yet. Tap "Provision Terminal" first.');
       pvUiHook("pos.login.submit_failed.ui", {
         tc: "TC-POS-LOGIN-UI-04",
         sev: "warn",

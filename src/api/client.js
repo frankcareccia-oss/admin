@@ -2102,3 +2102,35 @@ export async function merchantGetBundleAudit(bundleId) {
 export async function adminGetBundleAudit(merchantId, bundleId) {
   return request(`/admin/merchants/${merchantId}/bundles/${bundleId}/audit`, { auth: "jwt" });
 }
+
+/* =============================================================
+   Reporting (Thread R)
+============================================================= */
+
+export async function merchantGetReportOverview({ range = "30d" } = {}) {
+  return request(`/merchant/reports/overview?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+export async function merchantGetReportStores({ range = "30d" } = {}) {
+  return request(`/merchant/reports/stores?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+export async function merchantGetReportPromotions({ range = "30d" } = {}) {
+  return request(`/merchant/reports/promotions?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+export async function adminGetMerchantReportOverview(merchantId, { range = "30d" } = {}) {
+  return request(`/admin/merchants/${merchantId}/reports/overview?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+export async function adminGetMerchantReportStores(merchantId, { range = "30d" } = {}) {
+  return request(`/admin/merchants/${merchantId}/reports/stores?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+export async function adminGetMerchantReportPromotions(merchantId, { range = "30d" } = {}) {
+  return request(`/admin/merchants/${merchantId}/reports/promotions?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+export async function adminGetPlatformReport({ range = "30d" } = {}) {
+  return request(`/admin/reports/platform?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}

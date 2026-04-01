@@ -93,11 +93,10 @@ const CARDS = [
     description: "View, generate, issue, and void invoices across all merchants. Monitor payment status.",
   },
   {
-    to: null,
+    to: "/admin/reports",
     icon: "📊",
     title: "Reporting",
     description: "Platform-wide analytics — visit volume, reward activity, revenue rollups, and merchant health.",
-    disabled: true,
   },
   {
     to: null,

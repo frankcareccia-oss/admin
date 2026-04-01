@@ -58,8 +58,10 @@ import MerchantInvoices from "./pages/MerchantInvoices";
 import MerchantProducts from "./pages/MerchantProducts";
 import MerchantPromotions from "./pages/MerchantPromotions";
 import MerchantBundles from "./pages/MerchantBundles";
+import MerchantReports from "./pages/MerchantReports";
 import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
+import AdminReports from "./pages/AdminReports";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
 import AdminMerchantInvoices from "./pages/AdminMerchantInvoices";
@@ -1058,6 +1060,15 @@ export default function App() {
           />
 
           <Route
+            path="/merchants/:merchantId/reports"
+            element={
+              <RequireAuth>
+                <MerchantReports />
+              </RequireAuth>
+            }
+          />
+
+          <Route
             path="/merchants/:merchantId/ownership"
             element={
               <RequireAuth>
@@ -1071,6 +1082,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminHome />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/admin/reports"
+            element={
+              <RequireAuth>
+                <AdminReports />
               </RequireAuth>
             }
           />
