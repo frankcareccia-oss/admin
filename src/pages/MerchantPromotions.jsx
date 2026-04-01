@@ -122,7 +122,7 @@ export default function MerchantPromotions() {
     pvUiHook("merchant.promotions.load.started", { stable: "promo:load", merchantId });
     try {
       const [mRes, catRes, promoRes] = await Promise.all([
-        getMerchant(merchantId),
+        isPvAdmin ? getMerchant(merchantId) : Promise.resolve(null),
         isPvAdmin
           ? adminListMerchantCategories(merchantId)
           : merchantListCategories(),

@@ -109,6 +109,33 @@ function isPosSession() {
   return localStorage.getItem("perkvalet_is_pos") === "1";
 }
 
+// Resolves the current merchant user's merchantId via /me, then redirects to
+// /merchants/:merchantId/promotions where MerchantPromotions reads useParams().
+function MerchantPromotionsGate() {
+  const navigate = useNavigate();
+  const [err, setErr] = React.useState(null);
+
+  React.useEffect(() => {
+    me().then((res) => {
+      const merchantId =
+        res?.user?.merchantUsers?.[0]?.merchantId ??
+        res?.user?.merchantUsers?.[0]?.merchant?.id ??
+        null;
+      if (merchantId) {
+        navigate(`/merchants/${merchantId}/promotions`, { replace: true });
+      } else {
+        setErr("Promotions are not available for this account.");
+      }
+    }).catch((e) => {
+      setErr(e?.message || "Failed to load promotions.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (err) return <div style={{ padding: 24, color: "rgba(140,0,0,1)" }}>{err}</div>;
+  return <div style={{ padding: 24, color: "rgba(0,0,0,0.5)" }}>Loading promotions…</div>;
+}
+
 function computeHome() {
   const authed = Boolean(getAccessToken());
   if (!authed) return "/login";
@@ -653,6 +680,10 @@ function Layout({ children }) {
                           Team
                         </NavLink>
 
+                        <NavLink to="/merchant/promotions" style={navPill}>
+                          Promotions
+                        </NavLink>
+
                         {canSeeInvoices(merchantRole) ? (
                           <NavLink to="/merchant/invoices" style={navPill}>
                             Invoices
@@ -861,6 +892,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantInvoiceDetail />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/promotions"
+            element={
+              <RequireAuth>
+                <MerchantPromotionsGate />
               </RequireAuth>
             }
           />

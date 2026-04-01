@@ -654,6 +654,9 @@ export default function MerchantPos() {
         displayName: display || "",
         visitCount: r?.visitCount != null ? Number(r.visitCount) : null,
         lastVisitAt: r?.lastVisitAt || null,
+        promotionProgress: r?.promotionProgress || null,
+        rewardEarned: r?.rewardEarned === true,
+        rewardLabel: r?.rewardLabel || null,
         previewedAt: new Date().toISOString(),
       });
 

@@ -1577,6 +1577,9 @@ export async function posCustomerPreview({ phone } = {}) {
     lastName: lastName ? String(lastName) : null,
     visitCount: raw?.visitCount != null ? Number(raw.visitCount) : null,
     lastVisitAt: raw?.lastVisitAt ? String(raw.lastVisitAt) : null,
+    promotionProgress: raw?.promotionProgress || null,
+    rewardEarned: raw?.rewardEarned === true,
+    rewardLabel: raw?.rewardLabel ? String(raw.rewardLabel) : null,
     raw,
   };
 }
