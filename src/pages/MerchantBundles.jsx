@@ -8,6 +8,7 @@
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
+import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
   getSystemRole,
@@ -194,22 +195,22 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
     <div>
       {/* Root match rule — shown when multiple items */}
       {items.length > 1 && (
-        <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(40,60,180,0.04)", border: "1px solid rgba(40,60,180,0.15)" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.60)", marginBottom: 8 }}>Match Rule <span style={{ color: "red" }}>*</span></div>
+        <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: color.primarySubtle, border: `1px solid ${color.primaryBorder}` }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 8 }}>Match Rule <span style={{ color: color.danger }}>*</span></div>
           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
             {["AND", "OR"].map(t => (
               <button key={t} type="button" disabled={disabled} onClick={() => onMatchTypeChange(t)} style={{
                 padding: "7px 18px", borderRadius: 8, fontWeight: 800, fontSize: 13, cursor: "pointer",
-                border: matchType === t ? "2px solid rgba(40,60,180,0.70)" : "1.5px solid rgba(0,0,0,0.18)",
-                background: matchType === t ? "rgba(40,60,180,0.12)" : "white",
-                color: matchType === t ? "rgba(40,60,180,1)" : "rgba(0,0,0,0.45)",
-                boxShadow: matchType === t ? "0 1px 4px rgba(40,60,180,0.12)" : "none",
+                border: matchType === t ? `2px solid ${color.primary}` : `1.5px solid ${color.border}`,
+                background: matchType === t ? color.primarySubtle : color.cardBg,
+                color: matchType === t ? color.primary : color.textFaint,
+                boxShadow: matchType === t ? `0 1px 4px ${color.primarySubtle}` : "none",
               }}>
                 {t === "AND" ? "ALL of these" : "ANY of these"}
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <div style={{ fontSize: 12, color: color.textMuted }}>
             {matchType === "AND"
               ? "Customer must redeem ALL items listed."
               : "Customer can redeem ANY ONE of the items listed."}
@@ -220,24 +221,24 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
       {/* Items */}
       {items.map((item, idx) => {
         const rowLabel = items.length > 1 ? (
-          <span style={{ fontSize: 11, color: "rgba(0,0,0,0.35)", width: 28, textAlign: "right", flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: color.textFaint, width: 28, textAlign: "right", flexShrink: 0 }}>
             {matchType === "AND" ? `${idx + 1}.` : "or"}
           </span>
         ) : null;
 
         if (item.type === "group") {
           return (
-            <div key={idx} style={{ marginBottom: 10, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "rgba(0,0,0,0.015)" }}>
+            <div key={idx} style={{ marginBottom: 10, padding: "12px 14px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.pageBg }}>
               {/* Group header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 {rowLabel}
-                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.45)" }}>Group —</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: color.textFaint }}>Group —</span>
                 {["AND", "OR"].map(t => (
                   <button key={t} type="button" disabled={disabled} onClick={() => updateGroupMatchType(idx, t)} style={{
                     padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer",
-                    border: item.matchType === t ? "1.5px solid rgba(40,60,180,0.60)" : "1px solid rgba(0,0,0,0.15)",
-                    background: item.matchType === t ? "rgba(40,60,180,0.10)" : "white",
-                    color: item.matchType === t ? "rgba(40,60,180,1)" : "rgba(0,0,0,0.45)",
+                    border: item.matchType === t ? `1.5px solid ${color.primary}` : `1px solid ${color.border}`,
+                    background: item.matchType === t ? color.primarySubtle : color.cardBg,
+                    color: item.matchType === t ? color.primary : color.textFaint,
                   }}>
                     {t === "AND" ? "ALL" : "ANY"}
                   </button>
@@ -252,7 +253,7 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
                 return (
                 <div key={pi} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
                   {item.products.length > 1 && (
-                    <span style={{ fontSize: 11, color: "rgba(0,0,0,0.35)", width: 28, textAlign: "right", flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, color: color.textFaint, width: 28, textAlign: "right", flexShrink: 0 }}>
                       {item.matchType === "AND" ? `${pi + 1}.` : "or"}
                     </span>
                   )}
@@ -264,9 +265,9 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
                     })}
                   </select>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>×</span>
+                    <span style={{ fontSize: 12, color: color.textFaint }}>×</span>
                     <input style={{ ...inputStyle, width: 64, textAlign: "center" }} type="number" min="1" step="1" value={p.quantity} disabled={disabled} onChange={e => updateGroupProduct(idx, pi, "quantity", e.target.value)} />
-                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>uses</span>
+                    <span style={{ fontSize: 12, color: color.textFaint }}>uses</span>
                   </div>
                   {item.products.length > 1 && (
                     <button type="button" style={btnSmallDelete} disabled={disabled} onClick={() => removeGroupProduct(idx, pi)}>×</button>
@@ -293,9 +294,9 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
               })}
             </select>
             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>×</span>
+              <span style={{ fontSize: 12, color: color.textFaint }}>×</span>
               <input style={{ ...inputStyle, width: 64, textAlign: "center" }} type="number" min="1" step="1" value={item.quantity} disabled={disabled} onChange={e => updateProductItem(idx, "quantity", e.target.value)} />
-              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>uses</span>
+              <span style={{ fontSize: 12, color: color.textFaint }}>uses</span>
             </div>
             {items.length > 1 && (
               <button type="button" style={btnSmallDelete} disabled={disabled} onClick={() => removeItem(idx)}>×</button>
@@ -308,7 +309,7 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
       {items.length < 10 && (
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
           <button type="button" style={btnSmall} disabled={disabled} onClick={addProductItem}>+ Add product</button>
-          <button type="button" style={{ ...btnSmall, color: "rgba(40,60,180,0.80)", borderColor: "rgba(40,60,180,0.25)" }} disabled={disabled} onClick={addGroupItem}>
+          <button type="button" style={{ ...btnSmall, color: color.primary, borderColor: color.primaryBorder, background: color.primarySubtle }} disabled={disabled} onClick={addGroupItem}>
             + Add group
           </button>
         </div>
@@ -542,7 +543,7 @@ export default function MerchantBundles() {
 
   return (
     <PageContainer>
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -552,15 +553,15 @@ export default function MerchantBundles() {
 
       <PageHeader title="Bundles" subtitle={`Prepaid credit packs for ${merchantName}`} />
 
-      <div style={{ marginTop: 16, marginBottom: 20, padding: "10px 16px", borderRadius: 10, background: "rgba(11,42,51,0.05)", border: "1px solid rgba(11,42,51,0.12)", fontSize: 13, color: "rgba(0,0,0,0.60)" }}>
-        <strong style={{ color: "#0B2A33" }}>Phase A — Bundle Setup.</strong>
+      <div style={{ marginTop: 16, marginBottom: 20, padding: "10px 16px", borderRadius: 10, background: color.primarySubtle, border: `1px solid ${color.primaryBorder}`, fontSize: 13, color: color.textMuted }}>
+        <strong style={{ color: color.text }}>Phase A — Bundle Setup.</strong>
         {" "}POS sell &amp; redeem available once consumer identity is live.
       </div>
 
       {/* Status legend */}
       <div style={{ marginBottom: 20, display: "flex", flexWrap: "wrap", gap: 8 }}>
         {ALL_STATUSES.map(s => (
-          <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
+          <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: color.textMuted }}>
             <StatusBadge status={s} />
             <span>{STATUS_CONFIG[s].desc}</span>
           </span>
@@ -569,15 +570,15 @@ export default function MerchantBundles() {
 
       {/* Create card */}
       {!showCreate ? (
-        <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(0,0,0,0.02)" }}>
+        <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", background: color.pageBg }}>
           <div>
-            <div style={{ fontWeight: 700 }}>Create a bundle</div>
-            <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 13, marginTop: 2 }}>Starts as WIP. Rule tree is locked once live.</div>
+            <div style={{ fontWeight: 700, color: color.text }}>Create a bundle</div>
+            <div style={{ color: color.textMuted, fontSize: 13, marginTop: 2 }}>Starts as WIP. Rule tree is locked once live.</div>
           </div>
           <button type="button" style={btnPrimary} onClick={() => { setShowCreate(true); setEditingId(null); }}>+ Create Bundle</button>
         </div>
       ) : (
-        <div style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 14, padding: 20, marginBottom: 20, background: "#fff" }}>
+        <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, padding: 20, marginBottom: 20, background: color.cardBg }}>
           <div style={{ fontWeight: 800, marginBottom: 14 }}>New Bundle</div>
           <form onSubmit={handleCreate}>
             <div style={twoCol}>
@@ -595,7 +596,7 @@ export default function MerchantBundles() {
                 <div style={hint}>Required before staging. When the bundle goes live.</div>
               </div>
               <div style={fieldRow}>
-                <label style={labelStyle}>End Date <span style={{ fontSize: 11, color: "rgba(0,0,0,0.40)" }}>(optional)</span></label>
+                <label style={labelStyle}>End Date <span style={{ fontSize: 11, color: color.textFaint }}>(optional)</span></label>
                 <input style={inputStyle} type="date" min={form.startAt || "2024-01-01"} max="2099-12-31" value={form.endAt} onChange={e => setForm(f => ({ ...f, endAt: e.target.value }))} />
                 <div style={hint}>Leave blank to run until manually stopped.</div>
               </div>
@@ -631,16 +632,16 @@ export default function MerchantBundles() {
 
       {/* Table */}
       {loading ? (
-        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>Loading…</div>
+        <div style={{ color: color.textFaint, padding: 20 }}>Loading…</div>
       ) : error ? (
         <div style={errorStyle}>{error}</div>
       ) : bundles.length === 0 ? (
-        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>No bundles found.</div>
+        <div style={{ color: color.textFaint, padding: 20 }}>No bundles found.</div>
       ) : (
-        <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, overflow: "visible" }}>
+        <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, overflow: "visible" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead>
-              <tr style={{ background: "rgba(0,0,0,0.03)", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+              <tr style={{ background: color.pageBg, borderBottom: `1px solid ${color.border}` }}>
                 <th style={th}>Bundle</th>
                 <th style={th}>Products</th>
                 <th style={th}>Price</th>
@@ -648,21 +649,21 @@ export default function MerchantBundles() {
                 <th style={th}>End</th>
                 <th style={th}>Status</th>
                 <th style={{ ...th, textAlign: "center" }}>Edit</th>
-                <th style={{ ...th, textAlign: "center", color: "rgba(40,60,180,0.80)" }}>Lifecycle →</th>
+                <th style={{ ...th, textAlign: "center", color: color.primary }}>Lifecycle →</th>
               </tr>
             </thead>
             <tbody>
               {bundles.map((b, idx) => (
                 <React.Fragment key={b.id}>
                   {/* Main row */}
-                  <tr style={{ borderTop: idx === 0 ? "none" : "1px solid rgba(0,0,0,0.06)", background: editingId === b.id ? "rgba(0,0,0,0.015)" : "transparent" }}>
+                  <tr style={{ borderTop: idx === 0 ? "none" : `1px solid ${color.borderSubtle}`, background: editingId === b.id ? color.pageBg : "transparent" }}>
                     <td style={{ ...td, fontWeight: 700 }}>{b.name}</td>
-                    <td style={{ ...td, fontSize: 12, color: "rgba(0,0,0,0.70)", maxWidth: 240 }}>
-                      {b.ruleTreeJson ? describeRuleTree(b.ruleTreeJson) : <span style={{ color: "rgba(0,0,0,0.30)" }}>—</span>}
+                    <td style={{ ...td, fontSize: 12, color: color.textMuted, maxWidth: 240 }}>
+                      {b.ruleTreeJson ? describeRuleTree(b.ruleTreeJson) : <span style={{ color: color.textFaint }}>—</span>}
                     </td>
                     <td style={td}>{formatPrice(b.price)}</td>
-                    <td style={{ ...td, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{fmtDate(b.startAt)}</td>
-                    <td style={{ ...td, fontSize: 12, color: "rgba(0,0,0,0.55)" }}>{b.endAt ? fmtDate(b.endAt) : <span style={{ color: "rgba(0,0,0,0.30)" }}>No end</span>}</td>
+                    <td style={{ ...td, fontSize: 12, color: color.textMuted }}>{fmtDate(b.startAt)}</td>
+                    <td style={{ ...td, fontSize: 12, color: color.textMuted }}>{b.endAt ? fmtDate(b.endAt) : <span style={{ color: color.textFaint }}>No end</span>}</td>
                     <td style={td}><StatusBadge status={b.status} /></td>
 
                     {/* Edit column */}
@@ -699,12 +700,12 @@ export default function MerchantBundles() {
                               {(TRANSITIONS[b.status] || []).map((t, ti) => {
                                 const isDestructive = t.to === "archived" || t.to === "suspended";
                                 const isBack = t.to === "wip";
-                                const itemColor = isDestructive ? "rgba(160,80,0,1)" : isBack ? "rgba(0,0,0,0.55)" : "rgba(0,100,180,1)";
+                                const itemColor = isDestructive ? color.danger : isBack ? color.textMuted : color.primary;
                                 return (
                                   <button
                                     key={t.to}
                                     type="button"
-                                    style={{ ...dropdownItem, color: itemColor, borderBottom: ti < (TRANSITIONS[b.status].length - 1) ? "1px solid rgba(0,0,0,0.06)" : "none" }}
+                                    style={{ ...dropdownItem, color: itemColor, borderBottom: ti < (TRANSITIONS[b.status].length - 1) ? `1px solid ${color.borderSubtle}` : "none" }}
                                     onClick={() => { setDropdownOpenId(null); handleTransition(b, t.to); }}
                                   >
                                     <span style={{ marginRight: 6, opacity: 0.5 }}>{isBack ? "←" : "→"}</span>
@@ -722,24 +723,24 @@ export default function MerchantBundles() {
                         </button>
                       )}
                       {(TRANSITIONS[b.status] || []).length === 0 && b.status !== "archived" && (
-                        <span style={{ fontSize: 12, color: "rgba(0,0,0,0.30)" }}>—</span>
+                        <span style={{ fontSize: 12, color: color.textFaint }}>—</span>
                       )}
                     </td>
                   </tr>
 
                   {/* Per-row error */}
                   {rowErrors[b.id] && (
-                    <tr style={{ borderTop: "1px solid rgba(160,0,0,0.10)" }}>
-                      <td colSpan={8} style={{ padding: "6px 16px", background: "rgba(160,0,0,0.04)" }}>
-                        <span style={{ fontSize: 12, color: "rgba(160,0,0,0.85)" }}>⚠ {rowErrors[b.id]}</span>
-                        <button type="button" onClick={() => setRowErrors(prev => ({ ...prev, [b.id]: null }))} style={{ marginLeft: 10, fontSize: 11, color: "rgba(0,0,0,0.40)", background: "none", border: "none", cursor: "pointer" }}>dismiss</button>
+                    <tr style={{ borderTop: `1px solid ${color.dangerBorder}` }}>
+                      <td colSpan={8} style={{ padding: "6px 16px", background: color.dangerSubtle }}>
+                        <span style={{ fontSize: 12, color: color.danger }}>⚠ {rowErrors[b.id]}</span>
+                        <button type="button" onClick={() => setRowErrors(prev => ({ ...prev, [b.id]: null }))} style={{ marginLeft: 10, fontSize: 11, color: color.textFaint, background: "none", border: "none", cursor: "pointer" }}>dismiss</button>
                       </td>
                     </tr>
                   )}
 
                   {/* Inline edit row */}
                   {editingId === b.id && (
-                    <tr style={{ borderTop: "1px solid rgba(0,0,0,0.06)", background: "rgba(0,0,0,0.015)" }}>
+                    <tr style={{ borderTop: `1px solid ${color.borderSubtle}`, background: color.pageBg }}>
                       <td colSpan={8} style={{ padding: "16px 20px" }}>
                         <div style={twoCol}>
                           <div style={fieldRow}>
@@ -773,7 +774,7 @@ export default function MerchantBundles() {
                           </div>
                         )}
                         {!canEditRules(b.status) && (
-                          <div style={{ fontSize: 12, color: "rgba(0,0,0,0.45)", marginBottom: 12, padding: "8px 12px", background: "rgba(0,0,0,0.03)", borderRadius: 8 }}>
+                          <div style={{ fontSize: 12, color: color.textFaint, marginBottom: 12, padding: "8px 12px", background: color.pageBg, border: `1px solid ${color.border}`, borderRadius: 8 }}>
                             Products locked — rule tree cannot be changed once a bundle is <strong>{b.status}</strong>.
                           </div>
                         )}
@@ -788,13 +789,13 @@ export default function MerchantBundles() {
 
                   {/* Audit log row */}
                   {auditBundleId === b.id && (
-                    <tr style={{ borderTop: "1px solid rgba(0,0,0,0.06)", background: "rgba(0,0,0,0.01)" }}>
+                    <tr style={{ borderTop: `1px solid ${color.borderSubtle}`, background: color.pageBg }}>
                       <td colSpan={8} style={{ padding: "12px 16px" }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Change Log</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: color.text }}>Change Log</div>
                         {auditLoading ? (
-                          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.45)" }}>Loading…</div>
+                          <div style={{ fontSize: 13, color: color.textFaint }}>Loading…</div>
                         ) : auditLogs.length === 0 ? (
-                          <div style={{ fontSize: 13, color: "rgba(0,0,0,0.45)" }}>No log entries yet.</div>
+                          <div style={{ fontSize: 13, color: color.textFaint }}>No log entries yet.</div>
                         ) : (
                           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                             <thead>
@@ -809,10 +810,10 @@ export default function MerchantBundles() {
                               {auditLogs.map(log => (
                                 <tr key={log.id} style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
                                   <td style={auditTd}>{new Date(log.createdAt).toLocaleString()}</td>
-                                  <td style={auditTd}>{log.actorUserId ?? <span style={{ color: "rgba(0,0,0,0.35)" }}>system</span>}</td>
+                                  <td style={auditTd}>{log.actorUserId ?? <span style={{ color: color.textFaint }}>system</span>}</td>
                                   <td style={auditTd}><span style={{ fontFamily: "monospace" }}>{log.action}</span></td>
                                   <td style={auditTd}>
-                                    <pre style={{ margin: 0, fontSize: 11, color: "rgba(0,0,0,0.55)", whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
+                                    <pre style={{ margin: 0, fontSize: 11, color: color.textMuted, whiteSpace: "pre-wrap", wordBreak: "break-all" }}>
                                       {log.changes ? JSON.stringify(log.changes, null, 2) : "—"}
                                     </pre>
                                   </td>
@@ -837,25 +838,25 @@ export default function MerchantBundles() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-const btnPrimary    = { background: "#0B2A33", color: "#fff", border: "none", borderRadius: 999, padding: "8px 18px", fontWeight: 800, fontSize: 13, cursor: "pointer" };
-const btnSecondary  = { background: "transparent", color: "#0B2A33", border: "1px solid rgba(0,0,0,0.18)", borderRadius: 999, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer" };
-const btnSmall      = { background: "transparent", color: "#0B2A33", border: "1px solid rgba(0,0,0,0.18)", borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer" };
-const btnSmallAction= { ...btnSmall, color: "rgba(0,100,180,1)", borderColor: "rgba(0,100,180,0.25)", background: "rgba(0,100,180,0.06)" };
-const btnSmallGhost = { ...btnSmall, color: "rgba(0,0,0,0.40)", borderColor: "rgba(0,0,0,0.12)" };
-const btnSmallDelete= { ...btnSmall, color: "rgba(160,0,0,0.80)", borderColor: "rgba(160,0,0,0.20)", background: "rgba(160,0,0,0.04)" };
-const btnFilter     = { background: "white", border: "1px solid rgba(0,0,0,0.18)", borderRadius: 999, padding: "6px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", color: "#0B2A33" };
-const btnFilterActive = { ...btnFilter, background: "rgba(0,0,0,0.08)", borderColor: "rgba(0,0,0,0.30)" };
-const btnLifecycle  = { background: "rgba(40,60,180,0.07)", color: "rgba(40,60,180,1)", border: "1px solid rgba(40,60,180,0.25)", borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" };
-const twoCol        = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "0 20px" };
-const fieldRow      = { marginBottom: 12 };
-const labelStyle    = { display: "block", fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.60)", marginBottom: 4 };
-const inputStyle    = { width: "100%", padding: "8px 12px", border: "1px solid rgba(0,0,0,0.18)", borderRadius: 8, fontSize: 14, boxSizing: "border-box" };
-const errorStyle    = { color: "rgba(160,0,0,0.90)", fontSize: 13, padding: "8px 12px", background: "rgba(160,0,0,0.06)", borderRadius: 8, marginTop: 4 };
-const hint          = { fontSize: 11, color: "rgba(0,0,0,0.40)", marginTop: 3 };
-const req           = { color: "red" };
-const th            = { padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 12, color: "rgba(0,0,0,0.55)" };
-const td            = { padding: "12px 16px", verticalAlign: "middle" };
-const auditTh       = { padding: "6px 10px", textAlign: "left", fontWeight: 700, fontSize: 11, color: "rgba(0,0,0,0.45)", borderBottom: "1px solid rgba(0,0,0,0.07)" };
-const auditTd       = { padding: "6px 10px", verticalAlign: "top", fontSize: 12 };
-const dropdownMenu  = { position: "absolute", bottom: "calc(100% + 4px)", right: 0, zIndex: 50, background: "#fff", border: "1px solid rgba(0,0,0,0.12)", borderRadius: 10, boxShadow: "0 -4px 16px rgba(0,0,0,0.10)", minWidth: 180, overflow: "hidden" };
-const dropdownItem  = { display: "flex", alignItems: "center", width: "100%", padding: "9px 14px", background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "left" };
+const btnPrimary     = { ...btn.primary,   padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
+const btnSecondary   = { ...btn.secondary, padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
+const btnSmall       = { ...btn.pill,      padding: "4px 12px",  fontSize: 12 };
+const btnSmallAction = { ...btnSmall, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary };
+const btnSmallGhost  = { ...btnSmall, color: color.textFaint, borderColor: color.borderSubtle };
+const btnSmallDelete = { ...btn.danger,    padding: "4px 12px",  fontSize: 12 };
+const btnFilter      = { ...btn.pill,      padding: "6px 14px",  fontSize: 12 };
+const btnFilterActive = { ...btnFilter, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary };
+const btnLifecycle   = { ...btnSmall, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary, whiteSpace: "nowrap" };
+const twoCol         = { display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: "0 20px" };
+const fieldRow       = { marginBottom: 12 };
+const labelStyle     = { display: "block", fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 4 };
+const inputStyle     = { ...themeInput, padding: "8px 12px", fontSize: 14 };
+const errorStyle     = { color: color.danger, fontSize: 13, padding: "8px 12px", background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, borderRadius: 8, marginTop: 4 };
+const hint           = { fontSize: 11, color: color.textFaint, marginTop: 3 };
+const req            = { color: color.danger };
+const th             = { padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 12, color: color.textMuted };
+const td             = { padding: "12px 16px", verticalAlign: "middle" };
+const auditTh        = { padding: "6px 10px", textAlign: "left", fontWeight: 700, fontSize: 11, color: color.textFaint, borderBottom: `1px solid ${color.borderSubtle}` };
+const auditTd        = { padding: "6px 10px", verticalAlign: "top", fontSize: 12 };
+const dropdownMenu   = { position: "absolute", bottom: "calc(100% + 4px)", right: 0, zIndex: 50, background: color.cardBg, border: `1px solid ${color.border}`, borderRadius: 10, boxShadow: "0 -4px 16px rgba(0,0,0,0.10)", minWidth: 180, overflow: "hidden" };
+const dropdownItem   = { display: "flex", alignItems: "center", width: "100%", padding: "9px 14px", background: "none", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "left", color: color.text };

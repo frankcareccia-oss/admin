@@ -10,6 +10,7 @@
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
+import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
   getSystemRole,
@@ -297,7 +298,7 @@ export default function MerchantPromotions() {
   return (
     <PageContainer>
       {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -328,13 +329,13 @@ export default function MerchantPromotions() {
       {!loading && activeCategories.length === 0 && (
         <div style={infoBox}>
           <strong>No product categories yet.</strong> Go to{" "}
-          <Link to={`/merchants/${merchantId}/products`} style={{ color: "#0B2A33" }}>Products</Link>{" "}
+          <Link to={`/merchants/${merchantId}/products`} style={{ color: color.text }}>Products</Link>{" "}
           and add categories before creating reward programs.
         </div>
       )}
 
       {loading ? (
-        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>Loading…</div>
+        <div style={{ color: color.textFaint, padding: 20 }}>Loading…</div>
       ) : error ? (
         <div style={errorStyle}>{error}</div>
       ) : (
@@ -362,7 +363,7 @@ export default function MerchantPromotions() {
             <div style={summaryBar}>
               <div>
                 <div style={{ fontWeight: 700 }}>Add a reward program</div>
-                <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginTop: 2 }}>
+                <div style={{ fontSize: 13, color: color.textMuted, marginTop: 2 }}>
                   e.g. Buy 5 Coffee → Free Coffee (30 days)
                 </div>
               </div>
@@ -491,7 +492,7 @@ export default function MerchantPromotions() {
 
           {/* ── Programs list ── */}
           {promotions.length === 0 ? (
-            <div style={{ color: "rgba(0,0,0,0.45)", padding: "16px 0", fontSize: 13 }}>No reward programs found.</div>
+            <div style={{ color: color.textFaint, padding: "16px 0", fontSize: 13 }}>No reward programs found.</div>
           ) : (
             <div style={tableWrap}>
               <table style={tableStyle}>
@@ -515,12 +516,12 @@ export default function MerchantPromotions() {
                         <td style={td}>
                           {promo.category
                             ? <CatPill name={promo.category.name} />
-                            : <span style={{ color: "rgba(0,0,0,0.35)", fontSize: 12 }}>—</span>}
+                            : <span style={{ color: color.textFaint, fontSize: 12 }}>—</span>}
                         </td>
                         <td style={{ ...td, fontFamily: "monospace" }}>{promo.threshold}</td>
                         <td style={{ ...td, fontSize: 13 }}>{rewardSummary(promo)}</td>
                         <td style={{ ...td, fontSize: 13 }}>
-                          {promo.timeframeDays ? `${promo.timeframeDays}d` : <span style={{ color: "rgba(0,0,0,0.35)" }}>No expiry</span>}
+                          {promo.timeframeDays ? `${promo.timeframeDays}d` : <span style={{ color: color.textFaint }}>No expiry</span>}
                         </td>
                         <td style={{ ...td, fontSize: 13 }}>{SCOPE_LABELS[promo.scope] || promo.scope || "—"}</td>
                         <td style={td}><StatusBadge status={promo.status} /></td>
@@ -558,7 +559,7 @@ export default function MerchantPromotions() {
                               </div>
                             </div>
                             {editErr && <div style={{ ...errorStyle, marginTop: 8 }}>{editErr}</div>}
-                            <div style={{ fontSize: 12, color: "rgba(0,0,0,0.40)", marginTop: 6 }}>
+                            <div style={{ fontSize: 12, color: color.textFaint, marginTop: 6 }}>
                               Category, threshold, and reward cannot be changed after creation.
                             </div>
                           </td>
@@ -579,58 +580,43 @@ export default function MerchantPromotions() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-const btnPrimary = {
-  background: "#0B2A33", color: "#fff", border: "none",
-  borderRadius: 999, padding: "8px 18px", fontWeight: 800, fontSize: 13, cursor: "pointer",
-};
-const btnSecondary = {
-  background: "transparent", color: "#0B2A33", border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 999, padding: "8px 18px", fontWeight: 700, fontSize: 13, cursor: "pointer",
-};
-const btnSmall = {
-  background: "transparent", color: "#0B2A33", border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 999, padding: "4px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer",
-};
-const btnSmallDanger = { ...btnSmall, color: "rgba(160,0,0,0.85)", borderColor: "rgba(160,0,0,0.20)" };
-const btnFilter = {
-  background: "white", border: "1px solid rgba(0,0,0,0.18)", borderRadius: 999,
-  padding: "6px 14px", fontWeight: 700, fontSize: 12, cursor: "pointer", color: "#0B2A33",
-};
-const btnFilterActive = { ...btnFilter, background: "rgba(0,0,0,0.08)", borderColor: "rgba(0,0,0,0.30)" };
+const btnPrimary    = { ...btn.primary,   padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
+const btnSecondary  = { ...btn.secondary, padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
+const btnSmall      = { ...btn.pill,      padding: "4px 12px",  fontSize: 12 };
+const btnSmallDanger = { ...btn.danger,   padding: "4px 12px",  fontSize: 12 };
+const btnFilter     = { ...btn.pill,      padding: "6px 14px",  fontSize: 12 };
+const btnFilterActive = { ...btnFilter, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary };
 
 const fieldRow   = { marginBottom: 12 };
 const twoCol     = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 };
-const labelStyle = { display: "block", fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.60)", marginBottom: 4 };
-const reqStar    = { color: "red" };
-const hint       = { fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 3 };
+const labelStyle = { display: "block", fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 4 };
+const reqStar    = { color: color.danger };
+const hint       = { fontSize: 11, color: color.textFaint, marginTop: 3 };
 
-const inputStyle = {
-  width: "100%", padding: "8px 12px", border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 8, fontSize: 14, boxSizing: "border-box",
-};
-const selectStyle = { ...inputStyle, background: "white" };
+const inputStyle = { ...themeInput, padding: "8px 12px", fontSize: 14 };
+const selectStyle = { ...inputStyle, background: color.inputBg };
 
 const errorStyle = {
-  color: "rgba(160,0,0,0.90)", fontSize: 13, padding: "8px 12px",
-  background: "rgba(160,0,0,0.06)", borderRadius: 8, marginTop: 4,
+  color: color.danger, fontSize: 13, padding: "8px 12px",
+  background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, borderRadius: 8, marginTop: 4,
 };
 const infoBox = {
   fontSize: 13, padding: "10px 14px", borderRadius: 10,
-  background: "rgba(200,150,0,0.08)", border: "1px solid rgba(200,150,0,0.25)",
-  marginBottom: 18, color: "rgba(100,70,0,0.90)",
+  background: color.primarySubtle, border: `1px solid ${color.primaryBorder}`,
+  marginBottom: 18, color: color.text,
 };
 const summaryBar = {
-  border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, padding: "16px 20px",
+  border: `1px solid ${color.border}`, borderRadius: 14, padding: "16px 20px",
   marginBottom: 20, display: "flex", alignItems: "center",
-  justifyContent: "space-between", background: "rgba(0,0,0,0.02)",
+  justifyContent: "space-between", background: color.pageBg,
 };
 const createCard = {
-  border: "1px solid rgba(0,0,0,0.12)", borderRadius: 14, padding: 20,
-  marginBottom: 20, background: "#fff",
+  border: `1px solid ${color.border}`, borderRadius: 14, padding: 20,
+  marginBottom: 20, background: color.cardBg,
 };
-const tableWrap  = { border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, overflow: "hidden" };
+const tableWrap  = { border: `1px solid ${color.border}`, borderRadius: 14, overflow: "hidden" };
 const tableStyle = { width: "100%", borderCollapse: "collapse", fontSize: 14 };
-const theadRow   = { background: "rgba(0,0,0,0.03)", borderBottom: "1px solid rgba(0,0,0,0.08)" };
-const th         = { padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 12, color: "rgba(0,0,0,0.55)" };
+const theadRow   = { background: color.pageBg, borderBottom: `1px solid ${color.border}` };
+const th         = { padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 12, color: color.textMuted };
 const td         = { padding: "12px 16px", verticalAlign: "middle" };
-const rowBorder  = "1px solid rgba(0,0,0,0.06)";
+const rowBorder  = `1px solid ${color.borderSubtle}`;

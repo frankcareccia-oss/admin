@@ -10,6 +10,7 @@
 
 import React from "react";
 import { Link, useParams } from "react-router-dom";
+import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
   getSystemRole,
@@ -314,7 +315,7 @@ export default function MerchantProducts() {
   return (
     <PageContainer>
       {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: "rgba(0,0,0,0.55)", marginBottom: 12 }}>
+      <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
         {" / "}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
@@ -330,16 +331,16 @@ export default function MerchantProducts() {
       <div style={{ marginTop: 24 }} />
 
       {/* ── Categories Panel ── */}
-      <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, padding: "14px 20px", marginBottom: 20, background: "rgba(0,0,0,0.02)" }}>
+      <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, padding: "14px 20px", marginBottom: 20, background: color.pageBg }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showCatCreate ? 12 : 0 }}>
           <div>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>Categories</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: color.text }}>Categories</span>
             {categories.length > 0 && (
-              <span style={{ marginLeft: 10, fontSize: 12, color: "rgba(0,0,0,0.72)", fontWeight: 600 }}>
+              <span style={{ marginLeft: 10, fontSize: 12, color: color.textMuted, fontWeight: 600 }}>
                 {categories.filter(c => c.status === "active").map(c => c.name).join(" · ")}
               </span>
             )}
-            {categories.length === 0 && <span style={{ marginLeft: 10, fontSize: 12, color: "rgba(0,0,0,0.40)" }}>No categories yet</span>}
+            {categories.length === 0 && <span style={{ marginLeft: 10, fontSize: 12, color: color.textFaint }}>No categories yet</span>}
           </div>
           {!showCatCreate && (
             <button type="button" style={btnSecondary} onClick={() => { setShowCatCreate(true); setCatName(""); setCatError(""); }}>
@@ -369,19 +370,19 @@ export default function MerchantProducts() {
       {!showCreate ? (
         <div
           style={{
-            border: "1px solid rgba(0,0,0,0.10)",
+            border: `1px solid ${color.border}`,
             borderRadius: 14,
             padding: "16px 20px",
             marginBottom: 20,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            background: "rgba(0,0,0,0.02)",
+            background: color.pageBg,
           }}
         >
           <div>
-            <div style={{ fontWeight: 700 }}>Add a product</div>
-            <div style={{ color: "rgba(0,0,0,0.55)", fontSize: 13, marginTop: 2 }}>
+            <div style={{ fontWeight: 700, color: color.text }}>Add a product</div>
+            <div style={{ color: color.textMuted, fontSize: 13, marginTop: 2 }}>
               SKU is auto-generated if not provided.
             </div>
           </div>
@@ -398,11 +399,11 @@ export default function MerchantProducts() {
           </button>
         </div>
       ) : (
-        <div style={{ border: "1px solid rgba(0,0,0,0.12)", borderRadius: 14, padding: 20, marginBottom: 20, background: "#fff" }}>
-          <div style={{ fontWeight: 800, marginBottom: 14 }}>New Product</div>
+        <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, padding: 20, marginBottom: 20, background: color.cardBg }}>
+          <div style={{ fontWeight: 800, marginBottom: 14, color: color.text }}>New Product</div>
           <form onSubmit={handleCreate}>
             <div style={fieldRow}>
-              <label style={labelStyle}>Name <span style={{ color: "red" }}>*</span></label>
+              <label style={labelStyle}>Name <span style={{ color: color.danger }}>*</span></label>
               <input
                 style={inputStyle}
                 value={form.name}
@@ -434,7 +435,7 @@ export default function MerchantProducts() {
                   ))}
                 </select>
                 {categories.length === 0 && (
-                  <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>Add categories above first</span>
+                  <span style={{ fontSize: 12, color: color.textFaint }}>Add categories above first</span>
                 )}
               </div>
             </div>
@@ -457,7 +458,7 @@ export default function MerchantProducts() {
                     onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
                     placeholder="https://images.unsplash.com/photo-… (direct image link)"
                   />
-                  <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 4 }}>
+                  <div style={{ fontSize: 11, color: color.textFaint, marginTop: 4 }}>
                     Must be a direct link to an image file, not a webpage. Right-click any image → "Copy image address".
                   </div>
                 </div>
@@ -505,16 +506,16 @@ export default function MerchantProducts() {
 
       {/* ── Table ── */}
       {loading ? (
-        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>Loading…</div>
+        <div style={{ color: color.textFaint, padding: 20 }}>Loading…</div>
       ) : error ? (
         <div style={errorStyle}>{error}</div>
       ) : products.length === 0 ? (
-        <div style={{ color: "rgba(0,0,0,0.45)", padding: 20 }}>No products found.</div>
+        <div style={{ color: color.textFaint, padding: 20 }}>No products found.</div>
       ) : (
-        <div style={{ border: "1px solid rgba(0,0,0,0.10)", borderRadius: 14, overflow: "hidden" }}>
+        <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, overflow: "hidden" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead>
-              <tr style={{ background: "rgba(0,0,0,0.03)", borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
+              <tr style={{ background: color.pageBg, borderBottom: `1px solid ${color.border}` }}>
                 <th style={th}>Name</th>
                 <th style={th}>SKU</th>
                 <th style={th}>Category</th>
@@ -526,7 +527,7 @@ export default function MerchantProducts() {
             <tbody>
               {products.map((p, idx) => (
                 <React.Fragment key={p.id}>
-                  <tr style={{ borderTop: idx === 0 ? "none" : "1px solid rgba(0,0,0,0.06)", background: editingId === p.id ? "rgba(0,0,0,0.015)" : "transparent" }}>
+                  <tr style={{ borderTop: idx === 0 ? "none" : `1px solid ${color.borderSubtle}`, background: editingId === p.id ? color.pageBg : "transparent" }}>
                     <td style={td}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <ProductAvatar name={p.name} imageUrl={p.imageUrl} size={36} radius={8} />
@@ -538,12 +539,12 @@ export default function MerchantProducts() {
                       <select
                         style={{
                           padding: "4px 8px",
-                          border: "1px solid rgba(0,0,0,0.15)",
+                          border: `1px solid ${color.border}`,
                           borderRadius: 8,
                           fontSize: 12,
                           fontWeight: 700,
-                          background: catSavingIds.has(p.id) ? "rgba(0,0,0,0.04)" : "#fff",
-                          color: "#0B2A33",
+                          background: catSavingIds.has(p.id) ? color.pageBg : color.cardBg,
+                          color: color.text,
                           cursor: "pointer",
                           minWidth: 110,
                         }}
@@ -557,10 +558,10 @@ export default function MerchantProducts() {
                         ))}
                       </select>
                       {catSavingIds.has(p.id) && (
-                        <span style={{ fontSize: 11, color: "rgba(0,0,0,0.40)", marginLeft: 6 }}>saving…</span>
+                        <span style={{ fontSize: 11, color: color.textFaint, marginLeft: 6 }}>saving…</span>
                       )}
                     </td>
-                    <td style={{ ...td, color: "rgba(0,0,0,0.55)" }}>{p.description || "—"}</td>
+                    <td style={{ ...td, color: color.textMuted }}>{p.description || "—"}</td>
                     <td style={td}><StatusBadge status={p.status} /></td>
                     <td style={{ ...td, textAlign: "right" }}>
                       <div style={{ display: "inline-flex", gap: 8 }}>
@@ -578,11 +579,11 @@ export default function MerchantProducts() {
 
                   {/* Inline edit row */}
                   {editingId === p.id && (
-                    <tr style={{ borderTop: "1px solid rgba(0,0,0,0.06)", background: "rgba(0,0,0,0.015)" }}>
+                    <tr style={{ borderTop: `1px solid ${color.borderSubtle}`, background: color.pageBg }}>
                       <td colSpan={6} style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                           <div>
-                            <label style={labelStyle}>Name <span style={{ color: "red" }}>*</span></label>
+                            <label style={labelStyle}>Name <span style={{ color: color.danger }}>*</span></label>
                             <input
                               style={{ ...inputStyle, width: 220 }}
                               value={editForm.name || ""}
@@ -622,7 +623,7 @@ export default function MerchantProducts() {
                                   onChange={e => setEditForm(f => ({ ...f, imageUrl: e.target.value }))}
                                   placeholder="Direct image link (https://…)"
                                 />
-                                <div style={{ fontSize: 11, color: "rgba(0,0,0,0.45)", marginTop: 3 }}>
+                                <div style={{ fontSize: 11, color: color.textFaint, marginTop: 3 }}>
                                   Right-click image → "Copy image address"
                                 </div>
                               </div>
@@ -637,7 +638,7 @@ export default function MerchantProducts() {
                           </div>
                         </div>
                         {editError && <div style={{ ...errorStyle, marginTop: 8 }}>{editError}</div>}
-                        <div style={{ fontSize: 12, color: "rgba(0,0,0,0.40)", marginTop: 6 }}>
+                        <div style={{ fontSize: 12, color: color.textFaint, marginTop: 6 }}>
                           SKU <strong>{p.sku}</strong> is stable and cannot be changed.
                         </div>
                       </td>
@@ -663,110 +664,27 @@ export default function MerchantProducts() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-const btnPrimary = {
-  background: "#0B2A33",
-  color: "#fff",
-  border: "none",
-  borderRadius: 999,
-  padding: "8px 18px",
-  fontWeight: 800,
-  fontSize: 13,
-  cursor: "pointer",
-};
+const btnPrimary     = { ...btn.primary,   padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
+const btnSecondary   = { ...btn.secondary, padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
+const btnSmall       = { ...btn.pill,      padding: "4px 12px",  fontSize: 12 };
+const btnSmallDanger = { ...btn.danger,    padding: "4px 12px",  fontSize: 12 };
+const btnFilter      = { ...btn.pill,      padding: "6px 14px",  fontSize: 12 };
+const btnFilterActive = { ...btnFilter, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary };
 
-const btnSecondary = {
-  background: "transparent",
-  color: "#0B2A33",
-  border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 999,
-  padding: "8px 18px",
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: "pointer",
-};
-
-const btnSmall = {
-  background: "transparent",
-  color: "#0B2A33",
-  border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 999,
-  padding: "4px 12px",
-  fontWeight: 700,
-  fontSize: 12,
-  cursor: "pointer",
-};
-
-const btnSmallDanger = {
-  ...btnSmall,
-  color: "rgba(160,0,0,0.85)",
-  borderColor: "rgba(160,0,0,0.20)",
-};
-
-const btnFilter = {
-  background: "white",
-  border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 999,
-  padding: "6px 14px",
-  fontWeight: 700,
-  fontSize: 12,
-  cursor: "pointer",
-  color: "#0B2A33",
-};
-
-const btnFilterActive = {
-  ...btnFilter,
-  background: "rgba(0,0,0,0.08)",
-  borderColor: "rgba(0,0,0,0.30)",
-};
-
-const fieldRow = { marginBottom: 12 };
-
-const labelStyle = {
-  display: "block",
-  fontSize: 12,
-  fontWeight: 700,
-  color: "rgba(0,0,0,0.60)",
-  marginBottom: 4,
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "8px 12px",
-  border: "1px solid rgba(0,0,0,0.18)",
-  borderRadius: 8,
-  fontSize: 14,
-  boxSizing: "border-box",
-};
+const fieldRow   = { marginBottom: 12 };
+const labelStyle = { display: "block", fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 4 };
+const inputStyle = { ...themeInput, padding: "8px 12px", fontSize: 14 };
 
 const errorStyle = {
-  color: "rgba(160,0,0,0.90)",
-  fontSize: 13,
-  padding: "8px 12px",
-  background: "rgba(160,0,0,0.06)",
-  borderRadius: 8,
-  marginTop: 4,
+  color: color.danger, fontSize: 13, padding: "8px 12px",
+  background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, borderRadius: 8, marginTop: 4,
 };
 
-const th = {
-  padding: "10px 16px",
-  textAlign: "left",
-  fontWeight: 700,
-  fontSize: 12,
-  color: "rgba(0,0,0,0.55)",
-};
-
-const td = {
-  padding: "12px 16px",
-  verticalAlign: "middle",
-};
+const th = { padding: "10px 16px", textAlign: "left", fontWeight: 700, fontSize: 12, color: color.textMuted };
+const td = { padding: "12px 16px", verticalAlign: "middle" };
 
 const catPill = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "2px 10px",
-  borderRadius: 999,
-  fontSize: 12,
-  fontWeight: 700,
-  background: "rgba(11,42,51,0.08)",
-  color: "#0B2A33",
+  display: "inline-flex", alignItems: "center", padding: "2px 10px",
+  borderRadius: 999, fontSize: 12, fontWeight: 700,
+  background: "rgba(47,143,139,0.10)", color: color.primary,
 };
