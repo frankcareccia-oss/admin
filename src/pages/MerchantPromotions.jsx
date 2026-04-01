@@ -410,9 +410,17 @@ export default function MerchantPromotions() {
                     <label style={labelStyle}>Qualifying Category <span style={reqStar}>*</span></label>
                     <select style={selectStyle} value={form.categoryId} onChange={e => setF("categoryId", e.target.value)}>
                       <option value="">— select category —</option>
-                      {activeCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      {activeCategories.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.categoryType === "visit" ? `${c.name} ★` : c.name}
+                        </option>
+                      ))}
                     </select>
-                    <div style={hint}>Every purchase of a product in this category earns 1 stamp.</div>
+                    <div style={hint}>
+                      {form.categoryId && activeCategories.find(c => String(c.id) === String(form.categoryId))?.categoryType === "visit"
+                        ? "Every identified store visit earns 1 stamp — no product purchase required."
+                        : "Every purchase of a product in this category earns 1 stamp."}
+                    </div>
                   </div>
 
                   {/* Threshold */}
