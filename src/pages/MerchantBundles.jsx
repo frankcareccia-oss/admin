@@ -2,7 +2,7 @@
  * MerchantBundles.jsx
  *
  * Bundle lifecycle management: WIP → Staged → Live → Suspended → Archived
- * Rule-tree based (PRODUCT / AND / OR, max 2 levels).
+ * Rule-tree based (PRODUCT / AND / OR, max 3 levels — supports nested groups).
  * Phase A: Define and manage bundles. Sell/redeem (Phase B/C) deferred.
  */
 
@@ -84,135 +84,241 @@ function describeRuleTree(tree) {
   if (!tree) return "—";
   if (tree.type === "PRODUCT") return `${tree.quantity}× ${tree.productName}`;
   const joiner = tree.type === "AND" ? " + " : " or ";
-  return (tree.children || []).map(c => `${c.quantity}× ${c.productName}`).join(joiner);
+  return (tree.children || []).map(child => {
+    if (child.type === "PRODUCT") return `${child.quantity}× ${child.productName}`;
+    const subJoiner = child.type === "AND" ? " + " : " or ";
+    const subParts = (child.children || []).map(p => `${p.quantity}× ${p.productName}`).join(subJoiner);
+    return `(${subParts})`;
+  }).join(joiner);
 }
 
-// Convert flat UI state → rule tree JSON
+// Flatten all product slots from UI items (includes products inside groups)
+function getAllProducts(items) {
+  return items.flatMap(item => item.type === "group" ? item.products : [item]);
+}
+
+// Convert UI items + matchType → rule tree JSON
 function uiToRuleTree(items, matchType) {
   if (!items || items.length === 0) return null;
-  if (items.length === 1) {
-    return { type: "PRODUCT", productId: items[0].productId, productName: items[0].productName, quantity: items[0].quantity };
-  }
-  return { type: matchType, children: items.map(i => ({ type: "PRODUCT", productId: i.productId, productName: i.productName, quantity: i.quantity })) };
+  const children = items.map(item => {
+    if (item.type === "group") {
+      if (item.products.length === 1) {
+        const p = item.products[0];
+        return { type: "PRODUCT", productId: p.productId, productName: p.productName, quantity: p.quantity };
+      }
+      return { type: item.matchType, children: item.products.map(p => ({ type: "PRODUCT", productId: p.productId, productName: p.productName, quantity: p.quantity })) };
+    }
+    return { type: "PRODUCT", productId: item.productId, productName: item.productName, quantity: item.quantity };
+  });
+  if (children.length === 1 && children[0].type === "PRODUCT") return children[0];
+  return { type: matchType, children };
 }
 
-// Convert rule tree JSON → flat UI state
+// Convert rule tree JSON → UI items + matchType
 function ruleTreeToUi(tree) {
-  if (!tree) return { items: [{ productId: "", productName: "", quantity: 1 }], matchType: "AND" };
+  if (!tree) return { items: [{ type: "product", productId: "", productName: "", quantity: 1 }], matchType: "AND" };
   if (tree.type === "PRODUCT") {
-    return { items: [{ productId: tree.productId, productName: tree.productName, quantity: tree.quantity }], matchType: "AND" };
+    return { items: [{ type: "product", productId: tree.productId, productName: tree.productName, quantity: tree.quantity }], matchType: "AND" };
   }
-  return {
-    items: (tree.children || []).map(c => ({ productId: c.productId, productName: c.productName, quantity: c.quantity })),
-    matchType: tree.type,
-  };
+  const items = (tree.children || []).map(child => {
+    if (child.type === "PRODUCT") {
+      return { type: "product", productId: child.productId, productName: child.productName, quantity: child.quantity };
+    }
+    // Nested AND / OR → group item
+    return {
+      type: "group",
+      matchType: child.type,
+      products: (child.children || []).map(p => ({ productId: p.productId, productName: p.productName, quantity: p.quantity })),
+    };
+  });
+  return { items, matchType: tree.type };
 }
 
 // ─── Tree Builder component ───────────────────────────────────
+// Supports flat product rows and nested group rows (one level deep).
+// UI items:
+//   product: { type:"product", productId, productName, quantity }
+//   group:   { type:"group", matchType:"AND"|"OR", products:[{productId,productName,quantity}] }
 
 function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, products, disabled }) {
-  function addItem() {
-    onItemsChange([...items, { productId: "", productName: "", quantity: 1 }]);
+  // Scoped duplicate guard:
+  //   flat items → block products used in other flat items at root level
+  //   group items → block products used in other slots within the SAME group
+  //   cross-group: NO restriction (same product may appear in different groups)
+  const flatUsedIds = React.useMemo(() => {
+    const used = new Set();
+    items.forEach(item => { if (item.type !== "group" && item.productId) used.add(String(item.productId)); });
+    return used;
+  }, [items]);
+
+  function addProductItem() {
+    onItemsChange([...items, { type: "product", productId: "", productName: "", quantity: 1 }]);
+  }
+  function addGroupItem() {
+    const groupType = matchType === "AND" ? "OR" : "AND";
+    onItemsChange([...items, { type: "group", matchType: groupType, products: [{ productId: "", productName: "", quantity: 1 }, { productId: "", productName: "", quantity: 1 }] }]);
   }
   function removeItem(idx) {
     onItemsChange(items.filter((_, i) => i !== idx));
   }
-  function updateItem(idx, field, value) {
-    const next = items.map((item, i) => {
+  function updateProductItem(idx, field, value) {
+    onItemsChange(items.map((item, i) => {
       if (i !== idx) return item;
-      if (field === "productId") {
-        const prod = products.find(p => String(p.id) === String(value));
-        return { ...item, productId: value ? parseInt(value, 10) : "", productName: prod?.name || "" };
-      }
+      if (field === "productId") { const prod = products.find(p => String(p.id) === String(value)); return { ...item, productId: value ? parseInt(value, 10) : "", productName: prod?.name || "" }; }
       if (field === "quantity") return { ...item, quantity: parseInt(value, 10) || 1 };
       return item;
-    });
-    onItemsChange(next);
+    }));
+  }
+  function updateGroupMatchType(idx, mt) {
+    onItemsChange(items.map((item, i) => i !== idx ? item : { ...item, matchType: mt }));
+  }
+  function addGroupProduct(groupIdx) {
+    onItemsChange(items.map((item, i) => i !== groupIdx ? item : { ...item, products: [...item.products, { productId: "", productName: "", quantity: 1 }] }));
+  }
+  function removeGroupProduct(groupIdx, prodIdx) {
+    onItemsChange(items.map((item, i) => i !== groupIdx ? item : { ...item, products: item.products.filter((_, j) => j !== prodIdx) }));
+  }
+  function updateGroupProduct(groupIdx, prodIdx, field, value) {
+    onItemsChange(items.map((item, i) => {
+      if (i !== groupIdx) return item;
+      return { ...item, products: item.products.map((p, j) => {
+        if (j !== prodIdx) return p;
+        if (field === "productId") { const prod = products.find(pr => String(pr.id) === String(value)); return { ...p, productId: value ? parseInt(value, 10) : "", productName: prod?.name || "" }; }
+        if (field === "quantity") return { ...p, quantity: parseInt(value, 10) || 1 };
+        return p;
+      })};
+    }));
   }
 
   return (
     <div>
-      {/* Match type — only shown when multiple items */}
+      {/* Root match rule — shown when multiple items */}
       {items.length > 1 && (
         <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(40,60,180,0.04)", border: "1px solid rgba(40,60,180,0.15)" }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.60)", marginBottom: 8 }}>Match Rule <span style={{ color: "red" }}>*</span></div>
           <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
             {["AND", "OR"].map(t => (
-              <button
-                key={t}
-                type="button"
-                disabled={disabled}
-                onClick={() => onMatchTypeChange(t)}
-                style={{
-                  padding: "7px 18px", borderRadius: 8, fontWeight: 800, fontSize: 13, cursor: "pointer",
-                  border: matchType === t ? "2px solid rgba(40,60,180,0.70)" : "1.5px solid rgba(0,0,0,0.18)",
-                  background: matchType === t ? "rgba(40,60,180,0.12)" : "white",
-                  color: matchType === t ? "rgba(40,60,180,1)" : "rgba(0,0,0,0.45)",
-                  boxShadow: matchType === t ? "0 1px 4px rgba(40,60,180,0.12)" : "none",
-                }}
-              >
+              <button key={t} type="button" disabled={disabled} onClick={() => onMatchTypeChange(t)} style={{
+                padding: "7px 18px", borderRadius: 8, fontWeight: 800, fontSize: 13, cursor: "pointer",
+                border: matchType === t ? "2px solid rgba(40,60,180,0.70)" : "1.5px solid rgba(0,0,0,0.18)",
+                background: matchType === t ? "rgba(40,60,180,0.12)" : "white",
+                color: matchType === t ? "rgba(40,60,180,1)" : "rgba(0,0,0,0.45)",
+                boxShadow: matchType === t ? "0 1px 4px rgba(40,60,180,0.12)" : "none",
+              }}>
                 {t === "AND" ? "ALL of these" : "ANY of these"}
               </button>
             ))}
           </div>
           <div style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>
             {matchType === "AND"
-              ? "Customer must redeem ALL products listed — e.g. 5 Lattes AND 5 Croissants."
-              : "Customer can redeem ANY ONE of the products listed — e.g. 10 Coffees OR 10 Teas."}
+              ? "Customer must redeem ALL items listed."
+              : "Customer can redeem ANY ONE of the items listed."}
           </div>
         </div>
       )}
 
-      {/* Product rows */}
-      {items.map((item, idx) => (
-        <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          {items.length > 1 && (
-            <span style={{ fontSize: 11, color: "rgba(0,0,0,0.35)", width: 28, textAlign: "right", flexShrink: 0 }}>
-              {matchType === "AND" ? `${idx + 1}.` : "or"}
-            </span>
-          )}
-          <select
-            style={{ ...inputStyle, flex: 2, minWidth: 0 }}
-            value={item.productId || ""}
-            disabled={disabled}
-            onChange={e => updateItem(idx, "productId", e.target.value)}
-          >
-            <option value="">— select product —</option>
-            {products.map(p => {
-              const usedElsewhere = items.some((other, i) => i !== idx && String(other.productId) === String(p.id));
-              return <option key={p.id} value={p.id} disabled={usedElsewhere}>{p.name}{usedElsewhere ? " (already added)" : ""}</option>;
-            })}
-          </select>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>×</span>
-            <input
-              style={{ ...inputStyle, width: 64, textAlign: "center" }}
-              type="number"
-              min="1"
-              step="1"
-              value={item.quantity}
-              disabled={disabled}
-              onChange={e => updateItem(idx, "quantity", e.target.value)}
-            />
-            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>uses</span>
-          </div>
-          {items.length > 1 && (
-            <button type="button" style={btnSmallDelete} disabled={disabled} onClick={() => removeItem(idx)}>×</button>
-          )}
-        </div>
-      ))}
+      {/* Items */}
+      {items.map((item, idx) => {
+        const rowLabel = items.length > 1 ? (
+          <span style={{ fontSize: 11, color: "rgba(0,0,0,0.35)", width: 28, textAlign: "right", flexShrink: 0 }}>
+            {matchType === "AND" ? `${idx + 1}.` : "or"}
+          </span>
+        ) : null;
 
+        if (item.type === "group") {
+          return (
+            <div key={idx} style={{ marginBottom: 10, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "rgba(0,0,0,0.015)" }}>
+              {/* Group header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                {rowLabel}
+                <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(0,0,0,0.45)" }}>Group —</span>
+                {["AND", "OR"].map(t => (
+                  <button key={t} type="button" disabled={disabled} onClick={() => updateGroupMatchType(idx, t)} style={{
+                    padding: "3px 10px", borderRadius: 6, fontWeight: 700, fontSize: 11, cursor: "pointer",
+                    border: item.matchType === t ? "1.5px solid rgba(40,60,180,0.60)" : "1px solid rgba(0,0,0,0.15)",
+                    background: item.matchType === t ? "rgba(40,60,180,0.10)" : "white",
+                    color: item.matchType === t ? "rgba(40,60,180,1)" : "rgba(0,0,0,0.45)",
+                  }}>
+                    {t === "AND" ? "ALL" : "ANY"}
+                  </button>
+                ))}
+                {items.length > 1 && (
+                  <button type="button" style={{ ...btnSmallDelete, marginLeft: "auto" }} disabled={disabled} onClick={() => removeItem(idx)}>× Remove</button>
+                )}
+              </div>
+              {/* Group product rows — duplicate guard scoped to this group only */}
+              {item.products.map((p, pi) => {
+                const groupUsedIds = new Set(item.products.filter((_, j) => j !== pi && item.products[j]?.productId).map(gp => String(gp.productId)));
+                return (
+                <div key={pi} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  {item.products.length > 1 && (
+                    <span style={{ fontSize: 11, color: "rgba(0,0,0,0.35)", width: 28, textAlign: "right", flexShrink: 0 }}>
+                      {item.matchType === "AND" ? `${pi + 1}.` : "or"}
+                    </span>
+                  )}
+                  <select style={{ ...inputStyle, flex: 2, minWidth: 0 }} value={p.productId || ""} disabled={disabled} onChange={e => updateGroupProduct(idx, pi, "productId", e.target.value)}>
+                    <option value="">— select product —</option>
+                    {products.map(pr => {
+                      const usedElsewhere = groupUsedIds.has(String(pr.id));
+                      return <option key={pr.id} value={pr.id} disabled={usedElsewhere}>{pr.name}{usedElsewhere ? " (already added)" : ""}</option>;
+                    })}
+                  </select>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>×</span>
+                    <input style={{ ...inputStyle, width: 64, textAlign: "center" }} type="number" min="1" step="1" value={p.quantity} disabled={disabled} onChange={e => updateGroupProduct(idx, pi, "quantity", e.target.value)} />
+                    <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>uses</span>
+                  </div>
+                  {item.products.length > 1 && (
+                    <button type="button" style={btnSmallDelete} disabled={disabled} onClick={() => removeGroupProduct(idx, pi)}>×</button>
+                  )}
+                </div>
+                );
+              })}
+              {item.products.length < 10 && (
+                <button type="button" style={{ ...btnSmall, marginTop: 4 }} disabled={disabled} onClick={() => addGroupProduct(idx)}>+ Add to group</button>
+              )}
+            </div>
+          );
+        }
+
+        // Product item
+        return (
+          <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            {rowLabel}
+            <select style={{ ...inputStyle, flex: 2, minWidth: 0 }} value={item.productId || ""} disabled={disabled} onChange={e => updateProductItem(idx, "productId", e.target.value)}>
+              <option value="">— select product —</option>
+              {products.map(p => {
+                const usedElsewhere = flatUsedIds.has(String(p.id)) && String(p.id) !== String(item.productId);
+                return <option key={p.id} value={p.id} disabled={usedElsewhere}>{p.name}{usedElsewhere ? " (already added)" : ""}</option>;
+              })}
+            </select>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>×</span>
+              <input style={{ ...inputStyle, width: 64, textAlign: "center" }} type="number" min="1" step="1" value={item.quantity} disabled={disabled} onChange={e => updateProductItem(idx, "quantity", e.target.value)} />
+              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.45)" }}>uses</span>
+            </div>
+            {items.length > 1 && (
+              <button type="button" style={btnSmallDelete} disabled={disabled} onClick={() => removeItem(idx)}>×</button>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Add buttons */}
       {items.length < 10 && (
-        <button type="button" style={{ ...btnSmall, marginTop: 4 }} disabled={disabled} onClick={addItem}>
-          + Add product
-        </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <button type="button" style={btnSmall} disabled={disabled} onClick={addProductItem}>+ Add product</button>
+          <button type="button" style={{ ...btnSmall, color: "rgba(40,60,180,0.80)", borderColor: "rgba(40,60,180,0.25)" }} disabled={disabled} onClick={addGroupItem}>
+            + Add group
+          </button>
+        </div>
       )}
     </div>
   );
 }
 
 const EMPTY_FORM = { name: "", price: "", startAt: "", endAt: "" };
-const EMPTY_ITEMS = [{ productId: "", productName: "", quantity: 1 }];
+const EMPTY_ITEMS = [{ type: "product", productId: "", productName: "", quantity: 1 }];
 
 export default function MerchantBundles() {
   const { merchantId } = useParams();
@@ -297,8 +403,9 @@ export default function MerchantBundles() {
     if (!form.name.trim()) errs.push("Name is required.");
     const pr = parseFloat(form.price);
     if (form.price === "" || isNaN(pr) || pr < 0) errs.push("Price must be 0 or greater.");
-    if (createItems.some(i => !i.productId)) errs.push("All products must be selected.");
-    if (createItems.some(i => !i.quantity || i.quantity < 1)) errs.push("All quantities must be ≥ 1.");
+    const allCreateProds = getAllProducts(createItems);
+    if (allCreateProds.some(i => !i.productId)) errs.push("All products must be selected.");
+    if (allCreateProds.some(i => !i.quantity || i.quantity < 1)) errs.push("All quantities must be ≥ 1.");
     if (form.startAt && form.endAt && new Date(form.endAt) < new Date(form.startAt))
       errs.push("End Date cannot be before Start Date.");
     if (errs.length) { setFormError(errs.join(" ")); return; }
@@ -347,7 +454,7 @@ export default function MerchantBundles() {
   async function handleEditSave(bundle) {
     setEditError("");
     if (!editForm.name?.trim()) { setEditError("Name is required"); return; }
-    if (editItems.some(i => !i.productId)) { setEditError("All products must be selected"); return; }
+    if (getAllProducts(editItems).some(i => !i.productId)) { setEditError("All products must be selected"); return; }
     if (editForm.startAt && editForm.endAt && new Date(editForm.endAt) < new Date(editForm.startAt)) {
       setEditError("End Date cannot be before Start Date"); return;
     }
