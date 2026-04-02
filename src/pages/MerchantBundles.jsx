@@ -26,6 +26,7 @@ import {
   adminDeleteMerchantBundle,
   adminDuplicateMerchantBundle,
   adminListMerchantProducts,
+  generateBundleTerms,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -318,7 +319,7 @@ function RuleTreeBuilder({ items, matchType, onItemsChange, onMatchTypeChange, p
   );
 }
 
-const EMPTY_FORM = { name: "", price: "", startAt: "", endAt: "" };
+const EMPTY_FORM = { name: "", price: "", startAt: "", endAt: "", legalText: "" };
 const EMPTY_ITEMS = [{ type: "product", productId: "", productName: "", quantity: 1 }];
 
 export default function MerchantBundles() {
@@ -348,6 +349,10 @@ export default function MerchantBundles() {
   const [editMatchType, setEditMatchType] = React.useState("AND");
   const [editError, setEditError] = React.useState("");
   const [editSaving, setEditSaving] = React.useState(false);
+
+  // AI terms generation
+  const [generatingTerms, setGeneratingTerms] = React.useState(false);
+  const [editGeneratingTerms, setEditGeneratingTerms] = React.useState(false);
 
   // Lifecycle
   const [transitionBusy, setTransitionBusy] = React.useState(null);
@@ -397,6 +402,47 @@ export default function MerchantBundles() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [dropdownOpenId]);
 
+  // ─── AI terms generation ───────────────────────────────────
+  async function handleGenerateTerms() {
+    setGeneratingTerms(true);
+    setFormError("");
+    try {
+      const ruleTree = uiToRuleTree(createItems, createMatchType);
+      const data = await generateBundleTerms({
+        name: form.name || "Bundle",
+        price: form.price ? parseFloat(form.price) : null,
+        componentsDesc: ruleTree ? describeRuleTree(ruleTree) : null,
+        startAt: form.startAt || null,
+        endAt: form.endAt || null,
+      });
+      setForm(f => ({ ...f, legalText: data.draft || "" }));
+    } catch (e) {
+      setFormError(e?.message || "Failed to generate terms draft");
+    } finally {
+      setGeneratingTerms(false);
+    }
+  }
+
+  async function handleEditGenerateTerms(bundle) {
+    setEditGeneratingTerms(true);
+    setEditError("");
+    try {
+      const ruleTree = uiToRuleTree(editItems, editMatchType);
+      const data = await generateBundleTerms({
+        name: editForm.name || bundle.name,
+        price: editForm.price !== "" ? parseFloat(editForm.price) : bundle.price,
+        componentsDesc: ruleTree ? describeRuleTree(ruleTree) : describeRuleTree(bundle.ruleTreeJson),
+        startAt: editForm.startAt || bundle.startAt || null,
+        endAt: editForm.endAt || bundle.endAt || null,
+      });
+      setEditForm(f => ({ ...f, legalText: data.draft || "" }));
+    } catch (e) {
+      setEditError(e?.message || "Failed to generate terms draft");
+    } finally {
+      setEditGeneratingTerms(false);
+    }
+  }
+
   // ─── Create ────────────────────────────────────────────────
   async function handleCreate(e) {
     e.preventDefault();
@@ -419,6 +465,7 @@ export default function MerchantBundles() {
         ruleTree: uiToRuleTree(createItems, createMatchType),
         startAt: form.startAt || null,
         endAt: form.endAt || null,
+        legalText: form.legalText?.trim() || null,
       };
       if (isPvAdmin) await adminCreateMerchantBundle(merchantId, payload);
       else await merchantCreateBundle(payload);
@@ -443,6 +490,7 @@ export default function MerchantBundles() {
       price: bundle.price !== null ? String(bundle.price) : "",
       startAt: toDateInput(bundle.startAt),
       endAt: toDateInput(bundle.endAt),
+      legalText: bundle.legalText || "",
     });
     const { items, matchType } = ruleTreeToUi(bundle.ruleTreeJson);
     setEditItems(items);
@@ -468,6 +516,7 @@ export default function MerchantBundles() {
         price: editForm.price !== "" ? parseFloat(editForm.price) : undefined,
         startAt: editForm.startAt || null,
         endAt: editForm.endAt || null,
+        legalText: editForm.legalText?.trim() || null,
       };
       if (canEditRules) fields.ruleTree = uiToRuleTree(editItems, editMatchType);
       if (isPvAdmin) await adminUpdateMerchantBundle(merchantId, bundle.id, fields);
@@ -611,6 +660,26 @@ export default function MerchantBundles() {
                 products={products}
                 disabled={saving}
               />
+            </div>
+            <div style={fieldRow}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <label style={labelStyle}>Terms & Conditions (shown to consumers)</label>
+                <button
+                  type="button"
+                  style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                  disabled={generatingTerms}
+                  onClick={handleGenerateTerms}
+                >
+                  {generatingTerms ? "Generating…" : "✦ Generate Draft"}
+                </button>
+              </div>
+              <textarea
+                style={{ ...inputStyle, width: "100%", minHeight: 120, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                value={form.legalText}
+                onChange={e => setForm(f => ({ ...f, legalText: e.target.value }))}
+                placeholder="Click 'Generate Draft' for an AI-drafted terms template, then review and edit as needed."
+              />
+              <div style={hint}>AI-generated draft — always review before saving. Includes bundle contents, price, validity, non-refund, and merchant cancellation clauses.</div>
             </div>
             {formError && <div style={errorStyle}>{formError}</div>}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
@@ -778,6 +847,26 @@ export default function MerchantBundles() {
                             Products locked — rule tree cannot be changed once a bundle is <strong>{b.status}</strong>.
                           </div>
                         )}
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                            <label style={labelStyle}>Terms & Conditions</label>
+                            <button
+                              type="button"
+                              style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                              disabled={editGeneratingTerms}
+                              onClick={() => handleEditGenerateTerms(b)}
+                            >
+                              {editGeneratingTerms ? "Generating…" : "✦ Generate Draft"}
+                            </button>
+                          </div>
+                          <textarea
+                            style={{ ...inputStyle, width: "100%", minHeight: 110, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                            value={editForm.legalText || ""}
+                            onChange={e => setEditForm(f => ({ ...f, legalText: e.target.value }))}
+                            placeholder="Click 'Generate Draft' for an AI-drafted terms template, then review and edit as needed."
+                          />
+                          <div style={hint}>Consumers see this at point of sale.</div>
+                        </div>
                         {editError && <div style={{ ...errorStyle, marginBottom: 10 }}>{editError}</div>}
                         <div style={{ display: "flex", gap: 8 }}>
                           <button type="button" style={btnPrimary} disabled={editSaving} onClick={() => handleEditSave(b)}>{editSaving ? "Saving…" : "Save"}</button>

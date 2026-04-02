@@ -1792,6 +1792,10 @@ export async function merchantReactivateProduct(productId) {
   });
 }
 
+export async function merchantActivateProduct(productId) {
+  return request(`/merchant/products/${productId}/activate`, { method: "POST", auth: "jwt" });
+}
+
 export async function adminListMerchantProducts(merchantId, { status } = {}) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return request(`/admin/merchants/${merchantId}/products${qs}`, { auth: "jwt" });
@@ -1825,6 +1829,10 @@ export async function adminReactivateMerchantProduct(merchantId, productId) {
     method: "POST",
     auth: "jwt",
   });
+}
+
+export async function adminActivateMerchantProduct(merchantId, productId) {
+  return request(`/admin/merchants/${merchantId}/products/${productId}/activate`, { method: "POST", auth: "jwt" });
 }
 
 /* =============================================================
@@ -1932,6 +1940,30 @@ export async function merchantCreatePromotion(fields = {}) {
   });
 }
 
+export async function generatePromoTerms(fields = {}) {
+  return request("/merchant/promotions/generate-terms", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function generateBundleTerms(fields = {}) {
+  return request("/merchant/bundles/generate-terms", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function generateProductInfo(fields = {}) {
+  return request("/merchant/products/generate-info", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
 export async function merchantUpdatePromotion(promoId, fields = {}) {
   return request(`/merchant/promotions/${promoId}`, {
     method: "PATCH",
@@ -1973,6 +2005,22 @@ export async function adminArchiveMerchantPromotion(merchantId, promoId) {
     method: "DELETE",
     auth: "jwt",
   });
+}
+
+export async function merchantTransitionPromotion(promoId, status) {
+  return request(`/merchant/promotions/${promoId}`, { method: "PATCH", auth: "jwt", body: { status } });
+}
+
+export async function merchantDuplicatePromotion(promoId) {
+  return request(`/merchant/promotions/${promoId}/duplicate`, { method: "POST", auth: "jwt" });
+}
+
+export async function adminTransitionPromotion(merchantId, promoId, status) {
+  return request(`/admin/merchants/${merchantId}/promotions/${promoId}`, { method: "PATCH", auth: "jwt", body: { status } });
+}
+
+export async function adminDuplicateMerchantPromotion(merchantId, promoId) {
+  return request(`/admin/merchants/${merchantId}/promotions/${promoId}/duplicate`, { method: "POST", auth: "jwt" });
 }
 
 /* =============================================================

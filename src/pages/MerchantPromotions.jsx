@@ -20,12 +20,17 @@ import {
   merchantCreatePromotion,
   merchantUpdatePromotion,
   merchantArchivePromotion,
+  merchantTransitionPromotion,
+  merchantDuplicatePromotion,
   adminListMerchantCategories,
   adminListMerchantProducts,
   adminListMerchantPromotions,
   adminCreateMerchantPromotion,
   adminUpdateMerchantPromotion,
   adminArchiveMerchantPromotion,
+  adminTransitionPromotion,
+  adminDuplicateMerchantPromotion,
+  generatePromoTerms,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -53,9 +58,11 @@ const SCOPE_LABELS = {
 };
 
 const STATUS_COLORS = {
-  active:   { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
-  paused:   { background: "rgba(200,120,0,0.10)", color: "rgba(160,90,0,1)",  border: "1px solid rgba(200,120,0,0.25)" },
-  archived: { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.45)",  border: "1px solid rgba(0,0,0,0.10)" },
+  draft:    { background: "rgba(100,100,200,0.08)", color: "rgba(60,60,160,1)",  border: "1px solid rgba(100,100,200,0.20)" },
+  staged:   { background: "rgba(0,120,200,0.08)",   color: "rgba(0,90,170,1)",   border: "1px solid rgba(0,120,200,0.20)" },
+  active:   { background: "rgba(0,150,80,0.10)",    color: "rgba(0,110,50,1)",   border: "1px solid rgba(0,150,80,0.25)" },
+  paused:   { background: "rgba(200,120,0,0.10)",   color: "rgba(160,90,0,1)",   border: "1px solid rgba(200,120,0,0.25)" },
+  archived: { background: "rgba(0,0,0,0.06)",       color: "rgba(0,0,0,0.45)",   border: "1px solid rgba(0,0,0,0.10)" },
 };
 
 function StatusBadge({ status }) {
@@ -86,6 +93,7 @@ const EMPTY_FORM = {
   rewardNote: "",
   timeframeDays: "",
   scope: "merchant",
+  legalText: "",
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -105,19 +113,21 @@ export default function MerchantPromotions() {
   const [error, setError]               = React.useState("");
   const [lastError, setLastError]       = React.useState("");
   const [lastSuccessTs, setLastSuccessTs] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("active");
+  const [statusFilter, setStatusFilter] = React.useState("draft");
 
   // Create form
   const [showCreate, setShowCreate]   = React.useState(false);
   const [form, setForm]               = React.useState(EMPTY_FORM);
   const [formErr, setFormErr]         = React.useState("");
   const [saving, setSaving]           = React.useState(false);
+  const [generatingTerms, setGeneratingTerms] = React.useState(false);
 
   // Edit
   const [editId, setEditId]           = React.useState(null);
   const [editForm, setEditForm]       = React.useState({});
   const [editErr, setEditErr]         = React.useState("");
   const [editSaving, setEditSaving]   = React.useState(false);
+  const [editGeneratingTerms, setEditGeneratingTerms] = React.useState(false);
 
   // ─── Load ──────────────────────────────────────────────────
   async function load(filter = statusFilter) {
@@ -195,7 +205,57 @@ export default function MerchantPromotions() {
       rewardNote: f.rewardType === "custom"      ? f.rewardNote.trim() : undefined,
       timeframeDays: f.timeframeDays ? parseInt(f.timeframeDays, 10) : undefined,
       scope: f.scope,
+      legalText: f.legalText?.trim() || undefined,
     };
+  }
+
+  async function handleGenerateTerms() {
+    const cat = activeCategories.find(c => String(c.id) === String(form.categoryId));
+    setGeneratingTerms(true);
+    setFormErr("");
+    try {
+      const data = await generatePromoTerms({
+        name: form.name || "Loyalty Program",
+        categoryName: cat?.name || null,
+        mechanic: "stamps",
+        threshold: parseInt(form.threshold, 10) || null,
+        rewardType: form.rewardType,
+        rewardValue: (form.rewardType === "discount_pct" || form.rewardType === "discount_fixed")
+          ? parseInt(form.rewardValue, 10) : undefined,
+        rewardSku: form.rewardType === "free_item" ? form.rewardSku : undefined,
+        rewardNote: form.rewardType === "custom" ? form.rewardNote : undefined,
+        timeframeDays: form.timeframeDays ? parseInt(form.timeframeDays, 10) : null,
+      });
+      setF("legalText", data.draft || "");
+    } catch (e) {
+      setFormErr(e?.message || "Failed to generate terms draft");
+    } finally {
+      setGeneratingTerms(false);
+    }
+  }
+
+  async function handleEditGenerateTerms(promo) {
+    const cat = activeCategories.find(c => c.id === promo.categoryId);
+    setEditGeneratingTerms(true);
+    setEditErr("");
+    try {
+      const data = await generatePromoTerms({
+        name: editForm.name || promo.name,
+        categoryName: cat?.name || null,
+        mechanic: "stamps",
+        threshold: promo.threshold,
+        rewardType: promo.rewardType,
+        rewardValue: promo.rewardValue,
+        rewardSku: promo.rewardSku,
+        rewardNote: promo.rewardNote,
+        timeframeDays: promo.timeframeDays,
+      });
+      setEditForm(f => ({ ...f, legalText: data.draft || "" }));
+    } catch (e) {
+      setEditErr(e?.message || "Failed to generate terms draft");
+    } finally {
+      setEditGeneratingTerms(false);
+    }
   }
 
   // ─── Create ────────────────────────────────────────────────
@@ -231,7 +291,7 @@ export default function MerchantPromotions() {
   // ─── Edit ──────────────────────────────────────────────────
   function startEdit(promo) {
     setEditId(promo.id);
-    setEditForm({ name: promo.name, status: promo.status });
+    setEditForm({ name: promo.name, legalText: promo.legalText || "" });
     setEditErr("");
     pvUiHook("merchant.promotions.edit.open", { stable: "promo:edit", merchantId, promoId: promo.id });
   }
@@ -248,7 +308,10 @@ export default function MerchantPromotions() {
     setEditSaving(true);
     pvUiHook("merchant.promotions.edit.started", { stable: "promo:edit", merchantId, promoId });
     try {
-      const payload = { name: editForm.name.trim(), status: editForm.status };
+      const payload = {
+        name: editForm.name.trim(),
+        legalText: editForm.legalText?.trim() || null,
+      };
       if (isPvAdmin) {
         await adminUpdateMerchantPromotion(merchantId, promoId, payload);
       } else {
@@ -268,7 +331,24 @@ export default function MerchantPromotions() {
     }
   }
 
-  // ─── Archive ───────────────────────────────────────────────
+  // ─── Status transitions ────────────────────────────────────
+  async function handleTransition(promo, toStatus) {
+    pvUiHook(`merchant.promotions.transition.${toStatus}`, { stable: "promo:transition", merchantId, promoId: promo.id, toStatus });
+    try {
+      if (isPvAdmin) {
+        await adminTransitionPromotion(merchantId, promo.id, toStatus);
+      } else {
+        await merchantTransitionPromotion(promo.id, toStatus);
+      }
+      setLastSuccessTs(new Date().toISOString());
+      await load(statusFilter);
+    } catch (e) {
+      const msg = e?.message || `Failed to transition to ${toStatus}`;
+      setLastError(msg);
+      pvUiHook(`merchant.promotions.transition.failed`, { stable: "promo:transition", merchantId, promoId: promo.id, toStatus, error: msg });
+    }
+  }
+
   async function handleArchive(promo) {
     pvUiHook("merchant.promotions.archive.started", { stable: "promo:archive", merchantId, promoId: promo.id });
     try {
@@ -284,6 +364,25 @@ export default function MerchantPromotions() {
       const msg = e?.message || "Failed to archive reward program";
       setLastError(msg);
       pvUiHook("merchant.promotions.archive.failed", { stable: "promo:archive", merchantId, promoId: promo.id, error: msg });
+    }
+  }
+
+  async function handleDuplicate(promo) {
+    pvUiHook("merchant.promotions.duplicate.started", { stable: "promo:duplicate", merchantId, promoId: promo.id });
+    try {
+      if (isPvAdmin) {
+        await adminDuplicateMerchantPromotion(merchantId, promo.id);
+      } else {
+        await merchantDuplicatePromotion(promo.id);
+      }
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.promotions.duplicate.succeeded", { stable: "promo:duplicate", merchantId, promoId: promo.id });
+      await load("draft");
+      setStatusFilter("draft");
+    } catch (e) {
+      const msg = e?.message || "Failed to duplicate reward program";
+      setLastError(msg);
+      pvUiHook("merchant.promotions.duplicate.failed", { stable: "promo:duplicate", merchantId, promoId: promo.id, error: msg });
     }
   }
 
@@ -355,7 +454,7 @@ export default function MerchantPromotions() {
         <>
           {/* ── Status filter ── */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {["active", "paused", "archived", ""].map(f => (
+            {["draft", "staged", "active", "paused", "archived", ""].map(f => (
               <button
                 key={f || "all"}
                 type="button"
@@ -494,6 +593,28 @@ export default function MerchantPromotions() {
                   </div>
                 </div>
 
+                {/* Terms & Conditions */}
+                <div style={fieldRow}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <label style={labelStyle}>Terms & Conditions (shown to consumers)</label>
+                    <button
+                      type="button"
+                      style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                      disabled={generatingTerms}
+                      onClick={handleGenerateTerms}
+                    >
+                      {generatingTerms ? "Generating…" : "✦ Generate Draft"}
+                    </button>
+                  </div>
+                  <textarea
+                    style={{ ...inputStyle, width: "100%", minHeight: 120, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                    value={form.legalText}
+                    onChange={e => setF("legalText", e.target.value)}
+                    placeholder="Click 'Generate Draft' for an AI-drafted terms template, then review and edit as needed."
+                  />
+                  <div style={hint}>AI-generated draft — always review before saving. Consumers see this in the program detail view.</div>
+                </div>
+
                 {formErr && <div style={errorStyle}>{formErr}</div>}
                 <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                   <button type="submit" style={btnPrimary} disabled={saving}>{saving ? "Saving…" : "Save Program"}</button>
@@ -550,12 +671,29 @@ export default function MerchantPromotions() {
                         <td style={{ ...td, fontSize: 13 }}>{SCOPE_LABELS[promo.scope] || promo.scope || "—"}</td>
                         <td style={td}><StatusBadge status={promo.status} /></td>
                         <td style={{ ...td, textAlign: "right" }}>
-                          <div style={{ display: "inline-flex", gap: 8 }}>
-                            {editId !== promo.id && promo.status !== "archived" && (
-                              <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>
-                            )}
-                            {promo.status !== "archived" && (
+                          <div style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            {promo.status === "draft" && <>
+                              <button type="button" style={btnSmall} onClick={() => handleTransition(promo, "staged")}>Stage</button>
+                              {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
                               <button type="button" style={btnSmallDanger} onClick={() => handleArchive(promo)}>Archive</button>
+                            </>}
+                            {promo.status === "staged" && <>
+                              <button type="button" style={btnSmallSuccess} onClick={() => handleTransition(promo, "active")}>Go Live</button>
+                              <button type="button" style={btnSmall} onClick={() => handleTransition(promo, "draft")}>Revert</button>
+                              {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
+                            </>}
+                            {promo.status === "active" && <>
+                              <button type="button" style={btnSmall} onClick={() => handleTransition(promo, "paused")}>Pause</button>
+                              {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
+                              <button type="button" style={btnSmallDanger} onClick={() => handleArchive(promo)}>Archive</button>
+                            </>}
+                            {promo.status === "paused" && <>
+                              <button type="button" style={btnSmallSuccess} onClick={() => handleTransition(promo, "active")}>Resume</button>
+                              {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
+                              <button type="button" style={btnSmallDanger} onClick={() => handleArchive(promo)}>Archive</button>
+                            </>}
+                            {promo.status === "archived" && (
+                              <button type="button" style={btnSmall} onClick={() => handleDuplicate(promo)}>Duplicate</button>
                             )}
                           </div>
                         </td>
@@ -570,17 +708,30 @@ export default function MerchantPromotions() {
                                 <label style={labelStyle}>Name <span style={reqStar}>*</span></label>
                                 <input style={{ ...inputStyle, width: 240 }} value={editForm.name || ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} autoFocus />
                               </div>
-                              <div>
-                                <label style={labelStyle}>Status</label>
-                                <select style={{ ...selectStyle, width: 160 }} value={editForm.status || ""} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
-                                  <option value="active">Active</option>
-                                  <option value="paused">Paused</option>
-                                </select>
-                              </div>
                               <div style={{ display: "flex", gap: 8 }}>
                                 <button type="button" style={btnPrimary} disabled={editSaving} onClick={() => handleEditSave(promo.id)}>{editSaving ? "Saving…" : "Save"}</button>
                                 <button type="button" style={btnSecondary} onClick={cancelEdit}>Cancel</button>
                               </div>
+                            </div>
+                            <div style={{ marginTop: 12 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                <label style={labelStyle}>Terms & Conditions</label>
+                                <button
+                                  type="button"
+                                  style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                                  disabled={editGeneratingTerms}
+                                  onClick={() => handleEditGenerateTerms(promo)}
+                                >
+                                  {editGeneratingTerms ? "Generating…" : "✦ Generate Draft"}
+                                </button>
+                              </div>
+                              <textarea
+                                style={{ ...inputStyle, width: "100%", minHeight: 100, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                                value={editForm.legalText || ""}
+                                onChange={e => setEditForm(f => ({ ...f, legalText: e.target.value }))}
+                                placeholder="Click 'Generate Draft' for an AI-drafted terms template, then review and edit as needed."
+                              />
+                              <div style={hint}>Consumers see this in the program detail view.</div>
                             </div>
                             {editErr && <div style={{ ...errorStyle, marginTop: 8 }}>{editErr}</div>}
                             <div style={{ fontSize: 12, color: color.textFaint, marginTop: 6 }}>
@@ -606,8 +757,9 @@ export default function MerchantPromotions() {
 // ─── Styles ──────────────────────────────────────────────────
 const btnPrimary    = { ...btn.primary,   padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
 const btnSecondary  = { ...btn.secondary, padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
-const btnSmall      = { ...btn.pill,      padding: "4px 12px",  fontSize: 12 };
-const btnSmallDanger = { ...btn.danger,   padding: "4px 12px",  fontSize: 12 };
+const btnSmall        = { ...btn.pill,    padding: "4px 12px",  fontSize: 12 };
+const btnSmallDanger  = { ...btn.danger,  padding: "4px 12px",  fontSize: 12 };
+const btnSmallSuccess = { ...btn.primary, padding: "4px 12px",  fontSize: 12 };
 const btnFilter     = { ...btn.pill,      padding: "6px 14px",  fontSize: 12 };
 const btnFilterActive = { ...btnFilter, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary };
 

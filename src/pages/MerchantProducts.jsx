@@ -19,6 +19,7 @@ import {
   merchantUpdateProduct,
   merchantDeactivateProduct,
   merchantReactivateProduct,
+  merchantActivateProduct,
   merchantListCategories,
   merchantCreateCategory,
   adminListMerchantProducts,
@@ -26,8 +27,10 @@ import {
   adminUpdateMerchantProduct,
   adminDeactivateMerchantProduct,
   adminReactivateMerchantProduct,
+  adminActivateMerchantProduct,
   adminListMerchantCategories,
   adminCreateMerchantCategory,
+  generateProductInfo,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -46,8 +49,9 @@ function pvUiHook(event, fields = {}) {
 // ─── Helpers ─────────────────────────────────────────────────
 
 const STATUS_COLORS = {
-  active:   { background: "rgba(0,150,80,0.10)",  color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
-  inactive: { background: "rgba(0,0,0,0.06)",     color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+  draft:    { background: "rgba(100,100,200,0.08)", color: "rgba(60,60,160,1)", border: "1px solid rgba(100,100,200,0.20)" },
+  active:   { background: "rgba(0,150,80,0.10)",   color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
+  inactive: { background: "rgba(0,0,0,0.06)",      color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
 };
 
 function StatusBadge({ status }) {
@@ -60,7 +64,10 @@ function StatusBadge({ status }) {
 }
 
 
-const EMPTY_FORM = { name: "", description: "", sku: "", imageUrl: "", categoryId: "" };
+const ALLERGENS = ["gluten", "dairy", "eggs", "tree nuts", "peanuts", "soy", "shellfish", "sesame"];
+const DIETARY   = ["vegan", "vegetarian", "halal", "kosher", "gluten-free", "dairy-free", "nut-free"];
+
+const EMPTY_FORM = { name: "", description: "", sku: "", imageUrl: "", categoryId: "", complianceText: "", allergens: [], dietaryFlags: [] };
 
 export default function MerchantProducts() {
   const { merchantId } = useParams();
@@ -78,13 +85,17 @@ export default function MerchantProducts() {
   const [catName, setCatName] = React.useState("");
   const [catSaving, setCatSaving] = React.useState(false);
   const [catError, setCatError] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("active");
+  const [statusFilter, setStatusFilter] = React.useState("draft");
 
   // Create panel
   const [showCreate, setShowCreate] = React.useState(false);
   const [form, setForm] = React.useState(EMPTY_FORM);
   const [formError, setFormError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+
+  // AI compliance generation
+  const [generatingInfo, setGeneratingInfo] = React.useState(false);
+  const [editGeneratingInfo, setEditGeneratingInfo] = React.useState(false);
 
   // Edit row
   const [editingId, setEditingId] = React.useState(null);
@@ -129,6 +140,47 @@ export default function MerchantProducts() {
     load(statusFilter);
   }, [merchantId, statusFilter]);
 
+  // ─── AI compliance generation ──────────────────────────────
+  async function handleGenerateInfo() {
+    setGeneratingInfo(true);
+    setFormError("");
+    try {
+      const cat = categories.find(c => String(c.id) === String(form.categoryId));
+      const data = await generateProductInfo({
+        productName: form.name || "Product",
+        categoryName: cat?.name || null,
+        description: form.description || null,
+        allergens: form.allergens,
+        dietaryFlags: form.dietaryFlags,
+      });
+      setForm(f => ({ ...f, complianceText: data.draft || "" }));
+    } catch (e) {
+      setFormError(e?.message || "Failed to generate product info draft");
+    } finally {
+      setGeneratingInfo(false);
+    }
+  }
+
+  async function handleEditGenerateInfo(product) {
+    setEditGeneratingInfo(true);
+    setEditError("");
+    try {
+      const cat = categories.find(c => c.id === (editForm.categoryId ? parseInt(editForm.categoryId, 10) : product.categoryId));
+      const data = await generateProductInfo({
+        productName: editForm.name || product.name,
+        categoryName: cat?.name || null,
+        description: editForm.description || product.description || null,
+        allergens: editForm.allergens || [],
+        dietaryFlags: editForm.dietaryFlags || [],
+      });
+      setEditForm(f => ({ ...f, complianceText: data.draft || "" }));
+    } catch (e) {
+      setEditError(e?.message || "Failed to generate product info draft");
+    } finally {
+      setEditGeneratingInfo(false);
+    }
+  }
+
   // ─── Create ────────────────────────────────────────────────
   async function handleCreate(e) {
     e.preventDefault();
@@ -145,6 +197,7 @@ export default function MerchantProducts() {
       const payload = {
         name,
         description: form.description.trim() || undefined,
+        complianceText: form.complianceText?.trim() || undefined,
         sku: form.sku.trim() || undefined,
         imageUrl: form.imageUrl.trim() || undefined,
         categoryId: form.categoryId ? parseInt(form.categoryId, 10) : undefined,
@@ -173,7 +226,7 @@ export default function MerchantProducts() {
   function startEdit(product) {
     if (showCreate) setShowCreate(false);
     setEditingId(product.id);
-    setEditForm({ name: product.name, description: product.description || "", imageUrl: product.imageUrl || "", categoryId: product.categoryId ? String(product.categoryId) : "" });
+    setEditForm({ name: product.name, description: product.description || "", complianceText: product.complianceText || "", imageUrl: product.imageUrl || "", categoryId: product.categoryId ? String(product.categoryId) : "", allergens: [], dietaryFlags: [] });
     setEditError("");
     pvUiHook("merchant.products.edit.open", { merchantId, productId: product.id, sku: product.sku });
   }
@@ -199,6 +252,7 @@ export default function MerchantProducts() {
       const payload = {
         name,
         description: editForm.description?.trim() || undefined,
+        complianceText: editForm.complianceText?.trim() || null,
         imageUrl: editForm.imageUrl?.trim() || null,
         categoryId: editForm.categoryId ? parseInt(editForm.categoryId, 10) : null,
       };
@@ -306,6 +360,24 @@ export default function MerchantProducts() {
       const msg = e?.message || "Failed to reactivate product";
       setLastError(msg);
       pvUiHook("merchant.products.reactivate.error", { merchantId, productId: product.id, error: msg });
+    }
+  }
+
+  async function handleActivate(product) {
+    pvUiHook("merchant.products.activate.submit", { merchantId, productId: product.id, sku: product.sku });
+    try {
+      if (isPvAdmin) {
+        await adminActivateMerchantProduct(merchantId, product.id);
+      } else {
+        await merchantActivateProduct(product.id);
+      }
+      setLastSuccessTs(new Date().toISOString());
+      pvUiHook("merchant.products.activate.success", { merchantId, productId: product.id });
+      await load(statusFilter);
+    } catch (e) {
+      const msg = e?.message || "Failed to activate product";
+      setLastError(msg);
+      pvUiHook("merchant.products.activate.error", { merchantId, productId: product.id, error: msg });
     }
   }
 
@@ -465,6 +537,58 @@ export default function MerchantProducts() {
                 <ProductAvatar name={form.name || "?"} imageUrl={form.imageUrl || undefined} size={40} radius={8} />
               </div>
             </div>
+            <div style={fieldRow}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <label style={labelStyle}>Product Info & Compliance</label>
+                <button
+                  type="button"
+                  style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                  disabled={generatingInfo}
+                  onClick={handleGenerateInfo}
+                >
+                  {generatingInfo ? "Generating…" : "✦ Generate Draft"}
+                </button>
+              </div>
+              {/* Allergen checkboxes */}
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: color.textFaint, marginBottom: 4 }}>Contains allergens:</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+                  {ALLERGENS.map(a => (
+                    <label key={a} style={{ fontSize: 12, color: color.textMuted, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={form.allergens.includes(a)}
+                        onChange={e => setForm(f => ({ ...f, allergens: e.target.checked ? [...f.allergens, a] : f.allergens.filter(x => x !== a) }))}
+                      />
+                      {a}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              {/* Dietary flags */}
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: color.textFaint, marginBottom: 4 }}>Dietary claims:</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+                  {DIETARY.map(d => (
+                    <label key={d} style={{ fontSize: 12, color: color.textMuted, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={form.dietaryFlags.includes(d)}
+                        onChange={e => setForm(f => ({ ...f, dietaryFlags: e.target.checked ? [...f.dietaryFlags, d] : f.dietaryFlags.filter(x => x !== d) }))}
+                      />
+                      {d}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <textarea
+                style={{ ...inputStyle, width: "100%", minHeight: 90, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                value={form.complianceText}
+                onChange={e => setForm(f => ({ ...f, complianceText: e.target.value }))}
+                placeholder="Click 'Generate Draft' — AI will write a product description + allergen/dietary statement based on your selections above."
+              />
+              <div style={{ fontSize: 11, color: color.textFaint, marginTop: 3 }}>AI-generated draft — review before saving. Select allergens/dietary claims above to improve accuracy.</div>
+            </div>
             {formError && <div style={errorStyle}>{formError}</div>}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button type="submit" style={btnPrimary} disabled={saving}>
@@ -489,7 +613,7 @@ export default function MerchantProducts() {
 
       {/* ── Filter ── */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {["active", "inactive", ""].map(f => (
+        {["draft", "active", "inactive", ""].map(f => (
           <button
             key={f || "all"}
             type="button"
@@ -568,9 +692,13 @@ export default function MerchantProducts() {
                         {editingId !== p.id && (
                           <button type="button" style={btnSmall} onClick={() => startEdit(p)}>Edit</button>
                         )}
-                        {p.status === "active" ? (
+                        {p.status === "draft" && (
+                          <button type="button" style={btnSmallSuccess} onClick={() => handleActivate(p)}>Activate</button>
+                        )}
+                        {p.status === "active" && (
                           <button type="button" style={btnSmallDanger} onClick={() => handleDeactivate(p)}>Deactivate</button>
-                        ) : (
+                        )}
+                        {p.status === "inactive" && (
                           <button type="button" style={btnSmall} onClick={() => handleReactivate(p)}>Reactivate</button>
                         )}
                       </div>
@@ -637,6 +765,57 @@ export default function MerchantProducts() {
                             <button type="button" style={btnSecondary} onClick={cancelEdit}>Cancel</button>
                           </div>
                         </div>
+                        {/* Compliance section */}
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                            <label style={labelStyle}>Product Info & Compliance</label>
+                            <button
+                              type="button"
+                              style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                              disabled={editGeneratingInfo}
+                              onClick={() => handleEditGenerateInfo(p)}
+                            >
+                              {editGeneratingInfo ? "Generating…" : "✦ Generate Draft"}
+                            </button>
+                          </div>
+                          <div style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: color.textFaint, marginBottom: 4 }}>Contains allergens:</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+                              {ALLERGENS.map(a => (
+                                <label key={a} style={{ fontSize: 12, color: color.textMuted, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={(editForm.allergens || []).includes(a)}
+                                    onChange={e => setEditForm(f => ({ ...f, allergens: e.target.checked ? [...(f.allergens || []), a] : (f.allergens || []).filter(x => x !== a) }))}
+                                  />
+                                  {a}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ marginBottom: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: color.textFaint, marginBottom: 4 }}>Dietary claims:</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+                              {DIETARY.map(d => (
+                                <label key={d} style={{ fontSize: 12, color: color.textMuted, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={(editForm.dietaryFlags || []).includes(d)}
+                                    onChange={e => setEditForm(f => ({ ...f, dietaryFlags: e.target.checked ? [...(f.dietaryFlags || []), d] : (f.dietaryFlags || []).filter(x => x !== d) }))}
+                                  />
+                                  {d}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <textarea
+                            style={{ ...inputStyle, width: "100%", minHeight: 90, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                            value={editForm.complianceText || ""}
+                            onChange={e => setEditForm(f => ({ ...f, complianceText: e.target.value }))}
+                            placeholder="Click 'Generate Draft' for an AI-drafted compliance statement."
+                          />
+                          <div style={{ fontSize: 11, color: color.textFaint, marginTop: 3 }}>Tick allergens/dietary above before generating for best results.</div>
+                        </div>
                         {editError && <div style={{ ...errorStyle, marginTop: 8 }}>{editError}</div>}
                         <div style={{ fontSize: 12, color: color.textFaint, marginTop: 6 }}>
                           SKU <strong>{p.sku}</strong> is stable and cannot be changed.
@@ -666,8 +845,9 @@ export default function MerchantProducts() {
 // ─── Styles ──────────────────────────────────────────────────
 const btnPrimary     = { ...btn.primary,   padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
 const btnSecondary   = { ...btn.secondary, padding: "8px 18px",  borderRadius: 999, fontSize: 13 };
-const btnSmall       = { ...btn.pill,      padding: "4px 12px",  fontSize: 12 };
-const btnSmallDanger = { ...btn.danger,    padding: "4px 12px",  fontSize: 12 };
+const btnSmall        = { ...btn.pill,    padding: "4px 12px",  fontSize: 12 };
+const btnSmallDanger  = { ...btn.danger,  padding: "4px 12px",  fontSize: 12 };
+const btnSmallSuccess = { ...btn.primary, padding: "4px 12px",  fontSize: 12 };
 const btnFilter      = { ...btn.pill,      padding: "6px 14px",  fontSize: 12 };
 const btnFilterActive = { ...btnFilter, background: color.primarySubtle, borderColor: color.primaryBorder, color: color.primary };
 
