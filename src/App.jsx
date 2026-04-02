@@ -24,6 +24,7 @@ import Merchants from "./pages/Merchants";
 import MerchantDetail from "./pages/MerchantDetail";
 import StoreDetail from "./pages/StoreDetail";
 import AdminKey from "./pages/Settings/AdminKey";
+import PlatformConfig from "./pages/Settings/PlatformConfig";
 import PrintStoreQr from "./pages/PrintStoreQr";
 import MerchantStores from "./pages/MerchantStores";
 import MerchantStoreDetail from "./pages/MerchantStoreDetail";
@@ -66,6 +67,7 @@ import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
 import AdminMerchantInvoices from "./pages/AdminMerchantInvoices";
 import AdminMerchantStores from "./pages/AdminMerchantStores";
+import AdminStoreQrPage from "./pages/AdminStoreQrPage";
 
 import {
   getAccessToken,
@@ -690,9 +692,14 @@ function Layout({ children }) {
                             Device verification required
                           </div>
                         ) : (
-                          <NavLink to="/admin" style={navPill}>
-                            Dashboard
-                          </NavLink>
+                          <>
+                            <NavLink to="/admin" style={navPill}>
+                              Dashboard
+                            </NavLink>
+                            <NavLink to="/admin/platform/config" style={navPill}>
+                              Settings
+                            </NavLink>
+                          </>
                         )}
                       </>
                     ) : pos ? (
@@ -1006,6 +1013,15 @@ export default function App() {
           />
 
           <Route
+            path="/merchants/:merchantId/stores/:storeId/qr"
+            element={
+              <RequireAuth>
+                <AdminStoreQrPage />
+              </RequireAuth>
+            }
+          />
+
+          <Route
             path="/merchants/:merchantId/users"
             element={
               <RequireAuth>
@@ -1134,6 +1150,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminKey />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/admin/platform/config"
+            element={
+              <RequireAuth>
+                <PlatformConfig />
               </RequireAuth>
             }
           />

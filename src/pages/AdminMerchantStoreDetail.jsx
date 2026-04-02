@@ -416,21 +416,39 @@ export default function AdminMerchantStoreDetail() {
           {loading ? `Store #${storeId}` : (store?.name || `Store #${storeId}`)}
         </h2>
         {!loading && store && !editing && (
-          <button
-            onClick={startEdit}
-            style={{
-              padding: "8px 18px",
-              borderRadius: 999,
-              border: "1px solid rgba(0,0,0,0.18)",
-              background: "#fff",
-              fontWeight: 800,
-              fontSize: 13,
-              cursor: "pointer",
-              color: COLORS.text,
-            }}
-          >
-            Edit
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link
+              to={`/merchants/${merchantId}/stores/${storeId}/qr`}
+              style={{
+                padding: "8px 18px",
+                borderRadius: 999,
+                border: "1px solid rgba(47,143,139,0.40)",
+                background: "rgba(47,143,139,0.06)",
+                fontWeight: 800,
+                fontSize: 13,
+                cursor: "pointer",
+                color: COLORS.primary,
+                textDecoration: "none",
+              }}
+            >
+              Generate QR
+            </Link>
+            <button
+              onClick={startEdit}
+              style={{
+                padding: "8px 18px",
+                borderRadius: 999,
+                border: "1px solid rgba(0,0,0,0.18)",
+                background: "#fff",
+                fontWeight: 800,
+                fontSize: 13,
+                cursor: "pointer",
+                color: COLORS.text,
+              }}
+            >
+              Edit
+            </button>
+          </div>
         )}
       </div>
       <div style={{ fontSize: 13, color: COLORS.neutral, marginBottom: 8 }}>

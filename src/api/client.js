@@ -2023,6 +2023,14 @@ export async function adminDuplicateMerchantPromotion(merchantId, promoId) {
   return request(`/admin/merchants/${merchantId}/promotions/${promoId}/duplicate`, { method: "POST", auth: "jwt" });
 }
 
+export async function merchantGetPromoAudit(promoId) {
+  return request(`/merchant/promotions/${promoId}/audit`, { auth: "jwt" });
+}
+
+export async function adminGetPromoAudit(merchantId, promoId) {
+  return request(`/admin/merchants/${merchantId}/promotions/${promoId}/audit`, { auth: "jwt" });
+}
+
 /* =============================================================
    Promotions — Offer Sets (E.3)
 ============================================================= */
@@ -2181,4 +2189,16 @@ export async function adminGetMerchantReportPromotions(merchantId, { range = "30
 
 export async function adminGetPlatformReport({ range = "30d" } = {}) {
   return request(`/admin/reports/platform?range=${encodeURIComponent(range)}`, { auth: "jwt" });
+}
+
+/* -----------------------------
+   Platform Config (pv_admin)
+-------------------------------- */
+
+export async function adminGetPlatformConfig() {
+  return request("/admin/platform/config", { auth: "jwt" });
+}
+
+export async function adminUpdatePlatformConfig(updates) {
+  return request("/admin/platform/config", { method: "PUT", body: updates, auth: "jwt" });
 }
