@@ -1,6 +1,6 @@
 // src/api/client.js
 
-export const API_BASE = "http://localhost:3001";
+export const API_BASE = (import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:3001").replace(/\/$/, "");
 
 /* =============================================================
    API Stability: single-flight + short TTL cache (Thread: api-stability-v1)
