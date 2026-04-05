@@ -148,6 +148,8 @@ export default function AdminMerchantUsers() {
   const [existingAccessEmail, setExistingAccessEmail] = React.useState("");
   const [otherPersonEmail, setOtherPersonEmail] = React.useState("");
   const [manualEmail, setManualEmail] = React.useState("");
+  const [manualFirstName, setManualFirstName] = React.useState("");
+  const [manualLastName, setManualLastName] = React.useState("");
   const [createBusy, setCreateBusy] = React.useState(false);
   const [createMsg, setCreateMsg] = React.useState("");
   const [createResult, setCreateResult] = React.useState(null);
@@ -314,7 +316,12 @@ export default function AdminMerchantUsers() {
     setCreateResult(null);
 
     try {
-      const res = await adminCreateMerchantUser(mid, { email, mode });
+      const res = await adminCreateMerchantUser(mid, {
+        email,
+        firstName: manualFirstName.trim() || undefined,
+        lastName: manualLastName.trim() || undefined,
+        mode,
+      });
 
       const result = {
         email,
@@ -613,17 +620,41 @@ export default function AdminMerchantUsers() {
             </div>
 
             {usingManualEmail ? (
-              <div style={{ ...styles.recoveryField, gridColumn: "1 / span 2" }}>
-                <label style={styles.recoveryLabel}>Different Email</label>
-                <input
-                  value={manualEmail}
-                  onChange={(e) => setManualEmail(e.target.value)}
-                  placeholder="owner@company.com"
-                  autoComplete="off"
-                  style={styles.recoveryInput}
-                  disabled={createBusy}
-                />
-              </div>
+              <>
+                <div style={{ ...styles.recoveryField, gridColumn: "1 / span 2" }}>
+                  <label style={styles.recoveryLabel}>Email</label>
+                  <input
+                    value={manualEmail}
+                    onChange={(e) => setManualEmail(e.target.value)}
+                    placeholder="owner@company.com"
+                    autoComplete="off"
+                    style={styles.recoveryInput}
+                    disabled={createBusy}
+                  />
+                </div>
+                <div style={styles.recoveryField}>
+                  <label style={styles.recoveryLabel}>First Name</label>
+                  <input
+                    value={manualFirstName}
+                    onChange={(e) => setManualFirstName(e.target.value)}
+                    placeholder="Jane"
+                    autoComplete="off"
+                    style={styles.recoveryInput}
+                    disabled={createBusy}
+                  />
+                </div>
+                <div style={styles.recoveryField}>
+                  <label style={styles.recoveryLabel}>Last Name</label>
+                  <input
+                    value={manualLastName}
+                    onChange={(e) => setManualLastName(e.target.value)}
+                    placeholder="Smith"
+                    autoComplete="off"
+                    style={styles.recoveryInput}
+                    disabled={createBusy}
+                  />
+                </div>
+              </>
             ) : null}
 
             <div style={styles.recoveryActionsRow}>

@@ -1285,11 +1285,11 @@ export async function adminGetMerchantUser(merchantUserId) {
   return request(`/admin/merchant-users/${encodeURIComponent(String(merchantUserId))}`, { auth: "auto" });
 }
 
-export async function adminCreateMerchantUser(merchantId, { email } = {}) {
+export async function adminCreateMerchantUser(merchantId, { email, firstName, lastName } = {}) {
   return request(`/admin/merchants/${merchantId}/users`, {
     method: "POST",
     auth: "auto",
-    body: { email },
+    body: { email, firstName, lastName },
   });
 }
 
