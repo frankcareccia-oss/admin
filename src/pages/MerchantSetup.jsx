@@ -183,7 +183,7 @@ export default function MerchantSetup() {
         {!ownerUser && (
           <div style={{ fontSize: 13, color: color.textMuted }}>
             No users yet.{" "}
-            <Link to={`/merchants/${merchantId}/team`} style={{ textDecoration: "none" }}>Add one →</Link>
+            <Link to={`/merchants/${merchantId}/users`} style={{ textDecoration: "none" }}>Add one →</Link>
           </div>
         )}
 
