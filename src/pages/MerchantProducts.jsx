@@ -46,6 +46,25 @@ function pvUiHook(event, fields = {}) {
   }
 }
 
+// ─── Category suggestions ─────────────────────────────────────
+
+const CATEGORY_SUGGESTIONS = {
+  coffee:    ["Coffee", "Espresso", "Tea", "Pastry", "Cold Brew", "Smoothie"],
+  fitness:   ["Supplement", "Protein", "Apparel", "Equipment", "Recovery", "Hydration", "Bottled Water"],
+  restaurant:["Food", "Beverage", "Dessert", "Appetizer", "Entree", "Sides"],
+  retail:    ["Clothing", "Accessories", "Electronics", "Home", "Beauty", "Gift"],
+  generic:   ["Product", "Service", "Membership", "Add-on"],
+};
+
+function detectMerchantType(name) {
+  const n = String(name || "").toLowerCase();
+  if (/coffee|brew|café|cafe|espresso|roast|bean/.test(n)) return "coffee";
+  if (/fit|gym|sport|perf|health|wellness|yoga|crossfit|train/.test(n)) return "fitness";
+  if (/restaurant|bistro|grill|kitchen|eatery|diner|food|pizza|taco|burger/.test(n)) return "restaurant";
+  if (/shop|store|boutique|market|retail/.test(n)) return "retail";
+  return "generic";
+}
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 const STATUS_COLORS = {
@@ -421,19 +440,53 @@ export default function MerchantProducts() {
           )}
         </div>
         {showCatCreate && (
-          <form onSubmit={handleCatCreate} style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <input
-                style={inputStyle}
-                value={catName}
-                onChange={e => setCatName(e.target.value)}
-                placeholder="Category name (e.g. Coffee, Pastry)"
-                autoFocus
-              />
-              {catError && <div style={{ ...errorStyle, marginTop: 4 }}>{catError}</div>}
+          <form onSubmit={handleCatCreate} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <input
+                  style={inputStyle}
+                  value={catName}
+                  onChange={e => setCatName(e.target.value)}
+                  placeholder="Category name (e.g. Coffee, Pastry)"
+                  autoFocus
+                />
+                {catError && <div style={{ ...errorStyle, marginTop: 4 }}>{catError}</div>}
+              </div>
+              <button type="submit" style={btnPrimary} disabled={catSaving}>{catSaving ? "Saving…" : "Save"}</button>
+              <button type="button" style={btnSecondary} onClick={() => { setShowCatCreate(false); setCatName(""); setCatError(""); }}>Cancel</button>
             </div>
-            <button type="submit" style={btnPrimary} disabled={catSaving}>{catSaving ? "Saving…" : "Save"}</button>
-            <button type="button" style={btnSecondary} onClick={() => { setShowCatCreate(false); setCatName(""); setCatError(""); }}>Cancel</button>
+            {/* Suggestion chips */}
+            {(() => {
+              const type = detectMerchantType(merchant?.name || "");
+              const existing = new Set(categories.map(c => c.name.toLowerCase()));
+              const suggestions = (CATEGORY_SUGGESTIONS[type] || CATEGORY_SUGGESTIONS.generic)
+                .filter(s => !existing.has(s.toLowerCase()));
+              if (!suggestions.length) return null;
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "#888", fontWeight: 600 }}>Suggestions:</span>
+                  {suggestions.map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setCatName(s)}
+                      style={{
+                        padding: "3px 12px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(0,0,0,0.18)",
+                        background: catName === s ? "rgba(80,100,220,0.10)" : "#fff",
+                        fontWeight: 600,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        color: catName === s ? "rgba(50,70,200,1)" : "#444",
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
           </form>
         )}
       </div>

@@ -27,6 +27,7 @@ import AdminKey from "./pages/Settings/AdminKey";
 import PlatformConfig from "./pages/Settings/PlatformConfig";
 import PrintStoreQr from "./pages/PrintStoreQr";
 import MerchantStores from "./pages/MerchantStores";
+import MerchantDashboard from "./pages/MerchantDashboard";
 import MerchantStoreDetail from "./pages/MerchantStoreDetail";
 import MerchantStoreEdit from "./pages/MerchantStoreEdit";
 import MerchantStoreCreate from "./pages/MerchantStoreCreate";
@@ -164,6 +165,31 @@ function MerchantBundlesGate() {
 
   if (err) return <div style={{ padding: 24, color: color.danger }}>{err}</div>;
   return <div style={{ padding: 24, color: color.textMuted }}>Loading bundles…</div>;
+}
+
+function MerchantProductsGate() {
+  const navigate = useNavigate();
+  const [err, setErr] = React.useState(null);
+
+  React.useEffect(() => {
+    me().then((res) => {
+      const merchantId =
+        res?.user?.merchantUsers?.[0]?.merchantId ??
+        res?.user?.merchantUsers?.[0]?.merchant?.id ??
+        null;
+      if (merchantId) {
+        navigate(`/merchants/${merchantId}/products`, { replace: true });
+      } else {
+        setErr("Products are not available for this account.");
+      }
+    }).catch((e) => {
+      setErr(e?.message || "Failed to load products.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (err) return <div style={{ padding: 24, color: color.danger }}>{err}</div>;
+  return <div style={{ padding: 24, color: color.textMuted }}>Loading products…</div>;
 }
 
 function computeHome() {
@@ -334,8 +360,10 @@ function resolvePageName(pathname) {
   try {
     if (!pathname) return 'Unknown';
     if (pathname.startsWith('/merchants')) return 'Merchants';
+    if (pathname === '/merchant/dashboard') return 'Merchant Dashboard';
     if (pathname.startsWith('/merchant/users')) return 'Merchant Team';
     if (pathname.startsWith('/merchant/stores')) return 'Merchant Stores';
+    if (pathname.startsWith('/merchant/products')) return 'Merchant Products';
     if (pathname.startsWith('/merchant/invoices')) return 'Merchant Invoice Detail';
     if (pathname.startsWith('/admin/invoices/')) return 'Admin Invoice Detail';
     if (pathname.startsWith('/admin/invoices')) return 'Admin Invoice List';
@@ -708,11 +736,18 @@ function Layout({ children }) {
                       </NavLink>
                     ) : (
                       <>
-                        <NavLink to="/merchant" style={navPill}>
+                        <NavLink to="/merchant/dashboard" style={navPill}>
+                          Dashboard
+                        </NavLink>
+                        <NavLink to="/merchant/stores" style={navPill}>
                           My Stores
                         </NavLink>
                         <NavLink to="/merchant/users" style={navPill}>
                           Team
+                        </NavLink>
+
+                        <NavLink to="/merchant/products" style={navPill}>
+                          Products
                         </NavLink>
 
                         <NavLink to="/merchant/promotions" style={navPill}>
@@ -816,6 +851,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantHomeGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/dashboard"
+            element={
+              <RequireAuth>
+                <MerchantDashboard />
               </RequireAuth>
             }
           />
@@ -931,6 +975,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantInvoiceDetail />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/products"
+            element={
+              <RequireAuth>
+                <MerchantProductsGate />
               </RequireAuth>
             }
           />
