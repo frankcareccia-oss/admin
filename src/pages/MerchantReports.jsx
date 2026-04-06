@@ -14,6 +14,7 @@ import {
 import { color, btn, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
+  me,
   getSystemRole,
   merchantGetReportOverview,
   merchantGetReportStores,
@@ -125,7 +126,7 @@ export default function MerchantReports() {
     pvUiHook("merchant.reports.load.started", { stable: "reports:load", merchantId, range: r });
     try {
       const [mRes, ovRes, stRes, prRes] = await Promise.all([
-        isPvAdmin ? getMerchant(merchantId) : Promise.resolve(null),
+        isPvAdmin ? getMerchant(merchantId) : me(),
         isPvAdmin
           ? adminGetMerchantReportOverview(merchantId, { range: r })
           : merchantGetReportOverview({ range: r }),
@@ -136,7 +137,10 @@ export default function MerchantReports() {
           ? adminGetMerchantReportPromotions(merchantId, { range: r })
           : merchantGetReportPromotions({ range: r }),
       ]);
-      setMerchant(mRes?.merchant || mRes);
+      const merchantObj = isPvAdmin
+        ? (mRes?.merchant || mRes)
+        : (mRes?.user?.merchantUsers?.[0]?.merchant || null);
+      setMerchant(merchantObj);
       setOverview(ovRes);
       setStores(stRes?.stores || []);
       setPromotions(prRes?.promotions || []);

@@ -7,8 +7,8 @@
  */
 
 import React from "react";
-import { Link, useParams } from "react-router-dom";
-import { getMerchant, adminListMerchantUsers, adminListMerchantProducts } from "../api/client";
+import { Link, useParams, Navigate } from "react-router-dom";
+import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
@@ -80,6 +80,11 @@ function HubCard({ to, icon, title, description, meta, disabled }) {
 export default function MerchantDetail() {
   const { merchantId } = useParams();
   const { isMobile, isTablet } = useBreakpoint();
+
+  // Merchant users should not access this admin-only page
+  if (getSystemRole() !== "pv_admin") {
+    return <Navigate to="/merchant/dashboard" replace />;
+  }
 
   const [merchant, setMerchant] = React.useState(null);
   const [userCount, setUserCount] = React.useState(null);
