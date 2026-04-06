@@ -28,6 +28,7 @@ import PlatformConfig from "./pages/Settings/PlatformConfig";
 import PrintStoreQr from "./pages/PrintStoreQr";
 import MerchantStores from "./pages/MerchantStores";
 import MerchantDashboard from "./pages/MerchantDashboard";
+import MerchantSettings from "./pages/MerchantSettings";
 import MerchantStoreDetail from "./pages/MerchantStoreDetail";
 import MerchantStoreEdit from "./pages/MerchantStoreEdit";
 import MerchantStoreCreate from "./pages/MerchantStoreCreate";
@@ -190,6 +191,31 @@ function MerchantProductsGate() {
 
   if (err) return <div style={{ padding: 24, color: color.danger }}>{err}</div>;
   return <div style={{ padding: 24, color: color.textMuted }}>Loading products…</div>;
+}
+
+function MerchantReportsGate() {
+  const navigate = useNavigate();
+  const [err, setErr] = React.useState(null);
+
+  React.useEffect(() => {
+    me().then((res) => {
+      const merchantId =
+        res?.user?.merchantUsers?.[0]?.merchantId ??
+        res?.user?.merchantUsers?.[0]?.merchant?.id ??
+        null;
+      if (merchantId) {
+        navigate(`/merchants/${merchantId}/reports`, { replace: true });
+      } else {
+        setErr("Reports are not available for this account.");
+      }
+    }).catch((e) => {
+      setErr(e?.message || "Failed to load reports.");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (err) return <div style={{ padding: 24, color: color.danger }}>{err}</div>;
+  return <div style={{ padding: 24, color: color.textMuted }}>Loading reports…</div>;
 }
 
 function computeHome() {
@@ -355,6 +381,27 @@ function RequirePosSession({ children }) {
   return children;
 }
 
+// Resolves which single section pill to show beside Dashboard in merchant nav
+function getMerchantSectionPill(pathname) {
+  if (pathname.startsWith('/merchant/stores') || /\/merchants\/[^/]+\/stores/.test(pathname))
+    return { to: '/merchant/stores', label: 'My Stores' };
+  if (pathname.startsWith('/merchant/users'))
+    return { to: '/merchant/users', label: 'Team' };
+  if (pathname.startsWith('/merchant/products') || /\/merchants\/[^/]+\/products/.test(pathname))
+    return { to: '/merchant/products', label: 'Products' };
+  if (pathname.startsWith('/merchant/promotions') || /\/merchants\/[^/]+\/promotions/.test(pathname))
+    return { to: '/merchant/promotions', label: 'Promotions' };
+  if (pathname.startsWith('/merchant/bundles') || /\/merchants\/[^/]+\/bundles/.test(pathname))
+    return { to: '/merchant/bundles', label: 'Bundles' };
+  if (pathname.startsWith('/merchant/invoices'))
+    return { to: '/merchant/invoices', label: 'Billing' };
+  if (pathname.startsWith('/merchant/reports') || /\/merchants\/[^/]+\/reports/.test(pathname))
+    return { to: '/merchant/reports', label: 'Reports' };
+  if (pathname.startsWith('/merchant/settings') || pathname.startsWith('/account/change-password'))
+    return { to: '/merchant/settings', label: 'Settings' };
+  return null; // on dashboard — no section pill
+}
+
 // Resolve human-readable page name for Support panel
 function resolvePageName(pathname) {
   try {
@@ -364,6 +411,8 @@ function resolvePageName(pathname) {
     if (pathname.startsWith('/merchant/users')) return 'Merchant Team';
     if (pathname.startsWith('/merchant/stores')) return 'Merchant Stores';
     if (pathname.startsWith('/merchant/products')) return 'Merchant Products';
+    if (pathname.startsWith('/merchant/reports')) return 'Merchant Reports';
+    if (pathname.startsWith('/merchant/settings')) return 'Merchant Settings';
     if (pathname.startsWith('/merchant/invoices')) return 'Merchant Invoice Detail';
     if (pathname.startsWith('/admin/invoices/')) return 'Admin Invoice Detail';
     if (pathname.startsWith('/admin/invoices')) return 'Admin Invoice List';
@@ -739,37 +788,18 @@ function Layout({ children }) {
                         <NavLink to="/merchant/dashboard" style={navPill}>
                           Dashboard
                         </NavLink>
-                        <NavLink to="/merchant/stores" style={navPill}>
-                          My Stores
-                        </NavLink>
-                        <NavLink to="/merchant/users" style={navPill}>
-                          Team
-                        </NavLink>
-
-                        <NavLink to="/merchant/products" style={navPill}>
-                          Products
-                        </NavLink>
-
-                        <NavLink to="/merchant/promotions" style={navPill}>
-                          Promotions
-                        </NavLink>
-
-                        <NavLink to="/merchant/bundles" style={navPill}>
-                          Bundles
-                        </NavLink>
-
-                        {canSeeInvoices(merchantRole) ? (
-                          <NavLink to="/merchant/invoices" style={navPill}>
-                            Invoices
-                          </NavLink>
-                        ) : null}
+                        {(() => {
+                          const pill = getMerchantSectionPill(location.pathname);
+                          return pill ? (
+                            <NavLink to={pill.to} style={navPill}>
+                              {pill.label}
+                            </NavLink>
+                          ) : null;
+                        })()}
                       </>
                     )}
 
-                    {!pos && (sysRole === "pv_admin"
-                      ? !location.pathname.startsWith("/merchants/")
-                      : !location.pathname.startsWith("/merchant/stores/")
-                    ) && (
+                    {!pos && sysRole === "pv_admin" && !location.pathname.startsWith("/merchants/") && (
                       <NavLink to="/account/change-password" style={navPill}>
                         Change Password
                       </NavLink>
@@ -984,6 +1014,24 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantProductsGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/reports"
+            element={
+              <RequireAuth>
+                <MerchantReportsGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/settings"
+            element={
+              <RequireAuth>
+                <MerchantSettings />
               </RequireAuth>
             }
           />

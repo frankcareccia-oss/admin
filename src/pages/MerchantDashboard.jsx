@@ -186,6 +186,27 @@ export default function MerchantDashboard() {
 
   const CARDS = [
     {
+      to: "/merchant/stores",
+      icon: "🏪",
+      title: "My Stores",
+      description: "Manage your store locations, hours, and QR codes.",
+      meta: countLabel(counts.stores, "store"),
+    },
+    {
+      to: "/merchant/invoices",
+      icon: "🧾",
+      title: "Billing",
+      description: "View invoices and payment history for your account.",
+      meta: countLabel(counts.invoices, "invoice"),
+    },
+    {
+      to: "/merchant/users",
+      icon: "👥",
+      title: "Team",
+      description: "Invite and manage staff members and their portal access.",
+      meta: countLabel(counts.team, "member"),
+    },
+    {
       to: "/merchant/products",
       icon: "📦",
       title: "Products",
@@ -207,25 +228,18 @@ export default function MerchantDashboard() {
       meta: countLabel(counts.bundles, "bundle"),
     },
     {
-      to: "/merchant/stores",
-      icon: "🏪",
-      title: "My Stores",
-      description: "Manage your store locations, hours, and QR codes.",
-      meta: countLabel(counts.stores, "store"),
+      to: "/merchant/reports",
+      icon: "📊",
+      title: "Reports",
+      description: "Visit volume, loyalty activity, and redemption trends for your business.",
+      meta: null,
     },
     {
-      to: "/merchant/users",
-      icon: "👥",
-      title: "Team",
-      description: "Invite and manage staff members and their portal access.",
-      meta: countLabel(counts.team, "member"),
-    },
-    {
-      to: "/merchant/invoices",
-      icon: "🧾",
-      title: "Billing",
-      description: "View invoices and payment history for your account.",
-      meta: countLabel(counts.invoices, "invoice"),
+      to: "/merchant/settings",
+      icon: "⚙️",
+      title: "Settings",
+      description: "Manage your profile, change your password, and configure account preferences.",
+      meta: null,
     },
   ];
 
@@ -240,7 +254,7 @@ export default function MerchantDashboard() {
 
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
         gap: 20,
       }}>
         {CARDS.map((c) => (
