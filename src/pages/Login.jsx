@@ -281,7 +281,7 @@ export default function Login() {
       if (landing) localStorage.setItem(LANDING_STORAGE, landing);
       else localStorage.removeItem(LANDING_STORAGE);
 
-      const safeDefault = landing || ((uiRole === "pv_admin" || uiRole === "pv_ar_clerk") ? "/merchants" : "/merchant");
+      const safeDefault = landing || ((uiRole === "pv_admin" || uiRole === "pv_ar_clerk") ? "/admin" : "/merchant");
       const rt = readReturnTo();
       const dest = rt || safeDefault;
 
