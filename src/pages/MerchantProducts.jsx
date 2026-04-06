@@ -13,6 +13,7 @@ import { Link, useParams } from "react-router-dom";
 import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
+  me,
   getSystemRole,
   merchantListProducts,
   merchantCreateProduct,
@@ -132,7 +133,7 @@ export default function MerchantProducts() {
     setError("");
     try {
       const [mRes, pRes, cRes] = await Promise.all([
-        getMerchant(merchantId),
+        isPvAdmin ? getMerchant(merchantId) : me(),
         isPvAdmin
           ? adminListMerchantProducts(merchantId, { status: filter })
           : merchantListProducts({ status: filter }),
@@ -140,7 +141,10 @@ export default function MerchantProducts() {
           ? adminListMerchantCategories(merchantId)
           : merchantListCategories(),
       ]);
-      setMerchant(mRes?.merchant || mRes);
+      const merchantObj = isPvAdmin
+        ? (mRes?.merchant || mRes)
+        : (mRes?.user?.merchantUsers?.[0]?.merchant || null);
+      setMerchant(merchantObj);
       setProducts(pRes?.items || []);
       setCategories(cRes?.categories || []);
       setLastSuccessTs(new Date().toISOString());

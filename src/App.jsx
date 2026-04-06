@@ -248,7 +248,7 @@ function isPublicPayPath(pathname) {
 
 function MerchantHomeGate() {
   if (isPosSession()) return <Navigate to="/merchant/pos" replace />;
-  return <MerchantStores />;
+  return <Navigate to="/merchant/dashboard" replace />;
 }
 
 /* -----------------------------
