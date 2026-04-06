@@ -2,6 +2,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { listMerchants, createMerchant, authDeviceStatus, authDeviceStart } from "../api/client";
+import { MERCHANT_TYPE_OPTIONS, detectMerchantType } from "../config/merchantTypes";
 import Toast from "../components/Toast";
 
 import PageContainer from "../components/layout/PageContainer";
@@ -85,6 +86,7 @@ export default function Merchants() {
 
   const [creating, setCreating] = React.useState(false);
   const [newName, setNewName] = React.useState("");
+  const [newType, setNewType] = React.useState("");
 
   const [toast, setToast] = React.useState(null);
 
@@ -197,9 +199,10 @@ export default function Merchants() {
 
     setCreating(true);
     try {
-      const created = await createMerchant({ name });
+      const created = await createMerchant({ name, merchantType: newType || null });
       setToast({ kind: "success", message: "Merchant created" });
       setNewName("");
+      setNewType("");
 
       pvUiHook("admin.merchants.create_succeeded.ui", {
         tc: "TC-MER-UI-10",
@@ -389,17 +392,57 @@ export default function Merchants() {
 
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ fontWeight: 800, marginBottom: 10 }}>Create Merchant</div>
-        <form onSubmit={onCreate} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Merchant name"
-            disabled={creating}
-            style={{ ...themeInput, minWidth: 240, flex: 1 }}
-          />
-          <button type="submit" disabled={creating} style={buttonBase}>
-            {creating ? "Creating…" : "Create Merchant"}
-          </button>
+        <form onSubmit={onCreate}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+            <input
+              value={newName}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNewName(val);
+                if (!newType) {
+                  const detected = detectMerchantType(val);
+                  if (detected) setNewType(detected);
+                }
+              }}
+              placeholder="Merchant name"
+              disabled={creating}
+              style={{ ...themeInput, minWidth: 240, flex: 1 }}
+            />
+            <button type="submit" disabled={creating} style={buttonBase}>
+              {creating ? "Creating…" : "Create Merchant"}
+            </button>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 8 }}>
+              Business type <span style={{ fontWeight: 400, color: color.textFaint }}>(optional)</span>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
+              {MERCHANT_TYPE_OPTIONS.map(opt => (
+                <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 6, cursor: creating ? "not-allowed" : "pointer", fontSize: 13 }}>
+                  <input
+                    type="radio"
+                    name="newMerchantType"
+                    value={opt.value}
+                    checked={newType === opt.value}
+                    onChange={() => setNewType(opt.value)}
+                    disabled={creating}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: creating ? "not-allowed" : "pointer", fontSize: 13, color: color.textFaint }}>
+                <input
+                  type="radio"
+                  name="newMerchantType"
+                  value=""
+                  checked={newType === ""}
+                  onChange={() => setNewType("")}
+                  disabled={creating}
+                />
+                Not specified
+              </label>
+            </div>
+          </div>
         </form>
       </div>
 

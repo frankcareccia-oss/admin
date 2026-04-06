@@ -882,8 +882,27 @@ export async function getMerchant(merchantId) {
   return request(`/merchants/${merchantId}`, { auth: "auto" });
 }
 
-export async function createMerchant({ name }) {
-  return request("/merchants", { method: "POST", body: { name }, auth: "auto" });
+export async function createMerchant({ name, merchantType }) {
+  return request("/merchants", { method: "POST", body: { name, merchantType: merchantType || null }, auth: "auto" });
+}
+
+// pv_admin: set/update merchantType on any merchant
+export async function updateMerchantType(merchantId, merchantType) {
+  return request(`/merchants/${encodeURIComponent(String(merchantId))}`, {
+    method: "PATCH",
+    body: { merchantType },
+    auth: "auto",
+  });
+}
+
+// merchant owner/admin: update their own merchant type
+export async function merchantUpdateType(merchantType) {
+  assertNotPvAdminForMerchantCall("/merchant/type");
+  return request("/merchant/type", {
+    method: "PATCH",
+    body: { merchantType },
+    auth: "jwt",
+  });
 }
 
 export async function updateMerchantStatus(merchantId, { status, statusReason }) {

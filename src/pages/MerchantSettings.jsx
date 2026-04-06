@@ -13,7 +13,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { color, btn, inputStyle as themeInput } from "../theme";
-import { me, merchantUpdateUserProfile } from "../api/client";
+import { me, merchantUpdateUserProfile, merchantUpdateType } from "../api/client";
+import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 
@@ -64,6 +65,13 @@ export default function MerchantSettings() {
   const [saveMsg, setSaveMsg]     = React.useState("");
   const [saveErr, setSaveErr]     = React.useState("");
 
+  // Business type
+  const [merchantType, setMerchantType]   = React.useState(null);
+  const [editingType, setEditingType]     = React.useState(false);
+  const [typeVal, setTypeVal]             = React.useState("");
+  const [typeSaving, setTypeSaving]       = React.useState(false);
+  const [typeSaveErr, setTypeSaveErr]     = React.useState("");
+
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -81,6 +89,9 @@ export default function MerchantSettings() {
         setLastName(u?.lastName ?? "");
         setPhoneRaw(u?.phoneRaw ?? "");
         setEmail(u?.email ?? "");
+        const mt = u?.merchantUsers?.[0]?.merchant?.merchantType ?? null;
+        setMerchantType(mt);
+        setTypeVal(mt || "");
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Failed to load profile.");
       } finally {
@@ -108,6 +119,21 @@ export default function MerchantSettings() {
       setSaveErr(e?.message || "Save failed.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleTypeSave() {
+    setTypeSaving(true);
+    setTypeSaveErr("");
+    pvUiHook("merchant.settings.type.save", { merchantId, typeVal });
+    try {
+      await merchantUpdateType(typeVal || null);
+      setMerchantType(typeVal || null);
+      setEditingType(false);
+    } catch (e) {
+      setTypeSaveErr(e?.message || "Save failed.");
+    } finally {
+      setTypeSaving(false);
     }
   }
 
@@ -190,6 +216,73 @@ export default function MerchantSettings() {
               {saving ? "Saving…" : "Save"}
             </button>
           </form>
+        </div>
+
+        {/* ── Business Type ── */}
+        <div style={sectionCard}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 12, color: color.text }}>
+            Business type
+          </div>
+          {editingType ? (
+            <div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px", marginBottom: 14 }}>
+                {MERCHANT_TYPE_OPTIONS.map(opt => (
+                  <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 6, cursor: typeSaving ? "not-allowed" : "pointer", fontSize: 13 }}>
+                    <input
+                      type="radio"
+                      name="settingsMerchantType"
+                      value={opt.value}
+                      checked={typeVal === opt.value}
+                      onChange={() => setTypeVal(opt.value)}
+                      disabled={typeSaving}
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: typeSaving ? "not-allowed" : "pointer", fontSize: 13, color: color.textFaint }}>
+                  <input
+                    type="radio"
+                    name="settingsMerchantType"
+                    value=""
+                    checked={typeVal === ""}
+                    onChange={() => setTypeVal("")}
+                    disabled={typeSaving}
+                  />
+                  Not specified
+                </label>
+              </div>
+              {typeSaveErr && <div style={{ color: color.danger, fontSize: 13, marginBottom: 10 }}>{typeSaveErr}</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleTypeSave} disabled={typeSaving} style={{ ...btn.primary, minWidth: 80 }}>
+                  {typeSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  onClick={() => { setEditingType(false); setTypeVal(merchantType || ""); setTypeSaveErr(""); }}
+                  disabled={typeSaving}
+                  style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 700, fontSize: 14 }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: merchantType ? color.text : color.textFaint }}>
+                  {merchantType ? MERCHANT_TYPE_LABELS[merchantType] || merchantType : "Not set"}
+                </div>
+                <div style={{ fontSize: 13, color: color.textMuted, marginTop: 2 }}>
+                  Helps PerkValet tailor suggestions to your business.
+                </div>
+              </div>
+              <button
+                onClick={() => { setTypeVal(merchantType || ""); setEditingType(true); }}
+                style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}
+              >
+                {merchantType ? "Change" : "Set type"}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Security ── */}

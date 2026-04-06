@@ -8,7 +8,8 @@
 
 import React from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
-import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole } from "../api/client";
+import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole, updateMerchantType } from "../api/client";
+import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
@@ -94,6 +95,11 @@ export default function MerchantDetail() {
   const [lastError, setLastError] = React.useState("");
   const [lastSuccessTs, setLastSuccessTs] = React.useState("");
 
+  const [editingType, setEditingType] = React.useState(false);
+  const [typeVal, setTypeVal] = React.useState("");
+  const [typeSaving, setTypeSaving] = React.useState(false);
+  const [typeSaveErr, setTypeSaveErr] = React.useState("");
+
   async function load() {
     setLoading(true);
     setErr("");
@@ -124,6 +130,24 @@ export default function MerchantDetail() {
   }
 
   React.useEffect(() => { load(); }, [merchantId]);
+
+  React.useEffect(() => {
+    if (merchant) setTypeVal(merchant.merchantType || "");
+  }, [merchant]);
+
+  async function handleTypeSave() {
+    setTypeSaving(true);
+    setTypeSaveErr("");
+    try {
+      await updateMerchantType(merchantId, typeVal || null);
+      setMerchant(m => ({ ...m, merchantType: typeVal || null }));
+      setEditingType(false);
+    } catch (e) {
+      setTypeSaveErr(e?.message || "Save failed");
+    } finally {
+      setTypeSaving(false);
+    }
+  }
 
   if (loading) return <PageContainer><div style={{ padding: 16 }}>Loading…</div></PageContainer>;
   if (err && !merchant) return <PageContainer><div style={styles.errBox}>{err}</div></PageContainer>;
@@ -220,7 +244,54 @@ export default function MerchantDetail() {
         right={<button onClick={load} style={styles.refreshBtn}>Refresh</button>}
       />
 
-      <div style={{ marginTop: 24 }} />
+      <div style={{ marginTop: 20 }} />
+
+      {/* Business Type row */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        marginBottom: 20,
+        padding: "10px 14px",
+        border: `1px solid ${color.border}`,
+        borderRadius: 12,
+        background: color.cardBg,
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: color.textMuted, whiteSpace: "nowrap" }}>Business type</span>
+        {editingType ? (
+          <>
+            <select
+              value={typeVal}
+              onChange={e => setTypeVal(e.target.value)}
+              disabled={typeSaving}
+              style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${color.borderInput}`, fontSize: 13 }}
+            >
+              <option value="">Not specified</option>
+              {MERCHANT_TYPE_OPTIONS.map(o => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+            <button onClick={handleTypeSave} disabled={typeSaving} style={{ ...styles.smallBtn, background: color.primary, color: "#fff", border: "none" }}>
+              {typeSaving ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => { setEditingType(false); setTypeVal(merchant?.merchantType || ""); setTypeSaveErr(""); }}
+              disabled={typeSaving}
+              style={styles.smallBtn}
+            >
+              Cancel
+            </button>
+            {typeSaveErr && <span style={{ fontSize: 13, color: color.danger }}>{typeSaveErr}</span>}
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 13, color: merchant?.merchantType ? color.text : color.textFaint }}>
+              {merchant?.merchantType ? MERCHANT_TYPE_LABELS[merchant.merchantType] || merchant.merchantType : "Not set"}
+            </span>
+            <button onClick={() => { setTypeVal(merchant?.merchantType || ""); setEditingType(true); }} style={styles.smallBtn}>
+              Edit
+            </button>
+          </>
+        )}
+      </div>
 
       {/* Hub card grid */}
       <div style={{
@@ -241,4 +312,5 @@ export default function MerchantDetail() {
 const styles = {
   refreshBtn: { padding: "10px 12px", borderRadius: 10, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 800 },
   errBox: { background: color.dangerSubtle, border: `1px solid ${color.dangerBorder}`, padding: 10, borderRadius: 12 },
+  smallBtn: { padding: "5px 12px", borderRadius: 8, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontWeight: 700, fontSize: 13 },
 };
