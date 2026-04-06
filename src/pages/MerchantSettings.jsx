@@ -211,6 +211,8 @@ export default function MerchantSettings() {
                 textDecoration: "none",
                 display: "inline-block",
                 whiteSpace: "nowrap",
+                padding: "10px 20px",
+                fontSize: 14,
               }}
             >
               Change Password
