@@ -89,6 +89,19 @@ function normPhoneDigits(v, maxLen = 20) {
   return digits ? digits.slice(0, maxLen) : null;
 }
 
+function validatePhone(phoneRaw, phoneCountry) {
+  const digits = String(phoneRaw || "").replace(/\D+/g, "");
+  if (!digits) return null; // phone is optional
+  const country = String(phoneCountry || "US").toUpperCase();
+  const required = country === "US" || country === "CA" ? 10 : 7;
+  if (digits.length < required) {
+    return country === "US" || country === "CA"
+      ? `Phone must be 10 digits (got ${digits.length})`
+      : `Phone must be at least ${required} digits`;
+  }
+  return null;
+}
+
 function resolveMerchantContextFromMe(meRes) {
   const membership = Array.isArray(meRes?.memberships) ? meRes.memberships[0] : null;
 
@@ -684,6 +697,9 @@ export default function MerchantUsers({ readOnly = false }) {
       return;
     }
 
+    const phoneErr = validatePhone(phoneRaw, phoneCountry);
+    if (phoneErr) { setErr(phoneErr); return; }
+
     const body = {
       merchantId: ctx.merchantId,
       email: em,
@@ -769,6 +785,9 @@ export default function MerchantUsers({ readOnly = false }) {
       setErr("Role is required.");
       return;
     }
+
+    const phoneErr = validatePhone(editDraft.phoneRaw, editDraft.phoneCountry);
+    if (phoneErr) { setErr(phoneErr); return; }
 
     const fields = {
       ...(nextEmail !== normEmail(editOriginal?.email) ? { email: nextEmail } : {}),
