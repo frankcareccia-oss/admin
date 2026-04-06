@@ -1,7 +1,7 @@
 // src/App.jsx
 import React from "react";
 import {
-  BrowserRouter,
+  HashRouter,
   Routes,
   Route,
   Navigate,
@@ -787,7 +787,7 @@ export default function App() {
   const authed = Boolean(getAccessToken());
 
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -1184,6 +1184,6 @@ export default function App() {
           <Route path="*" element={<Navigate to={authed ? computeHome() : "/login"} replace />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
