@@ -87,6 +87,7 @@ export default function Merchants() {
   const [creating, setCreating] = React.useState(false);
   const [newName, setNewName] = React.useState("");
   const [newType, setNewType] = React.useState("");
+  const [showTypeStep, setShowTypeStep] = React.useState(false);
 
   const [toast, setToast] = React.useState(null);
 
@@ -187,15 +188,20 @@ export default function Merchants() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
-  async function onCreate(e) {
+  function onNameSubmit(e) {
     e.preventDefault();
+    const name = String(newName || "").trim();
+    if (!name) { setErr("Merchant name is required"); return; }
+    setErr("");
+    const detected = detectMerchantType(name);
+    if (detected && !newType) setNewType(detected);
+    setShowTypeStep(true);
+  }
+
+  async function onCreate() {
     setErr("");
 
     const name = String(newName || "").trim();
-    if (!name) {
-      setErr("Merchant name is required");
-      return;
-    }
 
     setCreating(true);
     try {
@@ -203,6 +209,7 @@ export default function Merchants() {
       setToast({ kind: "success", message: "Merchant created" });
       setNewName("");
       setNewType("");
+      setShowTypeStep(false);
 
       pvUiHook("admin.merchants.create_succeeded.ui", {
         tc: "TC-MER-UI-10",
@@ -392,31 +399,39 @@ export default function Merchants() {
 
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ fontWeight: 800, marginBottom: 10 }}>Create Merchant</div>
-        <form onSubmit={onCreate}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+
+        {!showTypeStep ? (
+          /* ── Step 1: name ── */
+          <form onSubmit={onNameSubmit} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={newName}
-              onChange={(e) => {
-                const val = e.target.value;
-                setNewName(val);
-                if (!newType) {
-                  const detected = detectMerchantType(val);
-                  if (detected) setNewType(detected);
-                }
-              }}
+              onChange={(e) => setNewName(e.target.value)}
               placeholder="Merchant name"
               disabled={creating}
               style={{ ...themeInput, minWidth: 240, flex: 1 }}
+              autoFocus
             />
-            <button type="submit" disabled={creating} style={buttonBase}>
-              {creating ? "Creating…" : "Create Merchant"}
+            <button type="submit" disabled={!newName.trim()} style={buttonBase}>
+              Create Merchant
             </button>
-          </div>
+          </form>
+        ) : (
+          /* ── Step 2: business type ── */
           <div>
+            <div style={{ fontWeight: 600, marginBottom: 12, color: color.text }}>
+              {newName}
+              <button
+                type="button"
+                onClick={() => setShowTypeStep(false)}
+                style={{ marginLeft: 10, fontSize: 12, color: color.textFaint, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+              >
+                edit name
+              </button>
+            </div>
             <div style={{ fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 8 }}>
               Business type <span style={{ fontWeight: 400, color: color.textFaint }}>(optional)</span>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", marginBottom: 16 }}>
               {MERCHANT_TYPE_OPTIONS.map(opt => (
                 <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 6, cursor: creating ? "not-allowed" : "pointer", fontSize: 13 }}>
                   <input
@@ -442,8 +457,21 @@ export default function Merchants() {
                 Not specified
               </label>
             </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={onCreate} disabled={creating} style={buttonBase}>
+                {creating ? "Creating…" : "Save"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowTypeStep(false); setNewType(""); setErr(""); }}
+                disabled={creating}
+                style={{ ...buttonBase, fontWeight: 600, color: color.textMuted }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
-        </form>
+        )}
       </div>
 
       {err ? (

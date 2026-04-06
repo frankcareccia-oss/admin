@@ -296,7 +296,7 @@ export default function MerchantDetail() {
       {/* Hub card grid */}
       <div style={{
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr 1fr" : isTablet ? "repeat(3, 1fr)" : "repeat(4, 1fr)",
+        gridTemplateColumns: "repeat(4, 1fr)",
         gap: 16,
       }}>
         {cards.map((c) => (
