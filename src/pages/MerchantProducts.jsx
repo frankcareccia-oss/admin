@@ -37,6 +37,7 @@ import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 import ProductAvatar from "../components/ProductAvatar";
+import SuggestionBanner from "../components/SuggestionBanner";
 
 // ─── pvUiHook ────────────────────────────────────────────────
 function pvUiHook(event, fields = {}) {
@@ -494,6 +495,18 @@ export default function MerchantProducts() {
           </form>
         )}
       </div>
+
+      {/* ── Suggestion Banner ── */}
+      {!isPvAdmin && merchant?.merchantType && (
+        <SuggestionBanner
+          merchantType={merchant.merchantType}
+          entityType="products"
+          onFill={(s) => {
+            setForm(f => ({ ...f, name: s.name || "", description: s.description || "" }));
+            setShowCreate(true);
+          }}
+        />
+      )}
 
       {/* ── Create Card ── */}
       {!showCreate ? (

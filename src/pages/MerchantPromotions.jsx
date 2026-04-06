@@ -13,6 +13,7 @@ import { Link, useParams } from "react-router-dom";
 import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
+  me,
   getSystemRole,
   merchantListCategories,
   merchantListProducts,
@@ -35,6 +36,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import SuggestionBanner from "../components/SuggestionBanner";
 
 // ─── pvUiHook ────────────────────────────────────────────────
 function pvUiHook(event, fields = {}) {
@@ -136,7 +138,7 @@ export default function MerchantPromotions() {
     pvUiHook("merchant.promotions.load.started", { stable: "promo:load", merchantId });
     try {
       const [mRes, catRes, prodRes, promoRes] = await Promise.all([
-        isPvAdmin ? getMerchant(merchantId) : Promise.resolve(null),
+        isPvAdmin ? getMerchant(merchantId) : me(),
         isPvAdmin
           ? adminListMerchantCategories(merchantId)
           : merchantListCategories(),
@@ -147,7 +149,7 @@ export default function MerchantPromotions() {
           ? adminListMerchantPromotions(merchantId, { status: filter || undefined })
           : merchantListPromotions({ status: filter || undefined }),
       ]);
-      setMerchant(mRes?.merchant || mRes);
+      setMerchant(isPvAdmin ? (mRes?.merchant || mRes) : (mRes?.user?.merchantUsers?.[0]?.merchant || null));
       setCategories(catRes?.categories || []);
       setProducts(prodRes?.products || []);
       setPromotions(promoRes?.promotions || []);
@@ -469,6 +471,26 @@ export default function MerchantPromotions() {
               </button>
             ))}
           </div>
+
+          {/* ── Suggestion Banner ── */}
+          {!isPvAdmin && merchant?.merchantType && (
+            <SuggestionBanner
+              merchantType={merchant.merchantType}
+              entityType="promotions"
+              onFill={(s) => {
+                setForm(f => ({
+                  ...f,
+                  name:         s.name         || "",
+                  threshold:    s.threshold    != null ? String(s.threshold) : "",
+                  rewardType:   s.rewardType   || "custom",
+                  rewardNote:   s.rewardNote   || "",
+                  timeframeDays: s.timeframeDays != null ? String(s.timeframeDays) : "",
+                  scope:        s.scope        || "merchant",
+                }));
+                setShowCreate(true);
+              }}
+            />
+          )}
 
           {/* ── Create toggle ── */}
           {!showCreate ? (

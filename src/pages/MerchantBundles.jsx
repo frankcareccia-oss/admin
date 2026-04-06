@@ -11,6 +11,7 @@ import { Link, useParams } from "react-router-dom";
 import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import {
   getMerchant,
+  me,
   getSystemRole,
   merchantListBundles,
   merchantCreateBundle,
@@ -31,6 +32,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
+import SuggestionBanner from "../components/SuggestionBanner";
 
 function pvUiHook(event, fields = {}) {
   try { console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields })); } catch { }
@@ -376,11 +378,11 @@ export default function MerchantBundles() {
     try {
       const params = filter ? { status: filter } : {};
       const [mRes, bRes, pRes] = await Promise.all([
-        isPvAdmin ? getMerchant(merchantId) : Promise.resolve(null),
+        isPvAdmin ? getMerchant(merchantId) : me(),
         isPvAdmin ? adminListMerchantBundles(merchantId, params) : merchantListBundles(params),
         isPvAdmin ? adminListMerchantProducts(merchantId, { status: "active" }) : merchantListProducts({ status: "active" }),
       ]);
-      setMerchant(mRes?.merchant || mRes);
+      setMerchant(isPvAdmin ? (mRes?.merchant || mRes) : (mRes?.user?.merchantUsers?.[0]?.merchant || null));
       setBundles(bRes?.bundles || []);
       setProducts(pRes?.items || pRes?.products || []);
       setLastSuccessTs(new Date().toISOString());
@@ -616,6 +618,22 @@ export default function MerchantBundles() {
           </span>
         ))}
       </div>
+
+      {/* ── Suggestion Banner ── */}
+      {!isPvAdmin && merchant?.merchantType && (
+        <SuggestionBanner
+          merchantType={merchant.merchantType}
+          entityType="bundles"
+          onFill={(s) => {
+            setForm(f => ({
+              ...f,
+              name:  s.name  || "",
+              price: s.price || "",
+            }));
+            setShowCreate(true);
+          }}
+        />
+      )}
 
       {/* Create card */}
       {!showCreate ? (
