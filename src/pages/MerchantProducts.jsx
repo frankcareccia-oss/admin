@@ -682,6 +682,9 @@ export default function MerchantProducts() {
       )}
 
       {/* ── Filter ── */}
+      <div style={{ marginBottom: 6, fontSize: 12, color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+        Filter by status
+      </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {["draft", "active", "inactive", ""].map(f => (
           <button
