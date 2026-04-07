@@ -412,8 +412,7 @@ export default function MerchantProducts() {
     <PageContainer>
       {/* Breadcrumb */}
       <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
-        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
-        {" / "}
+        {isPvAdmin && <><Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>{" / "}</>}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
         {" / "}
         <span>Products</span>
@@ -682,8 +681,8 @@ export default function MerchantProducts() {
       )}
 
       {/* ── Filter ── */}
-      <div style={{ marginBottom: 6, fontSize: 12, color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        Filter by status
+      <div style={{ marginBottom: 6, fontSize: 12, color: "#888" }}>
+        Filter products by status:
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         {["draft", "active", "inactive", ""].map(f => (
