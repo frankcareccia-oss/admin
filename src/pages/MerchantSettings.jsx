@@ -13,10 +13,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { color, btn, inputStyle as themeInput } from "../theme";
-import { me, merchantUpdateUserProfile, merchantUpdateType } from "../api/client";
+import { me, merchantUpdateUserProfile, merchantUpdateType, squareGetStatus, squareGetLocations, squareMapLocation, squareDisconnect, squareConnectUrl, listMerchantStores } from "../api/client";
 import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import SupportInfo from "../components/SupportInfo";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -72,6 +73,18 @@ export default function MerchantSettings() {
   const [typeSaving, setTypeSaving]       = React.useState(false);
   const [typeSaveErr, setTypeSaveErr]     = React.useState("");
 
+  // Square POS
+  const [sqStatus, setSqStatus]           = React.useState(null);   // null=loading, object=loaded
+  const [sqLocations, setSqLocations]     = React.useState([]);
+  const [sqMaps, setSqMaps]               = React.useState([]);
+  const [pvStores, setPvStores]           = React.useState([]);
+  const [sqLocLoading, setSqLocLoading]   = React.useState(false);
+  const [sqLocErr, setSqLocErr]           = React.useState("");
+  const [sqMapSelections, setSqMapSelections] = React.useState({}); // { externalLocationId: pvStoreId }
+  const [sqMapSaving, setSqMapSaving]     = React.useState({});
+  const [sqMapMsg, setSqMapMsg]           = React.useState({});
+  const [sqDisconnecting, setSqDisconnecting] = React.useState(false);
+
   React.useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -92,6 +105,10 @@ export default function MerchantSettings() {
         const mt = u?.merchantUsers?.[0]?.merchant?.merchantType ?? null;
         setMerchantType(mt);
         setTypeVal(mt || "");
+
+        // Square status + stores (fire-and-forget, don't block profile load)
+        squareGetStatus().then(s => { if (!cancelled) setSqStatus(s); }).catch(() => { if (!cancelled) setSqStatus({ connected: false }); });
+        listMerchantStores().then(r => { if (!cancelled) setPvStores(r?.items || r?.stores || []); }).catch(() => {});
       } catch (e) {
         if (!cancelled) setErr(e?.message || "Failed to load profile.");
       } finally {
@@ -101,6 +118,24 @@ export default function MerchantSettings() {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  // Load Square locations when connected
+  React.useEffect(() => {
+    if (!sqStatus?.connected) return;
+    setSqLocLoading(true);
+    setSqLocErr("");
+    squareGetLocations()
+      .then(r => {
+        setSqLocations(r?.locations || []);
+        setSqMaps(r?.existingMaps || []);
+        // Pre-populate map selections from existing mappings
+        const sel = {};
+        (r?.existingMaps || []).forEach(m => { if (m.active) sel[m.externalLocationId] = m.pvStoreId; });
+        setSqMapSelections(sel);
+      })
+      .catch(e => setSqLocErr(e?.message || "Failed to load locations"))
+      .finally(() => setSqLocLoading(false));
+  }, [sqStatus?.connected]);
 
   async function handleProfileSave(e) {
     e.preventDefault();
@@ -134,6 +169,36 @@ export default function MerchantSettings() {
       setTypeSaveErr(e?.message || "Save failed.");
     } finally {
       setTypeSaving(false);
+    }
+  }
+
+  async function handleSqMapSave(loc) {
+    const pvStoreId = sqMapSelections[loc.id];
+    if (!pvStoreId) return;
+    setSqMapSaving(s => ({ ...s, [loc.id]: true }));
+    setSqMapMsg(m => ({ ...m, [loc.id]: "" }));
+    try {
+      await squareMapLocation({ externalLocationId: loc.id, externalLocationName: loc.name, pvStoreId: parseInt(pvStoreId, 10) });
+      setSqMapMsg(m => ({ ...m, [loc.id]: "Saved" }));
+    } catch (e) {
+      setSqMapMsg(m => ({ ...m, [loc.id]: e?.message || "Save failed" }));
+    } finally {
+      setSqMapSaving(s => ({ ...s, [loc.id]: false }));
+    }
+  }
+
+  async function handleSqDisconnect() {
+    if (!window.confirm("Disconnect Square? Existing visits will not be affected.")) return;
+    setSqDisconnecting(true);
+    try {
+      await squareDisconnect();
+      setSqStatus({ connected: false });
+      setSqLocations([]);
+      setSqMaps([]);
+    } catch (e) {
+      alert(e?.message || "Disconnect failed");
+    } finally {
+      setSqDisconnecting(false);
     }
   }
 
@@ -313,6 +378,90 @@ export default function MerchantSettings() {
           </div>
         </div>
 
+        {/* ── Square POS ── */}
+        <div style={sectionCard}>
+          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 12, color: color.text }}>
+            Square POS
+          </div>
+
+          {sqStatus === null ? (
+            <div style={{ fontSize: 13, color: color.textMuted }}>Loading…</div>
+          ) : sqStatus?.connected ? (
+            <div>
+              {/* Connected state */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 999, background: "rgba(0,150,80,1)", display: "inline-block" }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(0,110,50,1)" }}>Connected</span>
+                  {sqStatus?.locationCount != null && (
+                    <span style={{ fontSize: 12, color: color.textFaint }}>{sqStatus.locationCount} location{sqStatus.locationCount !== 1 ? "s" : ""} mapped</span>
+                  )}
+                </div>
+                <button
+                  onClick={handleSqDisconnect}
+                  disabled={sqDisconnecting}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${color.border}`, background: color.cardBg, cursor: "pointer", fontSize: 13, fontWeight: 700, color: color.danger }}
+                >
+                  {sqDisconnecting ? "Disconnecting…" : "Disconnect"}
+                </button>
+              </div>
+
+              {/* Location mapping */}
+              <div style={{ fontSize: 13, fontWeight: 700, color: color.textMuted, marginBottom: 10 }}>
+                Map Square locations to PerkValet stores
+              </div>
+              {sqLocLoading && <div style={{ fontSize: 13, color: color.textMuted }}>Loading locations…</div>}
+              {sqLocErr && <div style={{ fontSize: 13, color: color.danger }}>{sqLocErr}</div>}
+              {!sqLocLoading && sqLocations.length === 0 && !sqLocErr && (
+                <div style={{ fontSize: 13, color: color.textFaint }}>No locations found in your Square account.</div>
+              )}
+              {sqLocations.map(loc => (
+                <div key={loc.id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 160, fontSize: 13, fontWeight: 600 }}>{loc.name}</div>
+                  <select
+                    value={sqMapSelections[loc.id] || ""}
+                    onChange={e => { setSqMapSelections(s => ({ ...s, [loc.id]: e.target.value })); setSqMapMsg(m => ({ ...m, [loc.id]: "" })); }}
+                    style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${color.border}`, fontSize: 13, flex: 1, minWidth: 160 }}
+                  >
+                    <option value="">— Select PV store —</option>
+                    {pvStores.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleSqMapSave(loc)}
+                    disabled={!sqMapSelections[loc.id] || sqMapSaving[loc.id] || sqMapMsg[loc.id] === "Saved"}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: color.primary, color: "#fff", cursor: (!sqMapSelections[loc.id] || sqMapMsg[loc.id] === "Saved") ? "default" : "pointer", fontSize: 13, fontWeight: 700, opacity: (!sqMapSelections[loc.id] || sqMapMsg[loc.id] === "Saved") ? 0.4 : 1 }}
+                  >
+                    {sqMapSaving[loc.id] ? "Saving…" : "Save"}
+                  </button>
+                  {sqMapMsg[loc.id] && (
+                    <span style={{ fontSize: 12, color: sqMapMsg[loc.id] === "Saved" ? "rgba(0,110,50,1)" : color.danger }}>
+                      {sqMapMsg[loc.id]}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Disconnected state */
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: color.text }}>Not connected</div>
+                <div style={{ fontSize: 13, color: color.textMuted, marginTop: 2 }}>
+                  Connect your Square account to automatically log visits from POS payments.
+                </div>
+              </div>
+              <a
+                href={squareConnectUrl()}
+                style={{ ...btn.primary, textDecoration: "none", display: "inline-block", whiteSpace: "nowrap", padding: "10px 20px", fontSize: 14 }}
+              >
+                Connect Square
+              </a>
+            </div>
+          )}
+        </div>
+
         {/* ── Coming soon ── */}
         <div style={{ ...sectionCard, opacity: 0.5 }}>
           <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8, color: color.text }}>
@@ -331,6 +480,8 @@ export default function MerchantSettings() {
         </div>
 
       </div>
+
+      <SupportInfo context={{ page: "MerchantSettings", userId, merchantId }} />
     </PageContainer>
   );
 }

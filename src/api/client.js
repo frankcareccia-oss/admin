@@ -2221,3 +2221,32 @@ export async function adminGetPlatformConfig() {
 export async function adminUpdatePlatformConfig(updates) {
   return request("/admin/platform/config", { method: "PUT", body: updates, auth: "jwt" });
 }
+
+/* =============================================================
+   Square POS Integration
+============================================================= */
+
+export async function squareGetStatus() {
+  return request("/pos/connect/square/status", { auth: "jwt" });
+}
+
+export async function squareGetLocations() {
+  return request("/pos/connect/square/locations", { auth: "jwt" });
+}
+
+export async function squareMapLocation({ externalLocationId, externalLocationName, pvStoreId }) {
+  return request("/pos/connect/square/map-location", {
+    method: "POST",
+    body: { externalLocationId, externalLocationName, pvStoreId },
+    auth: "jwt",
+  });
+}
+
+export async function squareDisconnect() {
+  return request("/pos/connect/square", { method: "DELETE", auth: "jwt" });
+}
+
+export function squareConnectUrl() {
+  const token = getAccessToken();
+  return `${API_BASE}/pos/connect/square${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
