@@ -681,10 +681,7 @@ export default function MerchantProducts() {
       )}
 
       {/* ── Filter ── */}
-      <div style={{ marginBottom: 6, fontSize: 12, color: "#888" }}>
-        Filter products by status:
-      </div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {["draft", "active", "inactive", ""].map(f => (
           <button
             key={f || "all"}

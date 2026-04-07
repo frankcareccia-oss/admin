@@ -455,7 +455,7 @@ export default function MerchantPromotions() {
       ) : (
         <>
           {/* ── Status filter ── */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {["draft", "staged", "active", "paused", "archived", ""].map(f => (
               <button
                 key={f || "all"}
