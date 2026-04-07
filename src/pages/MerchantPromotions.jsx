@@ -151,7 +151,7 @@ export default function MerchantPromotions() {
       ]);
       setMerchant(isPvAdmin ? (mRes?.merchant || mRes) : (mRes?.user?.merchantUsers?.[0]?.merchant || null));
       setCategories(catRes?.categories || []);
-      setProducts(prodRes?.products || []);
+      setProducts(prodRes?.items || prodRes?.products || []);
       setPromotions(promoRes?.promotions || []);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.promotions.load.succeeded", {
