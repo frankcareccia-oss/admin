@@ -6,7 +6,8 @@
  */
 
 import React from "react";
-import { color } from "../theme";
+import { Link } from "react-router-dom";
+import { color, btn } from "../theme";
 import { getGrowthAdvisor } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -42,17 +43,18 @@ const s = {
     marginBottom: 8,
   },
   recommendation: {
-    border: `1px solid ${color.border}`,
+    border: `1px solid ${color.rewardBorder}`,
     borderRadius: 12,
-    padding: "16px 20px",
-    background: color.cardBg,
+    padding: "20px 24px",
+    background: color.rewardSubtle,
     marginBottom: 12,
+    maxWidth: 600,
   },
   recTitle: {
-    fontSize: 15,
-    fontWeight: 700,
+    fontSize: 16,
+    fontWeight: 800,
     color: color.text,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   recDesc: {
     fontSize: 14,
@@ -65,26 +67,43 @@ const s = {
     color: color.textMuted,
     fontStyle: "italic",
   },
-  recBadge: (type) => ({
-    display: "inline-block",
+  recHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  recPlaybookBadge: {
     fontSize: 11,
     fontWeight: 700,
     padding: "2px 8px",
     borderRadius: 999,
-    marginBottom: 8,
+    background: color.rewardSubtle,
+    color: color.reward,
+  },
+  confidenceBadge: (level) => ({
+    fontSize: 10,
+    fontWeight: 700,
+    padding: "2px 8px",
+    borderRadius: 999,
     background:
-      type === "loyalty" ? color.primarySubtle :
-      type === "bundle" ? color.rewardSubtle :
-      type === "time_based_promo" ? "rgba(59,130,246,0.10)" :
-      type === "visit_incentive" ? "rgba(16,185,129,0.10)" :
-      "rgba(0,0,0,0.06)",
+      level === "high" ? "rgba(16,185,129,0.10)" :
+      level === "moderate" ? "rgba(245,158,11,0.10)" :
+      "rgba(239,68,68,0.10)",
     color:
-      type === "loyalty" ? color.primary :
-      type === "bundle" ? color.reward :
-      type === "time_based_promo" ? "#2563eb" :
-      type === "visit_incentive" ? "#059669" :
-      color.textMuted,
+      level === "high" ? "#059669" :
+      level === "moderate" ? "#d97706" :
+      "#dc2626",
   }),
+  ctaBtn: {
+    ...btn.primary,
+    display: "inline-block",
+    padding: "10px 20px",
+    fontSize: 14,
+    marginTop: 12,
+    textDecoration: "none",
+    textAlign: "center",
+  },
   metricsGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(4, 1fr)",
@@ -126,14 +145,12 @@ function formatPct(val) {
   return `${Math.round(val * 100)}%`;
 }
 
-function typeLabel(type) {
-  switch (type) {
-    case "loyalty": return "Loyalty";
-    case "bundle": return "Bundle";
-    case "time_based_promo": return "Time Promo";
-    case "visit_incentive": return "Visit Incentive";
-    case "high_frequency_reward": return "Top Sellers";
-    default: return type;
+function confidenceLabel(level) {
+  switch (level) {
+    case "high": return "High confidence";
+    case "moderate": return "Moderate confidence";
+    case "low": return "Limited data";
+    default: return level;
   }
 }
 
@@ -223,10 +240,18 @@ export default function MerchantGrowthAdvisor() {
           <div style={s.sectionTitle}>Recommendations</div>
           {data.recommendations.map((rec, i) => (
             <div key={i} style={s.recommendation}>
-              <div style={s.recBadge(rec.type)}>{typeLabel(rec.type)}</div>
-              <div style={s.recTitle}>{rec.title}</div>
-              <div style={s.recDesc}>{rec.description}</div>
+              <div style={s.recHeader}>
+                <span style={s.recPlaybookBadge}>{rec.playbookId?.replace(/_/g, " ") || "Playbook"}</span>
+                <span style={s.confidenceBadge(rec.confidence)}>{confidenceLabel(rec.confidence)}</span>
+              </div>
+              <div style={s.recTitle}>{rec.headline}</div>
+              <div style={s.recDesc}>{rec.recommendation}</div>
               <div style={s.recReason}>{rec.reason}</div>
+              {rec.cta && (
+                <Link to={rec.cta.route} style={s.ctaBtn}>
+                  {rec.cta.label}
+                </Link>
+              )}
             </div>
           ))}
         </div>

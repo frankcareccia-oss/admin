@@ -115,7 +115,7 @@ export default function MerchantPromotions() {
   const [error, setError]               = React.useState("");
   const [lastError, setLastError]       = React.useState("");
   const [lastSuccessTs, setLastSuccessTs] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("draft");
+  const [statusFilter, setStatusFilter] = React.useState("active");
 
   // Create form
   const [showCreate, setShowCreate]   = React.useState(false);
@@ -414,7 +414,7 @@ export default function MerchantPromotions() {
             <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
           </>
         ) : (
-          <span>{merchantName}</span>
+          <Link to="/merchant/dashboard" style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
         )}
         {" / "}
         <span>Promotions</span>

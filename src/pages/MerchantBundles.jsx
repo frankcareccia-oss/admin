@@ -334,7 +334,7 @@ export default function MerchantBundles() {
   const [products, setProducts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("live");
 
   // Create form
   const [showCreate, setShowCreate] = React.useState(false);
@@ -595,9 +595,15 @@ export default function MerchantBundles() {
   return (
     <PageContainer>
       <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
-        <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
-        {" / "}
-        <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+        {isPvAdmin ? (
+          <>
+            <Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>
+            {" / "}
+            <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+          </>
+        ) : (
+          <Link to="/merchant/dashboard" style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
+        )}
         {" / "}
         <span>Bundles</span>
       </div>
