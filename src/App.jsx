@@ -62,6 +62,7 @@ import MerchantProducts from "./pages/MerchantProducts";
 import MerchantPromotions from "./pages/MerchantPromotions";
 import MerchantBundles from "./pages/MerchantBundles";
 import MerchantReports from "./pages/MerchantReports";
+import MerchantGrowthAdvisor from "./pages/MerchantGrowthAdvisor";
 import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminReports from "./pages/AdminReports";
@@ -397,6 +398,8 @@ function getMerchantSectionPill(pathname) {
     return { to: '/merchant/invoices', label: 'Billing' };
   if (pathname.startsWith('/merchant/reports') || /\/merchants\/[^/]+\/reports/.test(pathname))
     return { to: '/merchant/reports', label: 'Reports' };
+  if (pathname.startsWith('/merchant/growth-advisor'))
+    return { to: '/merchant/growth-advisor', label: 'Growth Advisor' };
   if (pathname.startsWith('/merchant/settings') || pathname.startsWith('/account/change-password'))
     return { to: '/merchant/settings', label: 'Settings' };
   return null; // on dashboard — no section pill
@@ -1023,6 +1026,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantReportsGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/growth-advisor"
+            element={
+              <RequireAuth>
+                <MerchantGrowthAdvisor />
               </RequireAuth>
             }
           />

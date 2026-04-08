@@ -2250,3 +2250,22 @@ export function squareConnectUrl() {
   const token = getAccessToken();
   return `${API_BASE}/pos/connect/square${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 }
+
+// ── Growth Advisor ────────────────────────────────────────────
+
+export async function getGrowthAdvisor({ storeId } = {}) {
+  const qs = storeId ? `?storeId=${storeId}` : "";
+  return request(`/merchant/growth-advisor${qs}`, { auth: "jwt" });
+}
+
+export async function getPromotionOutcomes() {
+  return request("/merchant/promotion-outcomes", { auth: "jwt" });
+}
+
+export async function getPromotionOutcome(promotionId) {
+  return request(`/merchant/promotions/${promotionId}/outcomes`, { auth: "jwt" });
+}
+
+export async function recomputePromotionOutcomes() {
+  return request("/merchant/promotion-outcomes/recompute", { method: "POST", auth: "jwt" });
+}

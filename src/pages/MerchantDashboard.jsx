@@ -235,6 +235,13 @@ export default function MerchantDashboard() {
       meta: null,
     },
     {
+      to: "/merchant/growth-advisor",
+      icon: "🚀",
+      title: "Growth Advisor",
+      description: "AI-powered insights and recommendations to grow your revenue.",
+      meta: null,
+    },
+    {
       to: "/merchant/settings",
       icon: "⚙️",
       title: "Settings",
