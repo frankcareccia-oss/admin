@@ -32,6 +32,7 @@ import {
   adminTransitionPromotion,
   adminDuplicateMerchantPromotion,
   generatePromoTerms,
+  getPromotionOutcome,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -130,6 +131,11 @@ export default function MerchantPromotions() {
   const [editErr, setEditErr]         = React.useState("");
   const [editSaving, setEditSaving]   = React.useState(false);
   const [editGeneratingTerms, setEditGeneratingTerms] = React.useState(false);
+
+  // Performance outcomes
+  const [outcomeId, setOutcomeId]     = React.useState(null);
+  const [outcome, setOutcome]         = React.useState(null);
+  const [outcomeLoading, setOutcomeLoading] = React.useState(false);
 
   // ─── Load ──────────────────────────────────────────────────
   async function load(filter = statusFilter) {
@@ -288,6 +294,18 @@ export default function MerchantPromotions() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // ─── Performance ───────────────────────────────────────────
+  async function toggleOutcome(promoId) {
+    if (outcomeId === promoId) { setOutcomeId(null); setOutcome(null); return; }
+    setOutcomeId(promoId);
+    setOutcomeLoading(true);
+    try {
+      const data = await getPromotionOutcome(promoId);
+      setOutcome(data);
+    } catch { setOutcome(null); }
+    setOutcomeLoading(false);
   }
 
   // ─── Edit ──────────────────────────────────────────────────
@@ -705,11 +723,13 @@ export default function MerchantPromotions() {
                               {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
                             </>}
                             {promo.status === "active" && <>
+                              <button type="button" style={btnSmall} onClick={() => toggleOutcome(promo.id)}>Performance</button>
                               <button type="button" style={btnSmall} onClick={() => handleTransition(promo, "paused")}>Pause</button>
                               {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
                               <button type="button" style={btnSmallDanger} onClick={() => handleArchive(promo)}>Archive</button>
                             </>}
                             {promo.status === "paused" && <>
+                              <button type="button" style={btnSmall} onClick={() => toggleOutcome(promo.id)}>Performance</button>
                               <button type="button" style={btnSmallSuccess} onClick={() => handleTransition(promo, "active")}>Resume</button>
                               {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
                               <button type="button" style={btnSmallDanger} onClick={() => handleArchive(promo)}>Archive</button>
@@ -762,6 +782,53 @@ export default function MerchantPromotions() {
                           </td>
                         </tr>
                       )}
+                      {/* Performance outcome row */}
+                      {outcomeId === promo.id && (
+                        <tr style={{ borderTop: rowBorder, background: "rgba(47,143,139,0.04)" }}>
+                          <td colSpan={8} style={{ padding: "16px 20px" }}>
+                            {outcomeLoading ? (
+                              <div style={{ color: color.textMuted, fontSize: 13 }}>Loading performance data...</div>
+                            ) : outcome?.metrics ? (
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: color.text }}>Promotion Performance</div>
+                                <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+                                  <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontSize: 20, fontWeight: 800, color: color.primary }}>{outcome.activity?.clips ?? "—"}</div>
+                                    <div style={{ fontSize: 11, color: color.textMuted }}>Stamps</div>
+                                  </div>
+                                  <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontSize: 20, fontWeight: 800, color: color.primary }}>{outcome.activity?.rewardsGranted ?? "—"}</div>
+                                    <div style={{ fontSize: 11, color: color.textMuted }}>Rewards Earned</div>
+                                  </div>
+                                  <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontSize: 20, fontWeight: 800, color: color.primary }}>{outcome.activity?.rewardsRedeemed ?? "—"}</div>
+                                    <div style={{ fontSize: 11, color: color.textMuted }}>Redeemed</div>
+                                  </div>
+                                  <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontSize: 20, fontWeight: 800, color: color.primary }}>{outcome.metrics?.redemptionRate != null ? `${Math.round(outcome.metrics.redemptionRate * 100)}%` : "—"}</div>
+                                    <div style={{ fontSize: 11, color: color.textMuted }}>Redemption Rate</div>
+                                  </div>
+                                  {outcome.metrics?.aovLift != null && (
+                                    <div style={{ textAlign: "center" }}>
+                                      <div style={{ fontSize: 20, fontWeight: 800, color: outcome.metrics.aovLift >= 0 ? "#059669" : "#dc2626" }}>{outcome.metrics.aovLift >= 0 ? "+" : ""}{Math.round(outcome.metrics.aovLift * 100)}%</div>
+                                      <div style={{ fontSize: 11, color: color.textMuted }}>AOV Lift</div>
+                                    </div>
+                                  )}
+                                  {outcome.metrics?.revenueLift != null && (
+                                    <div style={{ textAlign: "center" }}>
+                                      <div style={{ fontSize: 20, fontWeight: 800, color: outcome.metrics.revenueLift >= 0 ? "#059669" : "#dc2626" }}>{outcome.metrics.revenueLift >= 0 ? "+" : ""}{Math.round(outcome.metrics.revenueLift * 100)}%</div>
+                                      <div style={{ fontSize: 11, color: color.textMuted }}>Revenue Lift</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ color: color.textMuted, fontSize: 13 }}>No performance data available yet.</div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+
                     </React.Fragment>
                   ))}
                 </tbody>
