@@ -7,7 +7,9 @@
     "dev": "vite --host localhost --port 5173 --strictPort",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview --host localhost --port 5173 --strictPort"
+    "preview": "vite preview --host localhost --port 5173 --strictPort",
+    "test:e2e": "npx playwright test",
+    "test:track": "npx playwright test && cd ../backend && QA_REPO_PREFIX=AD QA_REPO_NAME=admin node qa/track-playwright.js ../admin/e2e-results.json"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^5.6.0",
@@ -19,6 +21,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.59.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
