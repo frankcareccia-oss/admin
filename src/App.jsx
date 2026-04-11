@@ -50,6 +50,7 @@ import PosGrantReward from "./pages/PosGrantReward";
 import PosProvision from "./pages/PosProvision";
 import PosLogin from "./pages/PosLogin";
 import GroceryPosSimulator from "./pages/GroceryPosSimulator";
+import AdminPaymentEvents from "./pages/AdminPaymentEvents";
 import PosBundles from "./pages/PosBundles";
 
 import ForgotPassword from "./pages/Auth/ForgotPassword";
@@ -1274,6 +1275,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <PlatformConfig />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/payment-events"
+            element={
+              <RequireAuth>
+                <AdminPaymentEvents />
               </RequireAuth>
             }
           />
