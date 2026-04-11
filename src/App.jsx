@@ -49,6 +49,7 @@ import PosGrantReward from "./pages/PosGrantReward";
 
 import PosProvision from "./pages/PosProvision";
 import PosLogin from "./pages/PosLogin";
+import GroceryPosSimulator from "./pages/GroceryPosSimulator";
 import PosBundles from "./pages/PosBundles";
 
 import ForgotPassword from "./pages/Auth/ForgotPassword";
@@ -866,6 +867,7 @@ export default function App() {
 
           <Route path="/pos/provision" element={<PosProvision />} />
           <Route path="/pos/login" element={<PosLogin />} />
+          <Route path="/grocery/pos" element={<GroceryPosSimulator />} />
 
           <Route path="/p/:code" element={<GuestPayPage />} />
           <Route path="/pay/:token" element={<GuestPayPage />} />
