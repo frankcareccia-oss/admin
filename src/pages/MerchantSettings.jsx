@@ -195,6 +195,8 @@ export default function MerchantSettings() {
     try {
       await posMapLocation(posStatus.posType, { externalLocationId: loc.id, externalLocationName: loc.name, pvStoreId: parseInt(pvStoreId, 10) });
       setPosMapMsg(m => ({ ...m, [loc.id]: "Saved" }));
+      // Re-fetch POS status so store connection grid updates immediately
+      posGetStatus().then(s => setPosStatus(s)).catch(() => {});
     } catch (e) {
       setPosMapMsg(m => ({ ...m, [loc.id]: e?.message || "Save failed" }));
     } finally {
