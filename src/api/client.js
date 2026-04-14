@@ -2226,6 +2226,11 @@ export async function adminUpdatePlatformConfig(updates) {
    Square POS Integration
 ============================================================= */
 
+// Generic POS connection status (returns posType, connected, storeStatuses)
+export async function posGetStatus() {
+  return request("/pos/connect/status", { auth: "jwt" });
+}
+
 export async function squareGetStatus() {
   return request("/pos/connect/square/status", { auth: "jwt" });
 }
@@ -2249,6 +2254,36 @@ export async function squareDisconnect() {
 export function squareConnectUrl() {
   const token = getAccessToken();
   return `${API_BASE}/pos/connect/square${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
+
+// Clover OAuth connect URL
+export function cloverConnectUrl() {
+  const token = getAccessToken();
+  return `${API_BASE}/pos/connect/clover${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+}
+
+// Toast connect (client-credentials, POST)
+export async function toastConnect({ clientId, clientSecret }) {
+  return request("/pos/connect/toast", { method: "POST", body: { clientId, clientSecret }, auth: "jwt" });
+}
+
+// Generic POS disconnect
+export async function posDisconnect(posType) {
+  return request(`/pos/connect/${posType}`, { method: "DELETE", auth: "jwt" });
+}
+
+// Generic POS locations
+export async function posGetLocations(posType) {
+  return request(`/pos/connect/${posType}/locations`, { auth: "jwt" });
+}
+
+// Generic POS map location
+export async function posMapLocation(posType, { externalLocationId, externalLocationName, pvStoreId }) {
+  return request(`/pos/connect/${posType}/map-location`, {
+    method: "POST",
+    body: { externalLocationId, externalLocationName, pvStoreId },
+    auth: "jwt",
+  });
 }
 
 // ── Growth Advisor ────────────────────────────────────────────
