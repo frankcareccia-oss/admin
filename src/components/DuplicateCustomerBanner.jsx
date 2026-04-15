@@ -142,11 +142,11 @@ function AlertCard({ alert, onResolve, onDismiss, processing }) {
       </div>
       <div style={s.actions}>
         {processing ? (
-          <button style={s.processingBtn} disabled>Merging...</button>
+          <button style={s.processingBtn} disabled>Updating...</button>
         ) : (
           <>
             <button style={s.resolveBtn} onClick={() => onResolve(alert.id)}>
-              Merge & Resolve
+              Resolved
             </button>
             <button style={s.dismissBtn} onClick={() => onDismiss(alert.id)}>
               Dismiss
@@ -202,7 +202,12 @@ export default function DuplicateCustomerBanner() {
       </div>
       <div style={s.subtitle}>
         These customers have duplicate entries in your Square directory with the same phone number.
-        Click "Merge & Resolve" to automatically merge duplicates into the original customer record.
+        Merge them in{" "}
+        <a href="https://squareup.com/dashboard/customers" target="_blank" rel="noopener noreferrer"
+          style={{ color: color.primary, fontWeight: 600 }}>
+          Square Dashboard → Customers
+        </a>
+        , then click "Resolved".
       </div>
       {error && (
         <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#b91c1c" }}>
