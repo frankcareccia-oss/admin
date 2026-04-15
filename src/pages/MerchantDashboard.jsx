@@ -19,6 +19,7 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
+import DuplicateCustomerBanner from "../components/DuplicateCustomerBanner";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -258,6 +259,10 @@ export default function MerchantDashboard() {
       />
 
       <div style={{ marginTop: 24 }} />
+
+      <DuplicateCustomerBanner />
+
+      <div style={{ marginTop: 16 }} />
 
       <div style={{
         display: "grid",

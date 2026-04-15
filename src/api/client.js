@@ -2304,3 +2304,19 @@ export async function getPromotionOutcome(promotionId) {
 export async function recomputePromotionOutcomes() {
   return request("/merchant/promotion-outcomes/recompute", { method: "POST", auth: "jwt" });
 }
+
+/* -----------------------------
+   Duplicate Customer Alerts
+-------------------------------- */
+
+export async function merchantListDuplicateAlerts() {
+  return request("/merchants/me/alerts/duplicate-customers", { auth: "jwt" });
+}
+
+export async function merchantResolveDuplicateAlert(alertId, status) {
+  return request(`/merchants/me/alerts/duplicate-customers/${alertId}`, {
+    method: "PATCH",
+    body: { status },
+    auth: "jwt",
+  });
+}
