@@ -142,11 +142,11 @@ function AlertCard({ alert, onResolve, onDismiss, processing }) {
       </div>
       <div style={s.actions}>
         {processing ? (
-          <button style={s.processingBtn} disabled>Updating...</button>
+          <button style={s.processingBtn} disabled>Merging...</button>
         ) : (
           <>
             <button style={s.resolveBtn} onClick={() => onResolve(alert.id)}>
-              Resolved
+              Merge & Resolve
             </button>
             <button style={s.dismissBtn} onClick={() => onDismiss(alert.id)}>
               Dismiss
@@ -161,7 +161,8 @@ function AlertCard({ alert, onResolve, onDismiss, processing }) {
 export default function DuplicateCustomerBanner() {
   const [alerts, setAlerts] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [processing, setProcessing] = React.useState(null); // alertId being processed
+  const [processing, setProcessing] = React.useState(null);
+  const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -176,11 +177,14 @@ export default function DuplicateCustomerBanner() {
 
   async function handleAction(alertId, status) {
     setProcessing(alertId);
+    setError(null);
     try {
       await merchantResolveDuplicateAlert(alertId, status);
       setAlerts((prev) => prev.filter((a) => a.id !== alertId));
     } catch (e) {
-      console.error("Failed to update alert:", e?.message);
+      const msg = e?.message || "Failed to merge customers";
+      setError(msg);
+      console.error("Failed to update alert:", msg);
     } finally {
       setProcessing(null);
     }
@@ -198,8 +202,13 @@ export default function DuplicateCustomerBanner() {
       </div>
       <div style={s.subtitle}>
         These customers have duplicate entries in your Square directory with the same phone number.
-        Please merge them in Square to avoid confusion, then mark as resolved.
+        Click "Merge & Resolve" to automatically merge duplicates into the original customer record.
       </div>
+      {error && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "8px 12px", fontSize: 13, color: "#b91c1c" }}>
+          {error}
+        </div>
+      )}
       {alerts.map((alert) => (
         <AlertCard
           key={alert.id}
