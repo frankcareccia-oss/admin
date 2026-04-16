@@ -109,6 +109,9 @@ export default function MerchantStoreEdit() {
   const [state, setState] = React.useState("");
   const [postal, setPostal] = React.useState("");
   const [posTimeoutMin, setPosTimeoutMin] = React.useState("5");
+  const [geofenceRadius, setGeofenceRadius] = React.useState("150");
+  const [latitude, setLatitude] = React.useState(null);
+  const [longitude, setLongitude] = React.useState(null);
 
   // Snapshot for “dirty” detection
   const initialRef = React.useRef(null);
@@ -181,6 +184,7 @@ export default function MerchantStoreEdit() {
           state: norm(found.state),
           postal: norm(found.postal),
           posTimeoutMin: norm(found.posSessionTimeoutMinutes ?? 5),
+          geofenceRadius: norm(found.geofenceRadiusMeters ?? 150),
         };
 
         setName(next.name);
@@ -189,6 +193,9 @@ export default function MerchantStoreEdit() {
         setState(next.state);
         setPostal(next.postal);
         setPosTimeoutMin(next.posTimeoutMin);
+        setGeofenceRadius(next.geofenceRadius);
+        setLatitude(found.latitude || null);
+        setLongitude(found.longitude || null);
 
         initialRef.current = next;
 
@@ -223,6 +230,7 @@ export default function MerchantStoreEdit() {
     state: "",
     postal: "",
     posTimeoutMin: "5",
+    geofenceRadius: "150",
   };
 
   const dirty =
@@ -231,7 +239,8 @@ export default function MerchantStoreEdit() {
     city !== initial.city ||
     state !== initial.state ||
     postal !== initial.postal ||
-    posTimeoutMin !== initial.posTimeoutMin;
+    posTimeoutMin !== initial.posTimeoutMin ||
+    geofenceRadius !== initial.geofenceRadius;
 
   function validate() {
     const nm = String(name || "").trim();
@@ -241,6 +250,8 @@ export default function MerchantStoreEdit() {
     if (String(postal || "").trim().length > 20) return "Postal is too long.";
     const t = parseInt(posTimeoutMin, 10);
     if (!Number.isInteger(t) || t < 1 || t > 120) return "POS session timeout must be between 1 and 120 minutes.";
+    const g = parseInt(geofenceRadius, 10);
+    if (!Number.isInteger(g) || g < 50 || g > 500) return "Geofence radius must be between 50 and 500 meters.";
     return "";
   }
 
@@ -271,6 +282,7 @@ export default function MerchantStoreEdit() {
       state: trimOrNull(state),
       postal: trimOrNull(postal),
       posSessionTimeoutMinutes: parseInt(posTimeoutMin, 10),
+      geofenceRadiusMeters: parseInt(geofenceRadius, 10),
     };
 
     setSaving(true);
@@ -289,6 +301,7 @@ export default function MerchantStoreEdit() {
         state: norm(updated?.state),
         postal: norm(updated?.postal),
         posTimeoutMin: norm(updated?.posSessionTimeoutMinutes ?? 5),
+        geofenceRadius: norm(updated?.geofenceRadiusMeters ?? 150),
       };
 
       setStore(updated || store);
@@ -298,6 +311,9 @@ export default function MerchantStoreEdit() {
       setState(next.state);
       setPostal(next.postal);
       setPosTimeoutMin(next.posTimeoutMin);
+      setGeofenceRadius(next.geofenceRadius);
+      if (updated?.latitude) setLatitude(updated.latitude);
+      if (updated?.longitude) setLongitude(updated.longitude);
       initialRef.current = next;
 
       setOkMsg("Saved.");
@@ -337,6 +353,7 @@ export default function MerchantStoreEdit() {
       setState(base.state);
       setPostal(base.postal);
       setPosTimeoutMin(base.posTimeoutMin);
+      setGeofenceRadius(base.geofenceRadius);
       setOkMsg("Reverted.");
       return;
     }
@@ -497,6 +514,54 @@ export default function MerchantStoreEdit() {
           />
           <div style={{ fontSize: 12, color: color.textMuted, marginTop: 4 }}>
             How long a POS associate session stays active without any interaction. Default: 5 min. Range: 1–120.
+          </div>
+        </div>
+
+        {/* Geofencing */}
+        <div style={{ ...row, borderTop: `1px solid ${color.border}`, paddingTop: 16, marginTop: 8 }}>
+          <div style={{ ...label, fontSize: 15, fontWeight: 700 }}>Geofencing</div>
+        </div>
+
+        {latitude && longitude ? (
+          <div style={row}>
+            <div style={label}>Store coordinates</div>
+            <div style={{ fontSize: 13, color: color.textMuted }}>
+              {latitude.toFixed(6)}, {longitude.toFixed(6)}
+            </div>
+          </div>
+        ) : (
+          <div style={row}>
+            <div style={label}>Store coordinates</div>
+            <div style={{ fontSize: 13, color: color.textMuted, fontStyle: "italic" }}>
+              Not set — coordinates will be geocoded from the store address when a POS is connected.
+            </div>
+          </div>
+        )}
+
+        <div style={row}>
+          <div style={label}>Geofence radius (meters)</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <input
+              type="range"
+              min="50"
+              max="500"
+              step="10"
+              value={geofenceRadius}
+              onChange={(e) => setGeofenceRadius(e.target.value)}
+              style={{ flex: 1, maxWidth: 200 }}
+            />
+            <input
+              value={geofenceRadius}
+              onChange={(e) => setGeofenceRadius(e.target.value)}
+              type="number"
+              min="50"
+              max="500"
+              style={{ ...input, maxWidth: 80 }}
+            />
+            <span style={{ fontSize: 13, color: color.textMuted }}>m</span>
+          </div>
+          <div style={{ fontSize: 12, color: color.textMuted, marginTop: 4 }}>
+            How close a consumer must be for automatic check-in. Default: 150m. Range: 50–500m.
           </div>
         </div>
 
