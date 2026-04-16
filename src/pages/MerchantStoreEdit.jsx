@@ -113,11 +113,11 @@ export default function MerchantStoreEdit() {
   const [latitude, setLatitude] = React.useState(null);
   const [longitude, setLongitude] = React.useState(null);
   const [discoverability, setDiscoverability] = React.useState(true);
-  const [storeCategory, setStoreCategory] = React.useState(“”);
-  const [logoUrl, setLogoUrl] = React.useState(“”);
-  const [hoursJson, setHoursJson] = React.useState(“”);
+  const [storeCategory, setStoreCategory] = React.useState("");
+  const [logoUrl, setLogoUrl] = React.useState("");
+  const [hoursJson, setHoursJson] = React.useState("");
 
-  // Snapshot for “dirty” detection
+  // Snapshot for "dirty" detection
   const initialRef = React.useRef(null);
 
   const canManage = merchantRole === "merchant_admin" || merchantRole === "owner";
