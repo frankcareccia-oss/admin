@@ -112,6 +112,9 @@ export default function MerchantStoreEdit() {
   const [geofenceRadius, setGeofenceRadius] = React.useState("150");
   const [latitude, setLatitude] = React.useState(null);
   const [longitude, setLongitude] = React.useState(null);
+  const [discoverability, setDiscoverability] = React.useState(true);
+  const [storeCategory, setStoreCategory] = React.useState(“”);
+  const [hoursJson, setHoursJson] = React.useState(“”);
 
   // Snapshot for “dirty” detection
   const initialRef = React.useRef(null);
@@ -196,8 +199,11 @@ export default function MerchantStoreEdit() {
         setGeofenceRadius(next.geofenceRadius);
         setLatitude(found.latitude || null);
         setLongitude(found.longitude || null);
+        setDiscoverability(found.discoverability !== false);
+        setStoreCategory(norm(found.category || ""));
+        setHoursJson(norm(found.hoursJson || ""));
 
-        initialRef.current = next;
+        initialRef.current = { ...next, discoverability: found.discoverability !== false, storeCategory: norm(found.category || ""), hoursJson: norm(found.hoursJson || "") };
 
         pvUiHook("merchant.store.edit.load_succeeded.ui", {
           stable: "merchant:store:edit",
@@ -240,7 +246,10 @@ export default function MerchantStoreEdit() {
     state !== initial.state ||
     postal !== initial.postal ||
     posTimeoutMin !== initial.posTimeoutMin ||
-    geofenceRadius !== initial.geofenceRadius;
+    geofenceRadius !== initial.geofenceRadius ||
+    discoverability !== initial.discoverability ||
+    storeCategory !== initial.storeCategory ||
+    hoursJson !== initial.hoursJson;
 
   function validate() {
     const nm = String(name || "").trim();
@@ -283,6 +292,9 @@ export default function MerchantStoreEdit() {
       postal: trimOrNull(postal),
       posSessionTimeoutMinutes: parseInt(posTimeoutMin, 10),
       geofenceRadiusMeters: parseInt(geofenceRadius, 10),
+      discoverability,
+      category: storeCategory || null,
+      hoursJson: hoursJson || null,
     };
 
     setSaving(true);
@@ -563,6 +575,44 @@ export default function MerchantStoreEdit() {
           <div style={{ fontSize: 12, color: color.textMuted, marginTop: 4 }}>
             How close a consumer must be for automatic check-in. Default: 150m. Range: 50–500m.
           </div>
+        </div>
+
+        {/* Discover */}
+        <div style={{ ...row, borderTop: `1px solid ${color.border}`, paddingTop: 16, marginTop: 8 }}>
+          <div style={{ ...label, fontSize: 15, fontWeight: 700 }}>Discover</div>
+        </div>
+
+        <div style={row}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={discoverability}
+              onChange={(e) => setDiscoverability(e.target.checked)}
+            />
+            <span style={{ fontSize: 14, color: color.text }}>Show this store in PerkValet Discover</span>
+          </label>
+          <div style={{ fontSize: 12, color: color.textMuted, marginTop: 4 }}>
+            When enabled, consumers can find this store on the Discover map and join your loyalty programs.
+          </div>
+        </div>
+
+        <div style={row}>
+          <div style={label}>Business category</div>
+          <select
+            value={storeCategory}
+            onChange={(e) => setStoreCategory(e.target.value)}
+            style={{ ...input, maxWidth: 220 }}
+          >
+            <option value="">Select...</option>
+            <option value="cafe">Cafe / Coffee Shop</option>
+            <option value="restaurant">Restaurant</option>
+            <option value="salon">Salon / Spa</option>
+            <option value="retail">Retail</option>
+            <option value="auto">Automotive</option>
+            <option value="pet">Pet Services</option>
+            <option value="fitness">Fitness / Gym</option>
+            <option value="other">Other</option>
+          </select>
         </div>
 
         {/* Footer actions */}
