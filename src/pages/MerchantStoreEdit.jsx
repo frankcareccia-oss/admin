@@ -114,6 +114,7 @@ export default function MerchantStoreEdit() {
   const [longitude, setLongitude] = React.useState(null);
   const [discoverability, setDiscoverability] = React.useState(true);
   const [storeCategory, setStoreCategory] = React.useState(“”);
+  const [logoUrl, setLogoUrl] = React.useState(“”);
   const [hoursJson, setHoursJson] = React.useState(“”);
 
   // Snapshot for “dirty” detection
@@ -201,9 +202,10 @@ export default function MerchantStoreEdit() {
         setLongitude(found.longitude || null);
         setDiscoverability(found.discoverability !== false);
         setStoreCategory(norm(found.category || ""));
+        setLogoUrl(norm(found.logoUrl || ""));
         setHoursJson(norm(found.hoursJson || ""));
 
-        initialRef.current = { ...next, discoverability: found.discoverability !== false, storeCategory: norm(found.category || ""), hoursJson: norm(found.hoursJson || "") };
+        initialRef.current = { ...next, discoverability: found.discoverability !== false, storeCategory: norm(found.category || ""), logoUrl: norm(found.logoUrl || ""), hoursJson: norm(found.hoursJson || "") };
 
         pvUiHook("merchant.store.edit.load_succeeded.ui", {
           stable: "merchant:store:edit",
@@ -249,6 +251,7 @@ export default function MerchantStoreEdit() {
     geofenceRadius !== initial.geofenceRadius ||
     discoverability !== initial.discoverability ||
     storeCategory !== initial.storeCategory ||
+    logoUrl !== initial.logoUrl ||
     hoursJson !== initial.hoursJson;
 
   function validate() {
@@ -294,6 +297,7 @@ export default function MerchantStoreEdit() {
       geofenceRadiusMeters: parseInt(geofenceRadius, 10),
       discoverability,
       category: storeCategory || null,
+      logoUrl: logoUrl || null,
       hoursJson: hoursJson || null,
     };
 
@@ -613,6 +617,31 @@ export default function MerchantStoreEdit() {
             <option value="fitness">Fitness / Gym</option>
             <option value="other">Other</option>
           </select>
+        </div>
+
+        <div style={row}>
+          <div style={label}>Store logo URL</div>
+          <input
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://example.com/logo.png"
+            style={input}
+            autoComplete="off"
+          />
+          {logoUrl && (
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10 }}>
+              <img
+                src={logoUrl}
+                alt="Store logo preview"
+                style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${color.border}` }}
+                onError={(e) => { e.target.style.display = "none"; }}
+              />
+              <span style={{ fontSize: 12, color: color.textMuted }}>Preview</span>
+            </div>
+          )}
+          <div style={{ fontSize: 12, color: color.textMuted, marginTop: 4 }}>
+            Paste a URL to your store logo. Shown on the Discover screen and consumer app.
+          </div>
         </div>
 
         {/* Footer actions */}
