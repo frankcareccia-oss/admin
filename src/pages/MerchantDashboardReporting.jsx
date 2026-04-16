@@ -12,7 +12,8 @@ import {
   ResponsiveContainer, ReferenceLine,
 } from "recharts";
 import { color, btn } from "../theme";
-import { merchantGetDashboard, merchantGetReportingStores } from "../api/client";
+import { merchantGetDashboard, merchantGetReportingStores, merchantGetSimulatorData } from "../api/client";
+import PromotionSimulator from "../components/PromotionSimulator";
 
 // ── Colors ──
 const C = {
@@ -385,12 +386,71 @@ export default function MerchantDashboardReporting() {
         </div>
       )}
 
+      {/* Promotion Simulator */}
+      {promos.length > 0 && (
+        <SimulatorSection promos={promos} />
+      )}
+
       {/* Empty state */}
       {ts.length === 0 && (
         <div style={s.empty}>
           Your first transactions will appear here after your first day of sales.
         </div>
       )}
+    </div>
+  );
+}
+
+function SimulatorSection({ promos }) {
+  const [selectedPromoId, setSelectedPromoId] = React.useState(null);
+  const [simData, setSimData] = React.useState(null);
+  const [simLoading, setSimLoading] = React.useState(false);
+
+  const handleSelectPromo = async (promoId) => {
+    if (promoId === selectedPromoId) {
+      setSelectedPromoId(null);
+      setSimData(null);
+      return;
+    }
+    setSelectedPromoId(promoId);
+    setSimLoading(true);
+    try {
+      const data = await merchantGetSimulatorData(promoId);
+      setSimData(data);
+    } catch (e) {
+      console.error("Simulator load error:", e);
+      setSimData(null);
+    } finally {
+      setSimLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ margin: "20px 0" }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: color.navy || "#0B2A33", marginBottom: 10 }}>
+        Promotion Simulator
+      </div>
+      <div style={{ fontSize: 13, color: color.muted, marginBottom: 12 }}>
+        Select a promotion to project its impact with adjustable parameters.
+      </div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {promos.map(p => (
+          <button
+            key={p.promotionId}
+            onClick={() => handleSelectPromo(p.promotionId)}
+            style={{
+              padding: "8px 16px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
+              border: `1px solid ${selectedPromoId === p.promotionId ? "#00796B" : (color.border || "#D9D3CA")}`,
+              background: selectedPromoId === p.promotionId ? "#00796B" : "#fff",
+              color: selectedPromoId === p.promotionId ? "#fff" : (color.muted || "#6B7A80"),
+            }}
+          >
+            {p.name}
+          </button>
+        ))}
+      </div>
+      {simLoading && <div style={{ textAlign: "center", color: color.muted, padding: 20 }}>Loading simulator...</div>}
+      {simData && !simLoading && <PromotionSimulator simulatorData={simData} mode="existing" />}
     </div>
   );
 }
