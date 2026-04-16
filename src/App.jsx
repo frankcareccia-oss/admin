@@ -64,6 +64,7 @@ import MerchantProducts from "./pages/MerchantProducts";
 import MerchantPromotions from "./pages/MerchantPromotions";
 import MerchantBundles from "./pages/MerchantBundles";
 import MerchantReports from "./pages/MerchantReports";
+import MerchantDashboardReporting from "./pages/MerchantDashboardReporting";
 import MerchantGrowthAdvisor from "./pages/MerchantGrowthAdvisor";
 import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
@@ -1029,6 +1030,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantReportsGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/analytics"
+            element={
+              <RequireAuth>
+                <MerchantDashboardReporting />
               </RequireAuth>
             }
           />

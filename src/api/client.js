@@ -2320,3 +2320,28 @@ export async function merchantResolveDuplicateAlert(alertId, status) {
     auth: "jwt",
   });
 }
+
+// ── Reporting Dashboard (pre-aggregated) ──
+
+export async function merchantGetDashboard({ period = "30d", storeId = "all", from, to } = {}) {
+  let qs = `period=${period}&storeId=${storeId}`;
+  if (from) qs += `&from=${from}`;
+  if (to) qs += `&to=${to}`;
+  return request(`/merchant/reporting/dashboard?${qs}`, { auth: "jwt" });
+}
+
+export async function merchantGetReportingStores() {
+  return request("/merchant/reporting/stores", { auth: "jwt" });
+}
+
+export async function merchantGetPromotionDetail(promotionId, { period = "30d" } = {}) {
+  return request(`/merchant/reporting/promotions/${promotionId}?period=${period}`, { auth: "jwt" });
+}
+
+export async function merchantGetSimulatorData(promotionId) {
+  return request(`/merchant/reporting/simulator/${promotionId}`, { auth: "jwt" });
+}
+
+export async function merchantGetNewSimulatorData(promotionType) {
+  return request(`/merchant/reporting/simulator/new/${promotionType}`, { auth: "jwt" });
+}

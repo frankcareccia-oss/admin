@@ -229,10 +229,10 @@ export default function MerchantDashboard() {
       meta: countLabel(counts.bundles, "bundle"),
     },
     {
-      to: "/merchant/reports",
+      to: "/merchant/analytics",
       icon: "📊",
-      title: "Reports",
-      description: "Visit volume, loyalty activity, and redemption trends for your business.",
+      title: "Analytics",
+      description: "KPIs, loyalty flywheel, consumer engagement, and promotion performance.",
       meta: null,
     },
     {
