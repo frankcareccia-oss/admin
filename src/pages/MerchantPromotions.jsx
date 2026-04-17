@@ -33,6 +33,7 @@ import {
   adminDuplicateMerchantPromotion,
   generatePromoTerms,
   getPromotionOutcome,
+  listMerchantStores,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -96,6 +97,7 @@ const EMPTY_FORM = {
   rewardNote: "",
   timeframeDays: "",
   scope: "merchant",
+  storeId: "",
   legalText: "",
 };
 
@@ -111,6 +113,7 @@ export default function MerchantPromotions() {
   const [merchant, setMerchant]         = React.useState(null);
   const [categories, setCategories]     = React.useState([]);
   const [products, setProducts]         = React.useState([]);
+  const [stores, setStores]             = React.useState([]);
   const [promotions, setPromotions]     = React.useState([]);
   const [loading, setLoading]           = React.useState(true);
   const [error, setError]               = React.useState("");
@@ -143,7 +146,7 @@ export default function MerchantPromotions() {
     setError("");
     pvUiHook("merchant.promotions.load.started", { stable: "promo:load", merchantId });
     try {
-      const [mRes, catRes, prodRes, promoRes] = await Promise.all([
+      const [mRes, catRes, prodRes, promoRes, storeRes] = await Promise.all([
         isPvAdmin ? getMerchant(merchantId) : me(),
         isPvAdmin
           ? adminListMerchantCategories(merchantId)
@@ -154,11 +157,13 @@ export default function MerchantPromotions() {
         isPvAdmin
           ? adminListMerchantPromotions(merchantId, { status: filter || undefined })
           : merchantListPromotions({ status: filter || undefined }),
+        listMerchantStores().catch(() => ({ stores: [] })),
       ]);
       setMerchant(isPvAdmin ? (mRes?.merchant || mRes) : (mRes?.user?.merchantUsers?.[0]?.merchant || null));
       setCategories(catRes?.categories || []);
       setProducts(prodRes?.items || prodRes?.products || []);
       setPromotions(promoRes?.promotions || []);
+      setStores(storeRes?.stores || storeRes || []);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.promotions.load.succeeded", {
         stable: "promo:load", merchantId,
@@ -213,6 +218,7 @@ export default function MerchantPromotions() {
       rewardNote: f.rewardType === "custom"      ? f.rewardNote.trim() : undefined,
       timeframeDays: f.timeframeDays ? parseInt(f.timeframeDays, 10) : undefined,
       scope: f.scope,
+      storeId: f.scope === "store" && f.storeId ? parseInt(f.storeId, 10) : null,
       legalText: f.legalText?.trim() || undefined,
     };
   }
@@ -629,8 +635,19 @@ export default function MerchantPromotions() {
                       <option value="merchant">All Stores</option>
                       <option value="store">Specific Store</option>
                     </select>
-                    <div style={hint}>Store-scoped programs can be configured per location after creation.</div>
+                    <div style={hint}>Store-scoped programs earn stamps only at the selected location.</div>
                   </div>
+                  {form.scope === "store" && (
+                    <div style={fieldRow}>
+                      <label style={labelStyle}>Available at</label>
+                      <select style={selectStyle} value={form.storeId} onChange={e => setF("storeId", e.target.value)}>
+                        <option value="">Select a store...</option>
+                        {(stores || []).map(st => (
+                          <option key={st.id} value={st.id}>{st.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Terms & Conditions */}
