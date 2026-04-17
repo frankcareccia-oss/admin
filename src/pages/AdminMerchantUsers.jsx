@@ -519,7 +519,8 @@ export default function AdminMerchantUsers() {
     return (
       items.find(
         (mu) =>
-          String(mu?.role || "").toLowerCase() === "merchant_admin" &&
+          (String(mu?.role || "").toLowerCase() === "owner" ||
+           String(mu?.role || "").toLowerCase() === "merchant_admin") &&
           String(mu?.status || "").toLowerCase() === "active"
       ) || null
     );
