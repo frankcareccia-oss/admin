@@ -66,6 +66,7 @@ import MerchantBundles from "./pages/MerchantBundles";
 import MerchantReports from "./pages/MerchantReports";
 import MerchantDashboardReporting from "./pages/MerchantDashboardReporting";
 import MerchantGrowthAdvisor from "./pages/MerchantGrowthAdvisor";
+import MerchantGrowthStudio from "./pages/MerchantGrowthStudio";
 import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminReports from "./pages/AdminReports";
@@ -1061,6 +1062,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantGrowthAdvisor />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/growth-studio"
+            element={
+              <RequireAuth>
+                <MerchantGrowthStudio />
               </RequireAuth>
             }
           />

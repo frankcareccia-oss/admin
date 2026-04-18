@@ -236,10 +236,10 @@ export default function MerchantDashboard() {
       meta: null,
     },
     {
-      to: "/merchant/growth-advisor",
+      to: "/merchant/growth-studio",
       icon: "🚀",
-      title: "Growth Advisor",
-      description: "AI-powered insights and recommendations to grow your revenue.",
+      title: "Growth Studio",
+      description: "Build the right loyalty program for your goal — we'll guide you step by step.",
       meta: null,
     },
     {
