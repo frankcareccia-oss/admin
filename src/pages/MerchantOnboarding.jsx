@@ -411,11 +411,14 @@ export default function MerchantOnboarding() {
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
               We never see your POS password. This is the same secure process used by thousands of business apps.
             </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
               Tip: For the smoothest connection, use a fresh browser tab or clear any {session?.posType === "clover" ? "Clover" : "Square"} sessions first.
             </div>
-            <button style={s.primaryBtn} onClick={startConnect} disabled={connecting}>
-              {connecting ? "Connecting..." : `Connect My ${session?.posType === "clover" ? "Clover" : "Square"} Account`}
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+              If the login doesn't work, use your browser's <strong>back button</strong> (← top left) to return here and try again.
+            </div>
+            <button style={s.primaryBtn} onClick={startConnect}>
+              Connect My {session?.posType === "clover" ? "Clover" : "Square"} Account
             </button>
             {session?.oauthAttempts > 0 && (
               <div style={{ ...s.infoBox, marginTop: 12 }}>
