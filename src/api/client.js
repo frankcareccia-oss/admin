@@ -2367,3 +2367,7 @@ export async function initiateOnboardingConnect() {
 export async function completeOnboardingConnection() {
   return request("/merchant/onboarding/complete-connection", { method: "POST", auth: "jwt" });
 }
+
+export async function ingestPosPromotions() {
+  return request("/merchant/onboarding/ingest", { method: "POST", auth: "jwt" });
+}
