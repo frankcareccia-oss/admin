@@ -69,6 +69,7 @@ import MerchantGrowthAdvisor from "./pages/MerchantGrowthAdvisor";
 import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminReports from "./pages/AdminReports";
+import AdminSystem from "./pages/AdminSystem";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
 import AdminMerchantInvoices from "./pages/AdminMerchantInvoices";
@@ -1233,6 +1234,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminReports />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/admin/system"
+            element={
+              <RequireAuth>
+                <AdminSystem />
               </RequireAuth>
             }
           />
