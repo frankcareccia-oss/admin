@@ -243,6 +243,13 @@ export default function MerchantDashboard() {
       meta: null,
     },
     {
+      to: "/merchant/onboarding",
+      icon: "🧭",
+      title: "Setup Guide",
+      description: "Connect your POS, set up your stores, and launch your first loyalty program.",
+      meta: null,
+    },
+    {
       to: "/merchant/settings",
       icon: "⚙️",
       title: "Settings",

@@ -2345,3 +2345,25 @@ export async function merchantGetSimulatorData(promotionId) {
 export async function merchantGetNewSimulatorData(promotionType) {
   return request(`/merchant/reporting/simulator/new/${promotionType}`, { auth: "jwt" });
 }
+
+// ── Merchant Onboarding ──
+
+export async function getOnboardingSession() {
+  return request("/merchant/onboarding", { auth: "jwt" });
+}
+
+export async function updateOnboardingSession(data) {
+  return request("/merchant/onboarding", { method: "PATCH", body: data, auth: "jwt" });
+}
+
+export async function requestOnboardingHelp(data) {
+  return request("/merchant/onboarding/help", { method: "POST", body: data, auth: "jwt" });
+}
+
+export async function initiateOnboardingConnect() {
+  return request("/merchant/onboarding/connect", { method: "POST", auth: "jwt" });
+}
+
+export async function completeOnboardingConnection() {
+  return request("/merchant/onboarding/complete-connection", { method: "POST", auth: "jwt" });
+}

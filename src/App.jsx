@@ -70,6 +70,7 @@ import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminReports from "./pages/AdminReports";
 import AdminSystem from "./pages/AdminSystem";
+import MerchantOnboarding from "./pages/MerchantOnboarding";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
 import AdminMerchantInvoices from "./pages/AdminMerchantInvoices";
@@ -1031,6 +1032,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantReportsGate />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/onboarding"
+            element={
+              <RequireAuth>
+                <MerchantOnboarding />
               </RequireAuth>
             }
           />
