@@ -247,10 +247,10 @@ export default function MerchantOnboarding() {
             <div style={s.question}>Which point-of-sale system do you use at your register?</div>
             <div style={s.optionGrid}>
               {[
-                { value: "clover", label: "Clover" },
-                { value: "square", label: "Square" },
-                { value: "toast", label: "Toast (coming soon)" },
-                { value: "manual", label: "No POS / Cash only" },
+                { value: "clover", label: "Clover", logo: "https://www.clover.com/assets/images/public-site/press/clover_primary_gray_rgb.svg" },
+                { value: "square", label: "Square", logo: "https://upload.wikimedia.org/wikipedia/commons/3/30/Square%2C_Inc._-_Square_logo.svg" },
+                { value: "toast", label: "Toast (coming soon)", logo: null },
+                { value: "manual", label: "No POS / Cash only", logo: null },
               ].map(opt => (
                 <button key={opt.value} style={s.optionBtn(session?.posType === opt.value)}
                   onClick={() => {
@@ -259,7 +259,8 @@ export default function MerchantOnboarding() {
                   }}
                   disabled={opt.value === "toast"}
                 >
-                  {opt.label}
+                  {opt.logo && <img src={opt.logo} alt={opt.label} style={{ height: 28, marginBottom: 6, objectFit: "contain" }} onError={(e) => { e.target.style.display = "none"; }} />}
+                  <div>{opt.label}</div>
                 </button>
               ))}
             </div>
