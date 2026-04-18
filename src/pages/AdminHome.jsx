@@ -112,6 +112,12 @@ const CARDS = [
     description: "System configuration, integrations, and platform-level access control.",
     disabled: true,
   },
+  {
+    to: "/admin/system",
+    icon: "⚙️",
+    title: "System",
+    description: "Cron job monitor — scheduled job status, execution history, and health checks.",
+  },
 ];
 
 export default function AdminHome() {
