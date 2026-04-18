@@ -705,12 +705,14 @@ function Layout({ children }) {
           <div
             style={{
               width: "100%",
+              maxWidth: 1200,
+              margin: "0 auto",
               height: 56,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 12,
-              padding: "0 16px",
+              padding: "0 24px",
               boxSizing: "border-box",
               background: "#FEFCF7",
             }}
