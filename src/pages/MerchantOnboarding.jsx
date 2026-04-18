@@ -404,7 +404,7 @@ export default function MerchantOnboarding() {
             <div style={s.question}>Let's connect your {session?.posType === "clover" ? "Clover" : "Square"} account!</div>
             <div style={s.hint}>Here's what will happen:</div>
             <ol style={{ fontSize: 14, color: C.navy, lineHeight: 1.8, paddingLeft: 20, marginBottom: 16 }}>
-              <li>You'll be redirected to {session?.posType === "clover" ? "Clover" : "Square"}'s sign-in page — <strong>use your POS login, not your PerkValet login</strong></li>
+              <li>You'll be redirected to {session?.posType === "clover" ? "Clover" : "Square"}'s sign-in page — <strong>use your {session?.posType === "clover" ? "Clover" : "Square"} admin POS login, not your PerkValet login</strong></li>
               <li>{session?.posType === "clover" ? "Clover" : "Square"} will ask you to allow PerkValet to connect — click "Allow"</li>
               <li>You'll be brought back here automatically — this takes about 30 seconds</li>
             </ol>
@@ -414,15 +414,20 @@ export default function MerchantOnboarding() {
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
               Tip: For the smoothest connection, use a fresh browser tab or clear any {session?.posType === "clover" ? "Clover" : "Square"} sessions first.
             </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
-              If the login doesn't work, use your browser's <strong>back button</strong> (← top left) to return here and try again.
+            <div style={{ fontSize: 13, color: C.navy, marginBottom: 16, background: "#F0F4FF", border: "1px solid #C5CAE9", borderRadius: 8, padding: "10px 14px", lineHeight: 1.5 }}>
+              <strong>Can't log in?</strong> Use your browser's <strong>← back button</strong> (top left corner) to return here and try again.
             </div>
             <button style={s.primaryBtn} onClick={startConnect}>
               Connect My {session?.posType === "clover" ? "Clover" : "Square"} Account
             </button>
-            {session?.oauthAttempts > 0 && (
+            {session?.oauthAttempts > 0 && session?.oauthAttempts < 3 && (
               <div style={{ ...s.infoBox, marginTop: 12 }}>
                 Previous attempt didn't complete. Make sure you're using the correct owner-level login for your business account.
+              </div>
+            )}
+            {session?.oauthAttempts >= 3 && (
+              <div style={{ ...s.infoBox, marginTop: 12, background: "#FFEBEE", borderColor: "#EF9A9A", color: C.red }}>
+                <strong>Multiple attempts detected.</strong> Clover may lock your account after too many failed logins. If you're unsure of your credentials, click "I need help" below — or call Clover support at <strong>(855) 853-8340</strong> to reset your access before trying again.
               </div>
             )}
           </div>
