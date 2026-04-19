@@ -164,13 +164,13 @@ export default function MerchantPromotions() {
         isPvAdmin
           ? adminListMerchantPromotions(merchantId, { status: filter || undefined })
           : merchantListPromotions({ status: filter || undefined }),
-        listMerchantStores().catch(() => ({ stores: [] })),
+        Promise.resolve().then(() => listMerchantStores()).catch(() => ({ stores: [] })),
       ]);
       setMerchant(isPvAdmin ? (mRes?.merchant || mRes) : (mRes?.user?.merchantUsers?.[0]?.merchant || null));
       setCategories(catRes?.categories || []);
       setProducts(prodRes?.items || prodRes?.products || []);
       setPromotions(promoRes?.promotions || []);
-      setStores(storeRes?.stores || storeRes || []);
+      setStores(Array.isArray(storeRes?.stores) ? storeRes.stores : Array.isArray(storeRes) ? storeRes : []);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.promotions.load.succeeded", {
         stable: "promo:load", merchantId,
