@@ -727,11 +727,18 @@ export default function MerchantPromotions() {
                 </div>
 
                 <div style={twoCol}>
-                  {/* Timeframe */}
+                  {/* Stamp Duration */}
                   <div style={fieldRow}>
-                    <label style={labelStyle}>Timeframe (days)</label>
-                    <input style={inputStyle} type="number" min="1" value={form.timeframeDays} onChange={e => setF("timeframeDays", e.target.value)} placeholder="e.g. 30 — leave blank for no expiry" />
-                    <div style={hint}>Progress earned more than this many days ago won't count. Leave blank for no expiry.</div>
+                    <label style={labelStyle}>Stamp Duration</label>
+                    <select style={selectStyle} value={form.timeframeDays || ""} onChange={e => setF("timeframeDays", e.target.value)}>
+                      <option value="">No expiry — stamps never expire</option>
+                      <option value="30">30 days (1 month)</option>
+                      <option value="60">60 days (2 months)</option>
+                      <option value="90">90 days (3 months)</option>
+                      <option value="180">6 months</option>
+                      <option value="365">1 year</option>
+                    </select>
+                    <div style={hint}>How long each stamp stays active after it's earned. Most programs use 90 days or no expiry.</div>
                   </div>
 
                   {/* Scope */}

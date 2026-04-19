@@ -294,16 +294,22 @@ export default function MerchantGrowthStudio() {
               </div>
             )}
 
-            {/* Expiry */}
+            {/* Stamp Duration */}
             <div style={s.followUp}>
-              <div style={s.followUpLabel}>How long do earned rewards last?</div>
-              <input type="range" min="30" max="365" value={config.expiryDays}
-                onChange={e => setConfig(prev => ({ ...prev, expiryDays: parseInt(e.target.value) }))}
-                style={s.slider}
-              />
-              <div style={s.sliderValue}>{config.expiryDays} days</div>
-              <div style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 4 }}>
-                We recommend 90 days — fair for customers, manageable for you.
+              <div style={s.followUpLabel}>How long do stamps stay active?</div>
+              <select
+                value={config.expiryDays}
+                onChange={e => setConfig(prev => ({ ...prev, expiryDays: parseInt(e.target.value) || 90 }))}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 8, boxSizing: "border-box" }}
+              >
+                <option value="30">30 days (1 month)</option>
+                <option value="60">60 days (2 months)</option>
+                <option value="90">90 days (3 months) — recommended</option>
+                <option value="180">6 months</option>
+                <option value="365">1 year</option>
+              </select>
+              <div style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 6 }}>
+                Most programs use 90 days — fair for customers, manageable for you.
               </div>
             </div>
 
@@ -325,7 +331,7 @@ export default function MerchantGrowthStudio() {
                 <div style={s.recDetails}>
                   <div><strong>Program:</strong> {goal?.title}</div>
                   <div><strong>Reward:</strong> {rewardLabel} after {config.threshold} visits</div>
-                  <div><strong>Expires:</strong> {config.expiryDays} days after earning</div>
+                  <div><strong>Stamps active for:</strong> {config.expiryDays <= 30 ? "1 month" : config.expiryDays <= 60 ? "2 months" : config.expiryDays <= 90 ? "3 months" : config.expiryDays <= 180 ? "6 months" : "1 year"}</div>
                 </div>
               </div>
             </div>
@@ -379,7 +385,7 @@ export default function MerchantGrowthStudio() {
                   <div><strong>Type:</strong> {goal?.rewardType === "discount_fixed" ? "Fixed discount" : goal?.rewardType === "discount_pct" ? "Percentage discount" : "Free item"}</div>
                   <div><strong>Threshold:</strong> {config.threshold} visits</div>
                   <div><strong>Reward:</strong> {rewardLabel}</div>
-                  <div><strong>Reward expires:</strong> {config.expiryDays} days after earning</div>
+                  <div><strong>Stamps active for:</strong> {config.expiryDays <= 30 ? "1 month" : config.expiryDays <= 60 ? "2 months" : config.expiryDays <= 90 ? "3 months" : config.expiryDays <= 180 ? "6 months" : "1 year"}</div>
                 </div>
 
                 {/* Start / End dates */}
