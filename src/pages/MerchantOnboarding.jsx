@@ -7,6 +7,7 @@
 
 import React from "react";
 import { color, btn } from "../theme";
+import GapAnalysis from "../components/GapAnalysis";
 import {
   getOnboardingSession,
   updateOnboardingSession,
@@ -457,6 +458,13 @@ export default function MerchantOnboarding() {
         )}
 
         {/* ── STAGE 4: Map Stores ── */}
+        {/* Gap Analysis — shown after connection, before store mapping */}
+        {stage === "map-stores" && existingConnection && (
+          <div style={{ marginBottom: 16 }}>
+            <GapAnalysis />
+          </div>
+        )}
+
         {stage === "map-stores" && (step === "4.1" || step === "4.2") && (
           <div style={s.card}>
             <div style={s.question}>We found {stores.length} location{stores.length !== 1 ? "s" : ""} on your account:</div>
