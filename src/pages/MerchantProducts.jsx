@@ -631,18 +631,23 @@ export default function MerchantProducts() {
                     onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
                     placeholder="https://images.unsplash.com/photo-… (direct image link)"
                   />
-                  <div style={{ fontSize: 11, color: color.textFaint, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 10 }}>
                     <a
                       href={`https://unsplash.com/s/photos/${encodeURIComponent(
                         (form.name || categories.find(c => String(c.id) === String(form.categoryId))?.name || "product").replace(/\s+/g, "-")
                       )}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: color.primary, textDecoration: "none", fontWeight: 600 }}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        padding: "5px 14px", borderRadius: 999,
+                        background: "rgba(47,143,139,0.10)", border: "1px solid rgba(47,143,139,0.25)",
+                        color: color.primary, textDecoration: "none", fontWeight: 700, fontSize: 12,
+                      }}
                     >
                       Browse Unsplash →
                     </a>
-                    <span>Find a photo, right-click → "Copy image address", then paste above.</span>
+                    <span style={{ fontSize: 11, color: color.textFaint }}>Right-click photo → <strong style={{ color: "#333" }}>"Copy image address"</strong> (not "Copy link address") → paste above.</span>
                   </div>
                 </div>
                 <ProductAvatar name={form.name || "?"} imageUrl={form.imageUrl || undefined} size={40} radius={8} />
@@ -804,7 +809,9 @@ export default function MerchantProducts() {
                     <td style={td}><StatusBadge status={p.status} /></td>
                     <td style={{ ...td, textAlign: "right" }}>
                       <div style={{ display: "inline-flex", gap: 8 }}>
-                        {editingId !== p.id && (
+                        {editingId === p.id ? (
+                          <span style={{ fontSize: 11, color: color.primary, fontWeight: 700 }}>Editing below &#8595;</span>
+                        ) : (
                           <button type="button" style={btnSmall} onClick={() => startEdit(p)}>Edit</button>
                         )}
                         {p.status === "draft" && (
@@ -866,11 +873,16 @@ export default function MerchantProducts() {
                                   onChange={e => setEditForm(f => ({ ...f, imageUrl: e.target.value }))}
                                   placeholder="Direct image link (https://…)"
                                 />
-                                <div style={{ fontSize: 11, color: color.textFaint, marginTop: 3 }}>
+                                <div style={{ marginTop: 4 }}>
                                   <a
                                     href={`https://unsplash.com/s/photos/${encodeURIComponent((editForm.name || p.name || "product").replace(/\s+/g, "-"))}`}
                                     target="_blank" rel="noopener noreferrer"
-                                    style={{ color: color.primary, textDecoration: "none", fontWeight: 600 }}
+                                    style={{
+                                      display: "inline-flex", alignItems: "center", gap: 4,
+                                      padding: "3px 10px", borderRadius: 999,
+                                      background: "rgba(47,143,139,0.10)", border: "1px solid rgba(47,143,139,0.25)",
+                                      color: color.primary, textDecoration: "none", fontWeight: 700, fontSize: 11,
+                                    }}
                                   >Browse Unsplash →</a>
                                 </div>
                               </div>
