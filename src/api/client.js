@@ -1983,6 +1983,14 @@ export async function generateProductInfo(fields = {}) {
   });
 }
 
+export async function generateProductDescription(fields = {}) {
+  return request("/merchant/products/generate-description", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
 export async function merchantUpdatePromotion(promoId, fields = {}) {
   return request(`/merchant/promotions/${promoId}`, {
     method: "PATCH",

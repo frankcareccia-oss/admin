@@ -32,6 +32,7 @@ import {
   adminListMerchantCategories,
   adminCreateMerchantCategory,
   generateProductInfo,
+  generateProductDescription,
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -146,9 +147,11 @@ export default function MerchantProducts() {
   const [formError, setFormError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
 
-  // AI compliance generation
+  // AI generation
   const [generatingInfo, setGeneratingInfo] = React.useState(false);
   const [editGeneratingInfo, setEditGeneratingInfo] = React.useState(false);
+  const [generatingDesc, setGeneratingDesc] = React.useState(false);
+  const [editGeneratingDesc, setEditGeneratingDesc] = React.useState(false);
 
   // Edit row
   const [editingId, setEditingId] = React.useState(null);
@@ -195,6 +198,42 @@ export default function MerchantProducts() {
   React.useEffect(() => {
     load(statusFilter);
   }, [merchantId, statusFilter]);
+
+  // ─── AI description generation ─────────────────────────────
+  async function handleGenerateDesc() {
+    if (!form.name.trim()) { setFormError("Enter a product name first"); return; }
+    setGeneratingDesc(true);
+    setFormError("");
+    try {
+      const cat = categories.find(c => String(c.id) === String(form.categoryId));
+      const data = await generateProductDescription({
+        productName: form.name,
+        categoryName: cat?.name || null,
+      });
+      setForm(f => ({ ...f, description: data.draft || "" }));
+    } catch (e) {
+      setFormError(e?.message || "Failed to generate description");
+    } finally {
+      setGeneratingDesc(false);
+    }
+  }
+
+  async function handleEditGenerateDesc(product) {
+    setEditGeneratingDesc(true);
+    setEditError("");
+    try {
+      const cat = categories.find(c => c.id === (editForm.categoryId ? parseInt(editForm.categoryId, 10) : product.categoryId));
+      const data = await generateProductDescription({
+        productName: editForm.name || product.name,
+        categoryName: cat?.name || null,
+      });
+      setEditForm(f => ({ ...f, description: data.draft || "" }));
+    } catch (e) {
+      setEditError(e?.message || "Failed to generate description");
+    } finally {
+      setEditGeneratingDesc(false);
+    }
+  }
 
   // ─── AI compliance generation ──────────────────────────────
   async function handleGenerateInfo() {
@@ -586,12 +625,22 @@ export default function MerchantProducts() {
               />
             </div>
             <div style={fieldRow}>
-              <label style={labelStyle}>Description</label>
-              <input
-                style={inputStyle}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Description</label>
+                <button
+                  type="button"
+                  style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                  disabled={generatingDesc || !form.name.trim()}
+                  onClick={handleGenerateDesc}
+                >
+                  {generatingDesc ? "Writing..." : "✦ Write for me"}
+                </button>
+              </div>
+              <textarea
+                style={{ ...inputStyle, width: "100%", minHeight: 60, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Optional"
+                placeholder="Enter a description or click 'Write for me' to generate one"
               />
             </div>
             <div style={fieldRow}>
@@ -855,12 +904,22 @@ export default function MerchantProducts() {
                             </select>
                           </div>
                           <div>
-                            <label style={labelStyle}>Description</label>
-                            <input
-                              style={{ ...inputStyle, width: 260 }}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <label style={{ ...labelStyle, marginBottom: 0 }}>Description</label>
+                              <button
+                                type="button"
+                                style={{ ...btnSecondary, padding: "2px 10px", fontSize: 11, borderRadius: 999 }}
+                                disabled={editGeneratingDesc}
+                                onClick={() => handleEditGenerateDesc(products.find(x => x.id === editingId))}
+                              >
+                                {editGeneratingDesc ? "..." : "✦ Write"}
+                              </button>
+                            </div>
+                            <textarea
+                              style={{ ...inputStyle, width: 260, minHeight: 50, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.4 }}
                               value={editForm.description || ""}
                               onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
-                              placeholder="Optional"
+                              placeholder="Enter or generate description"
                             />
                           </div>
                           <div>
