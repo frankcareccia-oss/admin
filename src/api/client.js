@@ -1967,8 +1967,24 @@ export async function generatePromoTerms(fields = {}) {
   });
 }
 
+export async function generatePromoDescription(fields = {}) {
+  return request("/merchant/promotions/generate-description", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
 export async function generateBundleTerms(fields = {}) {
   return request("/merchant/bundles/generate-terms", {
+    method: "POST",
+    auth: "jwt",
+    body: fields,
+  });
+}
+
+export async function generateBundleDescription(fields = {}) {
+  return request("/merchant/bundles/generate-description", {
     method: "POST",
     auth: "jwt",
     body: fields,

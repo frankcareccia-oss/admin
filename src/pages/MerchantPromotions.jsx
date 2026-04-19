@@ -34,6 +34,7 @@ import {
   adminTransitionPromotion,
   adminDuplicateMerchantPromotion,
   generatePromoTerms,
+  generatePromoDescription,
   getPromotionOutcome,
   listMerchantStores,
 } from "../api/client";
@@ -91,6 +92,7 @@ function CatPill({ name }) {
 // ─── Empty form ───────────────────────────────────────────────
 const EMPTY_FORM = {
   name: "",
+  description: "",
   categoryId: "",
   threshold: "",
   rewardType: "free_item",
@@ -136,6 +138,7 @@ export default function MerchantPromotions() {
   const [editErr, setEditErr]         = React.useState("");
   const [editSaving, setEditSaving]   = React.useState(false);
   const [editGeneratingTerms, setEditGeneratingTerms] = React.useState(false);
+  const [generatingDesc, setGeneratingDesc] = React.useState(false);
 
   // Performance outcomes
   const [outcomeId, setOutcomeId]     = React.useState(null);
@@ -210,6 +213,7 @@ export default function MerchantPromotions() {
   function buildPayload(f) {
     return {
       name: f.name.trim(),
+      description: f.description?.trim() || undefined,
       categoryId: parseInt(f.categoryId, 10),
       mechanic: "stamps",
       threshold: parseInt(f.threshold, 10),
@@ -274,6 +278,32 @@ export default function MerchantPromotions() {
     }
   }
 
+  // ─── AI description generation ─────────────────────────────
+  async function handleGenerateDesc() {
+    if (!form.name.trim()) { setFormErr("Enter a program name first"); return; }
+    setGeneratingDesc(true);
+    setFormErr("");
+    try {
+      const cat = activeCategories.find(c => String(c.id) === String(form.categoryId));
+      const data = await generatePromoDescription({
+        name: form.name,
+        categoryName: cat?.name || null,
+        threshold: parseInt(form.threshold, 10) || null,
+        rewardType: form.rewardType,
+        rewardValue: (form.rewardType === "discount_pct" || form.rewardType === "discount_fixed")
+          ? parseInt(form.rewardValue, 10) : undefined,
+        rewardSku: form.rewardType === "free_item" ? form.rewardSku : undefined,
+        rewardNote: form.rewardType === "custom" ? form.rewardNote : undefined,
+        timeframeDays: form.timeframeDays ? parseInt(form.timeframeDays, 10) : null,
+      });
+      setF("description", data.draft || "");
+    } catch (e) {
+      setFormErr(e?.message || "Failed to generate description");
+    } finally {
+      setGeneratingDesc(false);
+    }
+  }
+
   // ─── Create ────────────────────────────────────────────────
   async function handleCreate(e) {
     e.preventDefault();
@@ -319,7 +349,7 @@ export default function MerchantPromotions() {
   // ─── Edit ──────────────────────────────────────────────────
   function startEdit(promo) {
     setEditId(promo.id);
-    setEditForm({ name: promo.name, legalText: promo.legalText || "" });
+    setEditForm({ name: promo.name, description: promo.description || "", legalText: promo.legalText || "" });
     setEditErr("");
     pvUiHook("merchant.promotions.edit.open", { stable: "promo:edit", merchantId, promoId: promo.id });
   }
@@ -338,6 +368,7 @@ export default function MerchantPromotions() {
     try {
       const payload = {
         name: editForm.name.trim(),
+        description: editForm.description?.trim() || null,
         legalText: editForm.legalText?.trim() || null,
       };
       if (isPvAdmin) {
@@ -557,6 +588,27 @@ export default function MerchantPromotions() {
                 <div style={fieldRow}>
                   <label style={labelStyle}>Program Name <span style={reqStar}>*</span></label>
                   <input style={inputStyle} value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. Coffee Stamp Card" autoFocus />
+                </div>
+
+                {/* Description — consumer-facing pitch */}
+                <div style={fieldRow}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>Description <span style={{ fontWeight: 400, color: color.textFaint }}>(shown to consumers)</span></label>
+                    <button
+                      type="button"
+                      style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, borderRadius: 999 }}
+                      disabled={generatingDesc || !form.name.trim()}
+                      onClick={handleGenerateDesc}
+                    >
+                      {generatingDesc ? "Writing..." : "✦ Write for me"}
+                    </button>
+                  </div>
+                  <textarea
+                    style={{ ...inputStyle, width: "100%", minHeight: 60, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
+                    value={form.description}
+                    onChange={e => setF("description", e.target.value)}
+                    placeholder="Enter a pitch or click 'Write for me' — this is what consumers see when deciding whether to join."
+                  />
                 </div>
 
                 <div style={twoCol}>
