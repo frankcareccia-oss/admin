@@ -10,7 +10,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { color } from "../theme";
-import { merchantCreatePromotion, merchantGetSimulatorData, merchantGetNewSimulatorData } from "../api/client";
+import { merchantCreatePromotion, merchantGetSimulatorData, merchantGetNewSimulatorData, merchantListCategories } from "../api/client";
 import PromotionSimulator from "../components/PromotionSimulator";
 
 const C = {
@@ -117,10 +117,17 @@ export default function MerchantGrowthStudio() {
   const navigate = useNavigate();
   const [step, setStep] = React.useState(1); // 1=goal, 2=configure, 3=simulator, 4=publish
   const [selectedGoal, setSelectedGoal] = React.useState(null);
-  const [config, setConfig] = React.useState({ threshold: 8, rewardValue: 500, expiryDays: 90, promoName: "" });
+  const [config, setConfig] = React.useState({ threshold: 8, rewardValue: 500, expiryDays: 90, promoName: "", startAt: "", endAt: "" });
   const [simulatorData, setSimulatorData] = React.useState(null);
   const [publishing, setPublishing] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [categories, setCategories] = React.useState([]);
+  const [created, setCreated] = React.useState(false);
+
+  // Load categories on mount for promotion creation
+  React.useEffect(() => {
+    merchantListCategories().then(res => setCategories(res?.categories || [])).catch(() => {});
+  }, []);
 
   const goal = GOALS.find(g => g.id === selectedGoal);
 
@@ -159,15 +166,43 @@ export default function MerchantGrowthStudio() {
     }
   };
 
-  const handlePublish = async (status) => {
+  const handlePublish = async () => {
     setPublishing(true);
     setError(null);
     try {
       const promoName = config.promoName || `${goal.title} Program`;
-      // Navigate to promotions page for now — full creation wired through existing promo flow
-      navigate("/merchant/promotions");
+      // Pick first active category (visit-based if available, else any)
+      const activeCats = categories.filter(c => c.status === "active");
+      const visitCat = activeCats.find(c => c.categoryType === "visit");
+      const categoryId = visitCat?.id || activeCats[0]?.id;
+
+      if (!categoryId) {
+        setError("No product categories found. Please create a category on the Products page first.");
+        setPublishing(false);
+        return;
+      }
+
+      const payload = {
+        name: promoName,
+        categoryId,
+        mechanic: "stamps",
+        threshold: config.threshold,
+        rewardType: goal.rewardType,
+        rewardValue: (goal.rewardType === "discount_pct" || goal.rewardType === "discount_fixed")
+          ? config.rewardValue : undefined,
+        rewardNote: goal.rewardType === "free_item" ? "Free item reward" : undefined,
+        rewardSku: goal.rewardType === "free_item" ? "REWARD" : undefined,
+        rewardExpiryDays: config.expiryDays,
+        scope: "merchant",
+        objective: selectedGoal,
+        startAt: config.startAt || undefined,
+        endAt: config.endAt || undefined,
+      };
+
+      await merchantCreatePromotion(payload);
+      setCreated(true);
     } catch (e) {
-      setError(e?.message);
+      setError(e?.message || "Failed to create promotion");
     } finally {
       setPublishing(false);
     }
@@ -313,28 +348,76 @@ export default function MerchantGrowthStudio() {
         {/* ── Step 4: Name & Publish ── */}
         {step === 4 && (
           <div style={s.card}>
-            <div style={s.question}>Almost there! Give your program a name:</div>
-            <input
-              type="text"
-              value={config.promoName}
-              onChange={e => setConfig(prev => ({ ...prev, promoName: e.target.value }))}
-              placeholder={`e.g., ${goal?.title || "Loyalty"} Program`}
-              style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 15, marginBottom: 16, boxSizing: "border-box" }}
-            />
+            {created ? (
+              <>
+                <div style={{ textAlign: "center", padding: "20px 0" }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>&#10003;</div>
+                  <div style={s.question}>Program created as Draft!</div>
+                  <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+                    Your program has been saved. Head to Promotions to review, stage, and go live when you're ready.
+                  </div>
+                  <button style={s.primaryBtn} onClick={() => navigate("/merchant/promotions")}>
+                    Go to Promotions →
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={s.question}>Almost there! Give your program a name:</div>
+                <input
+                  type="text"
+                  value={config.promoName}
+                  onChange={e => setConfig(prev => ({ ...prev, promoName: e.target.value }))}
+                  placeholder={`e.g., ${goal?.title || "Loyalty"} Program`}
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 15, marginBottom: 16, boxSizing: "border-box" }}
+                />
 
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
-              Once launched, customers can join this program immediately. You can pause or modify it anytime from the Promotions page.
-            </div>
+                {/* Program details summary */}
+                <div style={{ background: C.bg, borderRadius: 8, padding: "12px 16px", marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>Program Details</div>
+                  <div><strong>Goal:</strong> {goal?.title}</div>
+                  <div><strong>Type:</strong> {goal?.rewardType === "discount_fixed" ? "Fixed discount" : goal?.rewardType === "discount_pct" ? "Percentage discount" : "Free item"}</div>
+                  <div><strong>Threshold:</strong> {config.threshold} visits</div>
+                  <div><strong>Reward:</strong> {rewardLabel}</div>
+                  <div><strong>Reward expires:</strong> {config.expiryDays} days after earning</div>
+                </div>
 
-            <button style={s.primaryBtn} onClick={() => handlePublish("active")} disabled={publishing}>
-              {publishing ? "Creating..." : "Launch Program"}
-            </button>
-            <button style={s.secondaryBtn} onClick={() => handlePublish("draft")} disabled={publishing}>
-              Save as Draft — I'll launch later
-            </button>
-            <button style={{ ...s.secondaryBtn, marginTop: 0 }} onClick={() => setStep(3)}>
-              ← Back to preview
-            </button>
+                {/* Start / End dates */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 4 }}>Start Date (optional)</label>
+                    <input
+                      type="date"
+                      value={config.startAt}
+                      onChange={e => setConfig(prev => ({ ...prev, startAt: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, boxSizing: "border-box" }}
+                    />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Leave blank to start when you go live.</div>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 4 }}>End Date (optional)</label>
+                    <input
+                      type="date"
+                      value={config.endAt}
+                      onChange={e => setConfig(prev => ({ ...prev, endAt: e.target.value }))}
+                      style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, boxSizing: "border-box" }}
+                    />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Leave blank for an ongoing program.</div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+                  Your program will be saved as a <strong>Draft</strong>. You can review it on the Promotions page, then stage and go live when you're ready.
+                </div>
+
+                <button style={s.primaryBtn} onClick={handlePublish} disabled={publishing}>
+                  {publishing ? "Creating..." : "Save as Draft"}
+                </button>
+                <button style={{ ...s.secondaryBtn, marginTop: 8 }} onClick={() => setStep(3)}>
+                  ← Back to preview
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

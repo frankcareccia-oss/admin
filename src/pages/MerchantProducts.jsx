@@ -90,6 +90,38 @@ const DIETARY   = ["vegan", "vegetarian", "halal", "kosher", "gluten-free", "dai
 
 const EMPTY_FORM = { name: "", description: "", sku: "", imageUrl: "", categoryId: "", complianceText: "", allergens: [], dietaryFlags: [] };
 
+function DescriptionCell({ text }) {
+  const [open, setOpen] = React.useState(false);
+  const truncated = text.length > 50;
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180, display: "inline-block" }}>
+          {text}
+        </span>
+        {truncated && (
+          <span
+            onClick={() => setOpen(!open)}
+            style={{ cursor: "pointer", fontSize: 11, color: color.primary, fontWeight: 700, flexShrink: 0, userSelect: "none" }}
+            title={open ? "Collapse" : "Show full description"}
+          >
+            {open ? "▲" : "▼"}
+          </span>
+        )}
+      </div>
+      {open && (
+        <div style={{
+          marginTop: 6, padding: "8px 10px", background: color.pageBg,
+          border: `1px solid ${color.border}`, borderRadius: 6,
+          fontSize: 12, lineHeight: 1.5, color: color.text, whiteSpace: "pre-wrap",
+        }}>
+          {text}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MerchantProducts() {
   const { merchantId } = useParams();
   const systemRole = getSystemRole();
@@ -599,8 +631,18 @@ export default function MerchantProducts() {
                     onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
                     placeholder="https://images.unsplash.com/photo-… (direct image link)"
                   />
-                  <div style={{ fontSize: 11, color: color.textFaint, marginTop: 4 }}>
-                    Must be a direct link to an image file, not a webpage. Right-click any image → "Copy image address".
+                  <div style={{ fontSize: 11, color: color.textFaint, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    <a
+                      href={`https://unsplash.com/s/photos/${encodeURIComponent(
+                        (form.name || categories.find(c => String(c.id) === String(form.categoryId))?.name || "product").replace(/\s+/g, "-")
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: color.primary, textDecoration: "none", fontWeight: 600 }}
+                    >
+                      Browse Unsplash →
+                    </a>
+                    <span>Find a photo, right-click → "Copy image address", then paste above.</span>
                   </div>
                 </div>
                 <ProductAvatar name={form.name || "?"} imageUrl={form.imageUrl || undefined} size={40} radius={8} />
@@ -754,7 +796,11 @@ export default function MerchantProducts() {
                         <span style={{ fontSize: 11, color: color.textFaint, marginLeft: 6 }}>saving…</span>
                       )}
                     </td>
-                    <td style={{ ...td, color: color.textMuted }}>{p.description || "—"}</td>
+                    <td style={{ ...td, color: color.textMuted, maxWidth: 220, position: "relative" }}>
+                      {p.description ? (
+                        <DescriptionCell text={p.description} />
+                      ) : "—"}
+                    </td>
                     <td style={td}><StatusBadge status={p.status} /></td>
                     <td style={{ ...td, textAlign: "right" }}>
                       <div style={{ display: "inline-flex", gap: 8 }}>
@@ -821,7 +867,11 @@ export default function MerchantProducts() {
                                   placeholder="Direct image link (https://…)"
                                 />
                                 <div style={{ fontSize: 11, color: color.textFaint, marginTop: 3 }}>
-                                  Right-click image → "Copy image address"
+                                  <a
+                                    href={`https://unsplash.com/s/photos/${encodeURIComponent((editForm.name || p.name || "product").replace(/\s+/g, "-"))}`}
+                                    target="_blank" rel="noopener noreferrer"
+                                    style={{ color: color.primary, textDecoration: "none", fontWeight: 600 }}
+                                  >Browse Unsplash →</a>
                                 </div>
                               </div>
                               <ProductAvatar name={editForm.name || p.name} imageUrl={editForm.imageUrl || undefined} size={32} radius={6} />

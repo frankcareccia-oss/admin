@@ -641,23 +641,23 @@ export default function MerchantPromotions() {
                   {/* Scope */}
                   <div style={fieldRow}>
                     <label style={labelStyle}>Scope</label>
-                    <select style={selectStyle} value={form.scope} onChange={e => setF("scope", e.target.value)}>
+                    <select style={selectStyle} value={form.scope === "store" && form.storeId ? `store:${form.storeId}` : "merchant"} onChange={e => {
+                      const val = e.target.value;
+                      if (val === "merchant") {
+                        setF("scope", "merchant");
+                        setF("storeId", "");
+                      } else if (val.startsWith("store:")) {
+                        setF("scope", "store");
+                        setF("storeId", val.split(":")[1]);
+                      }
+                    }}>
                       <option value="merchant">All Stores</option>
-                      <option value="store">Specific Store</option>
+                      {(stores || []).map(st => (
+                        <option key={st.id} value={`store:${st.id}`}>{st.name}</option>
+                      ))}
                     </select>
-                    <div style={hint}>Store-scoped programs earn stamps only at the selected location.</div>
+                    <div style={hint}>Select a specific store to limit this program to one location, or "All Stores" for merchant-wide.</div>
                   </div>
-                  {form.scope === "store" && (
-                    <div style={fieldRow}>
-                      <label style={labelStyle}>Available at</label>
-                      <select style={selectStyle} value={form.storeId} onChange={e => setF("storeId", e.target.value)}>
-                        <option value="">Select a store...</option>
-                        {(stores || []).map(st => (
-                          <option key={st.id} value={st.id}>{st.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </div>
 
                 {/* Terms & Conditions */}
@@ -735,7 +735,11 @@ export default function MerchantPromotions() {
                         <td style={{ ...td, fontSize: 13 }}>
                           {promo.timeframeDays ? `${promo.timeframeDays}d` : <span style={{ color: color.textFaint }}>No expiry</span>}
                         </td>
-                        <td style={{ ...td, fontSize: 13 }}>{SCOPE_LABELS[promo.scope] || promo.scope || "—"}</td>
+                        <td style={{ ...td, fontSize: 13 }}>
+                          {promo.storeId
+                            ? (stores.find(st => st.id === promo.storeId)?.name || `Store #${promo.storeId}`)
+                            : "All Stores"}
+                        </td>
                         <td style={td}><StatusBadge status={promo.status} /></td>
                         <td style={{ ...td, textAlign: "right" }}>
                           <div style={{ display: "inline-flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
