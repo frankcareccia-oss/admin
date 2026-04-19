@@ -2338,12 +2338,22 @@ export async function merchantGetPromotionDetail(promotionId, { period = "30d" }
   return request(`/merchant/reporting/promotions/${promotionId}?period=${period}`, { auth: "jwt" });
 }
 
-export async function merchantGetSimulatorData(promotionId) {
-  return request(`/merchant/reporting/simulator/${promotionId}`, { auth: "jwt" });
+export async function merchantGetSimulatorData(promotionId, objective) {
+  const qs = objective ? `?objective=${objective}` : "";
+  return request(`/merchant/reporting/simulator/${promotionId}${qs}`, { auth: "jwt" });
 }
 
-export async function merchantGetNewSimulatorData(promotionType) {
-  return request(`/merchant/reporting/simulator/new/${promotionType}`, { auth: "jwt" });
+export async function merchantGetNewSimulatorData(promotionType, objective) {
+  const qs = objective ? `?objective=${objective}` : "";
+  return request(`/merchant/reporting/simulator/new/${promotionType}${qs}`, { auth: "jwt" });
+}
+
+export async function merchantSetAvgTransactionValue(avgTransactionValueCents) {
+  return request("/merchant/reporting/simulator/aov", {
+    method: "PATCH",
+    auth: "jwt",
+    body: { avgTransactionValueCents },
+  });
 }
 
 // ── Merchant Onboarding ──

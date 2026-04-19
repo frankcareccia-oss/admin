@@ -137,13 +137,14 @@ export default function MerchantGrowthStudio() {
   };
 
   const handleConfigure = async () => {
-    // Load simulator baseline
+    // Load simulator baseline with objective
     try {
-      const data = await merchantGetNewSimulatorData("stamp");
+      const data = await merchantGetNewSimulatorData("stamp", selectedGoal);
       setSimulatorData({
         ...data,
         promotion: {
           promotionType: "stamp",
+          objective: selectedGoal,
           currentParams: {
             stampThreshold: config.threshold,
             rewardValueCents: config.rewardValue,
@@ -295,7 +296,7 @@ export default function MerchantGrowthStudio() {
             </div>
 
             {simulatorData && (
-              <PromotionSimulator simulatorData={simulatorData} mode="new" />
+              <PromotionSimulator simulatorData={simulatorData} mode="new" objective={selectedGoal} />
             )}
 
             <div style={{ marginTop: 16 }}>
