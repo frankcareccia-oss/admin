@@ -11,6 +11,8 @@
 import React from "react";
 import { Link, useParams } from "react-router-dom";
 import { color, btn, palette, inputStyle as themeInput } from "../theme";
+import PromotionLaunchSequence from "../components/PromotionLaunchSequence";
+import PromotionMonitor from "../components/PromotionMonitor";
 import {
   getMerchant,
   me,
@@ -357,8 +359,16 @@ export default function MerchantPromotions() {
     }
   }
 
+  // Launch sequence modal state
+  const [launchPromo, setLaunchPromo] = React.useState(null);
+
   // ─── Status transitions ────────────────────────────────────
   async function handleTransition(promo, toStatus) {
+    // Intercept "active" transitions — show launch sequence first
+    if (toStatus === "active" && promo.status !== "paused") {
+      setLaunchPromo(promo);
+      return;
+    }
     pvUiHook(`merchant.promotions.transition.${toStatus}`, { stable: "promo:transition", merchantId, promoId: promo.id, toStatus });
     try {
       if (isPvAdmin) {
@@ -855,7 +865,29 @@ export default function MerchantPromotions() {
         </>
       )}
 
+      {/* Live promotion monitors for active promos */}
+      {promotions.filter(p => p.status === "active").length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: color.text, marginBottom: 10 }}>Live Monitoring</div>
+          {promotions.filter(p => p.status === "active").map(p => (
+            <PromotionMonitor key={p.id} promotionId={p.id} promotionName={p.name} promotionStatus={p.status} />
+          ))}
+        </div>
+      )}
+
       <SupportInfo context={{ page: "MerchantPromotions", merchantId, lastError, lastSuccessTs }} />
+
+      {/* Launch sequence modal */}
+      {launchPromo && (
+        <PromotionLaunchSequence
+          promotion={launchPromo}
+          onLaunch={async () => {
+            await handleTransition({ ...launchPromo, status: "staged" }, "active");
+            setLaunchPromo(null);
+          }}
+          onCancel={() => setLaunchPromo(null)}
+        />
+      )}
     </PageContainer>
   );
 }
