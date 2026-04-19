@@ -42,6 +42,7 @@ import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 import SuggestionBanner from "../components/SuggestionBanner";
+import GuidanceCard from "../components/GuidanceCard";
 
 // ─── pvUiHook ────────────────────────────────────────────────
 function pvUiHook(event, fields = {}) {
@@ -139,6 +140,7 @@ export default function MerchantPromotions() {
   const [editSaving, setEditSaving]   = React.useState(false);
   const [editGeneratingTerms, setEditGeneratingTerms] = React.useState(false);
   const [generatingDesc, setGeneratingDesc] = React.useState(false);
+  const [descVersions, setDescVersions] = React.useState(null); // { versionA, versionB }
 
   // Performance outcomes
   const [outcomeId, setOutcomeId]     = React.useState(null);
@@ -278,16 +280,18 @@ export default function MerchantPromotions() {
     }
   }
 
-  // ─── AI description generation ─────────────────────────────
+  // ─── AI description generation (two versions) ──────────────
   async function handleGenerateDesc() {
     if (!form.name.trim()) { setFormErr("Enter a program name first"); return; }
     setGeneratingDesc(true);
     setFormErr("");
+    setDescVersions(null);
     try {
       const cat = activeCategories.find(c => String(c.id) === String(form.categoryId));
       const data = await generatePromoDescription({
         name: form.name,
         categoryName: cat?.name || null,
+        promotionType: "stamp",
         threshold: parseInt(form.threshold, 10) || null,
         rewardType: form.rewardType,
         rewardValue: (form.rewardType === "discount_pct" || form.rewardType === "discount_fixed")
@@ -296,12 +300,22 @@ export default function MerchantPromotions() {
         rewardNote: form.rewardType === "custom" ? form.rewardNote : undefined,
         timeframeDays: form.timeframeDays ? parseInt(form.timeframeDays, 10) : null,
       });
-      setF("description", data.draft || "");
+      if (data.versionA && data.versionB) {
+        setDescVersions({ versionA: data.versionA, versionB: data.versionB });
+      } else {
+        // Fallback: single version
+        setF("description", data.versionA || data.draft || "");
+      }
     } catch (e) {
       setFormErr(e?.message || "Failed to generate description");
     } finally {
       setGeneratingDesc(false);
     }
+  }
+
+  function selectDescVersion(version) {
+    setF("description", version);
+    setDescVersions(null);
   }
 
   // ─── Create ────────────────────────────────────────────────
@@ -582,6 +596,7 @@ export default function MerchantPromotions() {
           ) : (
             <div style={createCard}>
               <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 16 }}>New Reward Program</div>
+              <GuidanceCard type="promotion" />
               <form onSubmit={handleCreate}>
 
                 {/* Name */}
@@ -603,6 +618,35 @@ export default function MerchantPromotions() {
                       {generatingDesc ? "Writing..." : "✦ Write for me"}
                     </button>
                   </div>
+                  {/* A/B version picker */}
+                  {descVersions ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+                      <div
+                        onClick={() => selectDescVersion(descVersions.versionA)}
+                        style={{
+                          padding: "10px 12px", borderRadius: 8, cursor: "pointer", lineHeight: 1.5,
+                          border: form.description === descVersions.versionA ? "2px solid #1D9E75" : `1px solid ${color.border}`,
+                          background: form.description === descVersions.versionA ? "rgba(29,158,117,0.06)" : color.cardBg,
+                          fontSize: 13,
+                        }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#1D9E75", marginBottom: 4 }}>A — Reward-led</div>
+                        {descVersions.versionA}
+                      </div>
+                      <div
+                        onClick={() => selectDescVersion(descVersions.versionB)}
+                        style={{
+                          padding: "10px 12px", borderRadius: 8, cursor: "pointer", lineHeight: 1.5,
+                          border: form.description === descVersions.versionB ? "2px solid #1D9E75" : `1px solid ${color.border}`,
+                          background: form.description === descVersions.versionB ? "rgba(29,158,117,0.06)" : color.cardBg,
+                          fontSize: 13,
+                        }}
+                      >
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#1D9E75", marginBottom: 4 }}>B — Experience-led</div>
+                        {descVersions.versionB}
+                      </div>
+                    </div>
+                  ) : null}
                   <textarea
                     style={{ ...inputStyle, width: "100%", minHeight: 60, resize: "vertical", boxSizing: "border-box", fontFamily: "inherit", lineHeight: 1.5 }}
                     value={form.description}

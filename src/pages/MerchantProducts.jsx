@@ -39,6 +39,7 @@ import PageHeader from "../components/layout/PageHeader";
 import SupportInfo from "../components/SupportInfo";
 import ProductAvatar from "../components/ProductAvatar";
 import SuggestionBanner from "../components/SuggestionBanner";
+import GuidanceCard from "../components/GuidanceCard";
 
 // ─── pvUiHook ────────────────────────────────────────────────
 function pvUiHook(event, fields = {}) {
@@ -613,6 +614,7 @@ export default function MerchantProducts() {
       ) : (
         <div style={{ border: `1px solid ${color.border}`, borderRadius: 14, padding: 20, marginBottom: 20, background: color.cardBg }}>
           <div style={{ fontWeight: 800, marginBottom: 14, color: color.text }}>New Product</div>
+          <GuidanceCard type="product" />
           <form onSubmit={handleCreate}>
             <div style={fieldRow}>
               <label style={labelStyle}>Name <span style={{ color: color.danger }}>*</span></label>
