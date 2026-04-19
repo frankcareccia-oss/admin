@@ -170,7 +170,7 @@ export default function MerchantPromotions() {
       setCategories(catRes?.categories || []);
       setProducts(prodRes?.items || prodRes?.products || []);
       setPromotions(promoRes?.promotions || []);
-      setStores(Array.isArray(storeRes?.stores) ? storeRes.stores : Array.isArray(storeRes) ? storeRes : []);
+      setStores(Array.isArray(storeRes?.stores) ? storeRes.stores : Array.isArray(storeRes?.items) ? storeRes.items : Array.isArray(storeRes) ? storeRes : []);
       setLastSuccessTs(new Date().toISOString());
       pvUiHook("merchant.promotions.load.succeeded", {
         stable: "promo:load", merchantId,
