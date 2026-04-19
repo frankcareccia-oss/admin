@@ -437,13 +437,26 @@ export default function MerchantOnboarding() {
 
         {stage === "connect" && step === "3.2" && (
           <div style={s.card}>
-            <div style={s.question}>Checking your connection...</div>
+            <div style={s.question}>Let's check your connection...</div>
+            <div style={s.hint}>If you just completed the {session?.posType === "clover" ? "Clover" : "Square"} login, click below to verify.</div>
             <button style={s.primaryBtn} onClick={checkConnection}>
               Check Connection Status
             </button>
             <button style={{ ...s.secondaryBtn, marginTop: 8 }} onClick={() => updateSession({ currentStep: "3.1" })}>
               Try connecting again
             </button>
+
+            {/* Specific failure guidance */}
+            <div style={{ marginTop: 16, fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+              <div style={{ fontWeight: 600, color: C.navy, marginBottom: 8 }}>Common issues:</div>
+              <ul style={{ paddingLeft: 18, margin: 0 }}>
+                <li style={{ marginBottom: 6 }}><strong>Clicked Cancel</strong> — no problem, just try again when ready.</li>
+                <li style={{ marginBottom: 6 }}><strong>Wrong account</strong> — make sure you used your owner/admin email, not a staff login.</li>
+                <li style={{ marginBottom: 6 }}><strong>No admin access</strong> — you may need the business owner's login. <span style={{ cursor: "pointer", color: C.teal, textDecoration: "underline" }} onClick={() => updateSession({ currentStep: "2.5" })}>Get help finding it</span>.</li>
+                <li style={{ marginBottom: 6 }}><strong>{session?.posType === "clover" ? "Clover" : "Square"} had an error</strong> — wait 30 seconds and try again. Check <a href="https://status.clover.com" target="_blank" rel="noopener noreferrer" style={{ color: C.teal }}>system status</a>.</li>
+                <li><strong>Browser issue</strong> — try opening in a fresh tab or incognito window.</li>
+              </ul>
+            </div>
           </div>
         )}
 
