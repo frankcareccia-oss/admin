@@ -1,285 +1,305 @@
 /**
- * MerchantDashboard.jsx
+ * MerchantDashboard.jsx — Three-section merchant home
  *
- * Merchant portal hub — mirrors the AdminHome card layout exactly.
- * Route: /merchant/dashboard
+ * Section 1: Last week summary (past — final numbers)
+ * Section 2: This week (present/future — scheduled + in motion)
+ * Section 3: Needs your attention (timeless — action required)
+ *
+ * Section order persisted in localStorage. Three preset buttons.
  */
 
 import React from "react";
 import { Link } from "react-router-dom";
 import { color } from "../theme";
-import {
-  me,
-  listMerchantStores,
-  merchantListUsers,
-  merchantListProducts,
-  merchantListPromotions,
-  merchantListBundles,
-  merchantListInvoices,
-} from "../api/client";
+import { merchantGetDashboardHome } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
-import PageHeader from "../components/layout/PageHeader";
-import DuplicateCustomerBanner from "../components/DuplicateCustomerBanner";
 
-function pvUiHook(event, fields = {}) {
-  try {
-    console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields }));
-  } catch {}
+const C = {
+  navy: color.navy || "#0B2A33",
+  teal: "#1D9E75", tealBg: "#E1F5EE", tealDark: "#0F6E56",
+  amber: "#EF9F27", amberBg: "#FAEEDA", amberDark: "#854F0B",
+  red: "#E24B4A", redBg: "#FCEBEB",
+  blue: "#3B82F6", blueBg: "#E6F1FB",
+  muted: "#888780", border: "#E5E5E0", bg: "#F4F4F0",
+  green: "#1D9E75", greenBg: "#F8FDFB",
+};
+
+const PRESETS = {
+  default: ["lastweek", "thisweek", "alerts"],
+  alertsFirst: ["alerts", "thisweek", "lastweek"],
+  weekFirst: ["thisweek", "alerts", "lastweek"],
+};
+const STORAGE_KEY = "pv_dashboard_section_order";
+
+function getOrder() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || PRESETS.default; }
+  catch { return PRESETS.default; }
 }
-
-// ── Exact copy of AdminCard from AdminHome.jsx ─────────────────────────────────
-function AdminCard({ to, icon, title, description, meta, disabled }) {
-  const inner = (
-    <div style={{
-      border: `1px solid ${disabled ? color.borderSubtle : color.border}`,
-      borderRadius: 16,
-      padding: "24px 24px 20px",
-      background: disabled ? "rgba(0,0,0,0.02)" : color.cardBg,
-      cursor: disabled ? "default" : "pointer",
-      height: "100%",
-      boxSizing: "border-box",
-      display: "flex",
-      flexDirection: "column",
-      gap: 8,
-      opacity: disabled ? 0.50 : 1,
-      transition: "box-shadow 0.15s, border-color 0.15s",
-    }}>
-      <div style={{ fontSize: 36, lineHeight: 1, marginBottom: 4 }}>{icon}</div>
-      <div style={{ fontWeight: 800, fontSize: 16, color: disabled ? color.textFaint : color.text }}>
-        {title}
-        {disabled && (
-          <span style={{
-            marginLeft: 8, fontSize: 11, fontWeight: 700,
-            background: "rgba(0,0,0,0.07)", borderRadius: 999,
-            padding: "2px 8px", verticalAlign: "middle",
-            color: color.textFaint,
-          }}>
-            Coming soon
-          </span>
-        )}
-      </div>
-      <div style={{ fontSize: 13, color: color.textMuted, lineHeight: 1.5, flex: 1 }}>
-        {description}
-      </div>
-      {meta && !disabled && (
-        <div style={{ fontSize: 12, fontWeight: 700, color: color.textFaint, marginTop: 4 }}>
-          {meta}
-        </div>
-      )}
-    </div>
-  );
-
-  if (disabled) return <div style={{ cursor: "default" }}>{inner}</div>;
-
-  return (
-    <Link
-      to={to}
-      style={{ textDecoration: "none", color: "inherit" }}
-      onClick={() => pvUiHook("merchant.dashboard.card.click", { card: title, to })}
-    >
-      {inner}
-    </Link>
-  );
+function saveOrder(order) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(order)); } catch {}
 }
-
-// ── Count helpers ──────────────────────────────────────────────────────────────
-
-function resolveCount(result, keys) {
-  if (result.status !== "fulfilled") return null;
-  const v = result.value;
-  for (const k of keys) {
-    if (Array.isArray(v?.[k])) return v[k].length;
+function matchesPreset(order) {
+  for (const [name, preset] of Object.entries(PRESETS)) {
+    if (order.join(",") === preset.join(",")) return name;
   }
-  if (Array.isArray(v)) return v.length;
   return null;
 }
 
-function countLabel(n, singular, plural) {
-  if (n === null) return null;
-  return `${n} ${n === 1 ? singular : (plural || singular + "s")}`;
+// ── KPI Tile ─────────────────────────────────────────────────
+
+function KpiTile({ label, value, trend, suffix, detail }) {
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px", flex: 1 }}>
+      <div style={{ fontSize: 11, color: C.muted, textTransform: "uppercase", letterSpacing: "0.3px", marginBottom: 4 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span style={{ fontSize: 26, fontWeight: 700, color: C.navy }}>{typeof value === "number" ? value.toLocaleString() : value}</span>
+        {suffix && <span style={{ fontSize: 13, color: C.muted }}>{suffix}</span>}
+      </div>
+      {trend != null && (
+        <div style={{ fontSize: 11, fontWeight: 600, color: trend > 0 ? C.teal : trend < 0 ? C.red : C.muted, marginTop: 2 }}>
+          {trend > 0 ? "+" : ""}{trend}% vs prior week
+        </div>
+      )}
+      {detail && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{detail}</div>}
+    </div>
+  );
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+// ── Section Headers ──────────────────────────────────────────
 
-export default function MerchantDashboard() {
-  const [merchantName, setMerchantName] = React.useState("");
-  const [merchantId, setMerchantId]     = React.useState(null);
-  const [loading, setLoading]           = React.useState(true);
-  const [err, setErr]                   = React.useState(null);
-  const [counts, setCounts]             = React.useState({
-    stores: null, team: null, products: null,
-    promotions: null, bundles: null, invoices: null,
-  });
+function SectionHeader({ icon, title, subtitle, bgColor, count }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+      <div style={{ width: 32, height: 32, borderRadius: 8, background: bgColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>{icon}</div>
+      <div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: C.navy }}>
+          {title}
+          {count != null && (
+            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: count === 0 ? C.teal : C.amberDark }}>
+              {count === 0 ? "All clear" : `${count} item${count === 1 ? "" : "s"}`}
+            </span>
+          )}
+        </div>
+        {subtitle && <div style={{ fontSize: 12, color: C.muted }}>{subtitle}</div>}
+      </div>
+    </div>
+  );
+}
 
-  React.useEffect(() => {
-    let cancelled = false;
+// ── Alert Card ───────────────────────────────────────────────
 
-    async function load() {
-      try {
-        const profile = await me();
-        if (cancelled) return;
-
-        const mid =
-          profile?.user?.merchantUsers?.[0]?.merchantId ??
-          profile?.user?.merchantUsers?.[0]?.merchant?.id ??
-          null;
-        const name =
-          profile?.user?.merchantUsers?.[0]?.merchant?.name ??
-          "";
-
-        if (!mid) {
-          setErr("Could not determine your merchant account.");
-          setLoading(false);
-          return;
-        }
-
-        setMerchantId(mid);
-        setMerchantName(name);
-        setLoading(false);
-
-        const [storesR, teamR, productsR, promosR, bundlesR, invoicesR] =
-          await Promise.allSettled([
-            listMerchantStores(),
-            merchantListUsers({ merchantId: mid }),
-            merchantListProducts(),
-            merchantListPromotions(),
-            merchantListBundles(),
-            merchantListInvoices(),
-          ]);
-
-        if (cancelled) return;
-
-        setCounts({
-          stores:     resolveCount(storesR,   ["stores"]),
-          team:       resolveCount(teamR,      ["users"]),
-          products:   resolveCount(productsR,  ["products"]),
-          promotions: resolveCount(promosR,    ["promotions"]),
-          bundles:    resolveCount(bundlesR,   ["bundles"]),
-          invoices:   resolveCount(invoicesR,  ["invoices"]),
-        });
-      } catch (e) {
-        if (!cancelled) {
-          setErr(e?.message || "Failed to load dashboard.");
-          setLoading(false);
-        }
-      }
-    }
-
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
-  if (loading) {
-    return (
-      <PageContainer>
-        <div style={{ padding: 24, color: color.textMuted }}>Loading…</div>
-      </PageContainer>
-    );
-  }
-
-  if (err) {
-    return (
-      <PageContainer>
-        <div style={{ padding: 24, color: color.danger }}>{err}</div>
-      </PageContainer>
-    );
-  }
-
-  const CARDS = [
-    {
-      to: "/merchant/stores",
-      icon: "🏪",
-      title: "My Stores",
-      description: "Manage your store locations, hours, and QR codes.",
-      meta: countLabel(counts.stores, "store"),
-    },
-    {
-      to: "/merchant/invoices",
-      icon: "🧾",
-      title: "Billing",
-      description: "View invoices and payment history for your account.",
-      meta: countLabel(counts.invoices, "invoice"),
-    },
-    {
-      to: "/merchant/users",
-      icon: "👥",
-      title: "Team",
-      description: "Invite and manage staff members and their portal access.",
-      meta: countLabel(counts.team, "member"),
-    },
-    {
-      to: "/merchant/products",
-      icon: "📦",
-      title: "Products",
-      description: "Set up categories and items for use in promotions and bundles.",
-      meta: countLabel(counts.products, "product"),
-    },
-    {
-      to: "/merchant/promotions",
-      icon: "🎯",
-      title: "Promotions",
-      description: "Create stamp cards, points programs, and loyalty rewards for your customers.",
-      meta: countLabel(counts.promotions, "promotion"),
-    },
-    {
-      to: "/merchant/bundles",
-      icon: "🎁",
-      title: "Bundles",
-      description: "Package products and services into bundles customers can purchase upfront.",
-      meta: countLabel(counts.bundles, "bundle"),
-    },
-    {
-      to: "/merchant/analytics",
-      icon: "📊",
-      title: "Analytics",
-      description: "KPIs, loyalty flywheel, consumer engagement, and promotion performance.",
-      meta: null,
-    },
-    {
-      to: "/merchant/growth-studio",
-      icon: "🚀",
-      title: "Growth Studio",
-      description: "Build the right loyalty program for your goal — we'll guide you step by step.",
-      meta: null,
-    },
-    {
-      to: "/merchant/onboarding",
-      icon: "🧭",
-      title: "Setup Guide",
-      description: "Connect your POS, set up your stores, and launch your first loyalty program.",
-      meta: null,
-    },
-    {
-      to: "/merchant/settings",
-      icon: "⚙️",
-      title: "Settings",
-      description: "Manage your profile, change your password, and configure account preferences.",
-      meta: null,
-    },
-  ];
+function AlertCard({ alert }) {
+  const styles = {
+    critical: { bg: C.redBg, border: "#F09595", color: "#A32D2D", badge: "Critical" },
+    billing: { bg: C.redBg, border: "#F09595", color: "#A32D2D", badge: "Billing" },
+    watch: { bg: C.amberBg, border: "#FAC775", color: C.amberDark, badge: "Watch" },
+    action: { bg: C.amberBg, border: "#FAC775", color: C.amberDark, badge: "Action" },
+    info: { bg: C.blueBg, border: "#85B7EB", color: "#0C447C", badge: "Info" },
+  };
+  const s = styles[alert.severity] || styles.info;
 
   return (
-    <PageContainer size="wide">
-      <PageHeader
-        title={merchantName || "My Dashboard"}
-        subtitle="Select a section to get started."
-      />
+    <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: "12px 16px", marginBottom: 8, position: "relative" }}>
+      <span style={{ position: "absolute", top: 10, right: 12, fontSize: 10, fontWeight: 700, padding: "1px 8px", borderRadius: 4, background: s.bg, border: `1px solid ${s.border}`, color: s.color }}>{s.badge}</span>
+      <div style={{ fontSize: 13, fontWeight: 500, color: s.color, marginBottom: 4, paddingRight: 60 }}>{alert.title}</div>
+      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{alert.description}</div>
+      {alert.action && (
+        <Link to={alert.action.to} style={{ fontSize: 11, fontWeight: 500, color: C.teal, textDecoration: "none", marginTop: 6, display: "inline-block" }}>
+          {alert.action.label}
+        </Link>
+      )}
+    </div>
+  );
+}
 
-      <div style={{ marginTop: 24 }} />
+// ── Capture Rate Bar ─────────────────────────────────────────
 
-      <DuplicateCustomerBanner />
-
-      <div style={{ marginTop: 16 }} />
-
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, 1fr)",
-        gap: 20,
-      }}>
-        {CARDS.map((c) => (
-          <AdminCard key={c.title} {...c} />
-        ))}
+function CaptureBar({ store }) {
+  const barColor = store.captureRate >= 70 ? C.teal : store.captureRate >= 50 ? C.amber : C.red;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: barColor, flexShrink: 0 }} />
+      <span style={{ fontSize: 13, fontWeight: 500, color: C.navy, flex: 1, minWidth: 120 }}>{store.storeName}</span>
+      <span style={{ fontSize: 12, color: C.muted, width: 50, textAlign: "right" }}>{store.transactions}</span>
+      <div style={{ width: 70, height: 4, borderRadius: 2, background: "#eee", position: "relative" }}>
+        <div style={{ width: `${Math.min(100, store.captureRate)}%`, height: "100%", borderRadius: 2, background: barColor }} />
       </div>
+      <span style={{ fontSize: 12, fontWeight: 600, color: barColor, width: 36, textAlign: "right" }}>{store.captureRate}%</span>
+    </div>
+  );
+}
+
+// ── Main Component ───────────────────────────────────────────
+
+export default function MerchantDashboard() {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [order, setOrder] = React.useState(getOrder);
+
+  React.useEffect(() => {
+    merchantGetDashboardHome()
+      .then(d => setData(d))
+      .catch(e => console.error("[MerchantDashboard]", e?.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handlePreset = (name) => {
+    const newOrder = PRESETS[name];
+    setOrder(newOrder);
+    saveOrder(newOrder);
+  };
+
+  if (loading) return <PageContainer><div style={{ padding: 40, textAlign: "center", color: C.muted }}>Loading dashboard...</div></PageContainer>;
+  if (!data) return <PageContainer><div style={{ padding: 40, textAlign: "center", color: C.muted }}>Could not load dashboard data.</div></PageContainer>;
+
+  const activePreset = matchesPreset(order);
+
+  const presetBtn = (name, label) => ({
+    padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "0.5px solid",
+    background: activePreset === name ? C.teal : "transparent",
+    borderColor: activePreset === name ? C.teal : C.border,
+    color: activePreset === name ? "#fff" : C.muted,
+  });
+
+  // ── Section renderers ──────────────────────────────────────
+
+  const renderLastWeek = () => {
+    const lw = data.lastWeek;
+    if (!lw) return null;
+    return (
+      <div key="lastweek" style={{ marginBottom: 28 }}>
+        <SectionHeader icon="&#128197;" title="Last Week" subtitle={lw.period.label} bgColor={C.bg} />
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <KpiTile label="Transactions" value={lw.kpis.transactions.value} trend={lw.kpis.transactions.trend} />
+          <KpiTile label="Phone Captures" value={lw.kpis.phoneCaptures.value} detail={`${lw.kpis.phoneCaptures.rate}% capture rate`} />
+          <KpiTile label="Stamps Earned" value={lw.kpis.stampsEarned.value} trend={lw.kpis.stampsEarned.trend} />
+          <KpiTile label="New Members" value={lw.kpis.newMembers.value} detail={lw.kpis.newMembers.change > 0 ? `+${lw.kpis.newMembers.change} vs prior` : lw.kpis.newMembers.change < 0 ? `${lw.kpis.newMembers.change} vs prior` : "Same as prior"} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {/* Capture by store */}
+          <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Capture Rate by Location</div>
+            {lw.captureByStore.length > 0 ? lw.captureByStore.map(s => <CaptureBar key={s.storeId} store={s} />) : (
+              <div style={{ fontSize: 12, color: C.muted }}>No store-level data yet.</div>
+            )}
+          </div>
+          {/* Reward pipeline */}
+          <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Reward Pipeline</div>
+            {[
+              { label: "Stamps toward milestone", value: lw.rewardPipeline.stampsTowardMilestone },
+              { label: "Milestones reached", value: lw.rewardPipeline.milestonesReached, color: C.teal },
+              { label: "Rewards redeemed", value: lw.rewardPipeline.rewardsRedeemed },
+              { label: "Total enrolled members", value: lw.rewardPipeline.totalEnrolled },
+            ].map(r => (
+              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}>
+                <span style={{ color: C.navy }}>{r.label}</span>
+                <span style={{ fontWeight: 700, color: r.color || C.navy }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderThisWeek = () => {
+    const tw = data.thisWeek;
+    if (!tw) return null;
+    return (
+      <div key="thisweek" style={{ marginBottom: 28 }}>
+        <SectionHeader icon="&#128339;" title="This Week" subtitle={tw.period.label} bgColor={C.tealBg} />
+
+        {/* Event cards */}
+        {(tw.events.goingLive.length > 0 || tw.events.expiringRewards.count > 0) && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            {tw.events.goingLive.map(p => (
+              <div key={p.id} style={{ flex: 1, background: C.greenBg, border: `1px solid #5DCAA5`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.tealDark, marginBottom: 4 }}>Going Live</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: C.navy }}>{p.name}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{p.date}</div>
+              </div>
+            ))}
+            {tw.events.expiringRewards.count > 0 && (
+              <div style={{ flex: 1, background: "#FFFBF2", border: `1px solid #FAC775`, borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", color: C.amberDark, marginBottom: 4 }}>Expiring</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: C.navy }}>{tw.events.expiringRewards.count} rewards expiring within 7 days</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Promotions + Rewards */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Active Promotions</div>
+            {tw.promotions.map(p => (
+              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.bg}` }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: C.navy }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{p.promotionType} · {p.enrolledCount} enrolled</div>
+                </div>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4,
+                  background: p.status === "active" ? C.tealBg : p.status === "staged" ? C.amberBg : C.bg,
+                  color: p.status === "active" ? C.tealDark : p.status === "staged" ? C.amberDark : C.muted,
+                }}>{p.status}</span>
+              </div>
+            ))}
+            {tw.promotions.length === 0 && <div style={{ fontSize: 12, color: C.muted }}>No promotions yet.</div>}
+            <Link to="/merchant/promotions" style={{ fontSize: 11, color: C.teal, textDecoration: "none", marginTop: 8, display: "inline-block" }}>+ Create promotion</Link>
+          </div>
+
+          <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 10, padding: "14px 16px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.navy, marginBottom: 8 }}>Rewards Status</div>
+            {[
+              { label: "Ready at counter", value: tw.rewardsPipeline.ready, color: tw.rewardsPipeline.ready > 0 ? C.teal : null },
+              { label: "Expiring within 14 days", value: tw.rewardsPipeline.expiring14d, color: tw.rewardsPipeline.expiring14d > 0 ? C.amber : null },
+            ].map(r => (
+              <div key={r.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontSize: 13 }}>
+                <span style={{ color: C.navy }}>{r.label}</span>
+                <span style={{ fontWeight: 700, color: r.color || C.navy }}>{r.value}</span>
+              </div>
+            ))}
+            <Link to="/merchant/reports" style={{ fontSize: 11, color: C.teal, textDecoration: "none", marginTop: 8, display: "inline-block" }}>View reward pipeline →</Link>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAlerts = () => {
+    const alerts = data.alerts;
+    return (
+      <div key="alerts" style={{ marginBottom: 28 }}>
+        <SectionHeader icon="&#9888;" title="Needs Your Attention" bgColor={C.amberBg} count={alerts.count} />
+        {alerts.count === 0 ? (
+          <div style={{ background: C.tealBg, border: `0.5px solid #5DCAA5`, borderRadius: 10, padding: "20px", textAlign: "center", fontSize: 13, color: C.tealDark }}>
+            Everything looks good — nothing needs your attention right now.
+          </div>
+        ) : (
+          alerts.items.map((a, i) => <AlertCard key={i} alert={a} />)
+        )}
+      </div>
+    );
+  };
+
+  const sectionRenderers = { lastweek: renderLastWeek, thisweek: renderThisWeek, alerts: renderAlerts };
+
+  return (
+    <PageContainer>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: C.navy }}>Dashboard</div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button style={presetBtn("default", "Default")} onClick={() => handlePreset("default")}>Default</button>
+          <button style={presetBtn("alertsFirst", "Alerts first")} onClick={() => handlePreset("alertsFirst")}>Alerts first</button>
+          <button style={presetBtn("weekFirst", "Week first")} onClick={() => handlePreset("weekFirst")}>Week first</button>
+        </div>
+      </div>
+
+      {order.map(sectionId => sectionRenderers[sectionId]?.())}
     </PageContainer>
   );
 }

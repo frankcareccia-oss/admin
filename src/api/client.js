@@ -2358,6 +2358,10 @@ export async function merchantGetDashboard({ period = "30d", storeId = "all", fr
   return request(`/merchant/reporting/dashboard?${qs}`, { auth: "jwt" });
 }
 
+export async function merchantGetDashboardHome() {
+  return request("/merchant/dashboard/home", { auth: "jwt" });
+}
+
 export async function merchantGetReportingStores() {
   return request("/merchant/reporting/stores", { auth: "jwt" });
 }
