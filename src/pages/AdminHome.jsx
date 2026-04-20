@@ -99,18 +99,16 @@ const CARDS = [
     description: "Platform-wide analytics — visit volume, reward activity, revenue rollups, and merchant health.",
   },
   {
-    to: null,
+    to: "/admin/oversight",
     icon: "🔔",
     title: "Alerts",
-    description: "Automated alerts for past-due invoices, suspended merchants, and system health events.",
-    disabled: true,
+    description: "System alerts — merchant health, POS connectivity, cron failures, and transaction monitoring.",
   },
   {
-    to: null,
+    to: "/admin/platform/config",
     icon: "🛠️",
     title: "Platform Settings",
-    description: "System configuration, integrations, and platform-level access control.",
-    disabled: true,
+    description: "Consumer session length, SMS validity, and platform-level configuration.",
   },
   {
     to: "/admin/system",
