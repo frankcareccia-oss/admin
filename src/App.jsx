@@ -75,6 +75,7 @@ import AdminReports from "./pages/AdminReports";
 import AdminSystem from "./pages/AdminSystem";
 import MerchantWeeklySummary from "./pages/MerchantWeeklySummary";
 import AdminOversight from "./pages/AdminOversight";
+import AdminSupportTickets from "./pages/AdminSupportTickets";
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
@@ -791,7 +792,9 @@ function Layout({ children }) {
                             <NavLink to="/admin" style={navPill}>
                               Dashboard
                             </NavLink>
-                            {location.pathname.startsWith("/admin/oversight") ? (
+                            {location.pathname.startsWith("/admin/support") ? (
+                              <NavLink to="/admin/support" style={navPill}>Support</NavLink>
+                            ) : location.pathname.startsWith("/admin/oversight") ? (
                               <NavLink to="/admin/oversight" style={navPill}>Oversight</NavLink>
                             ) : location.pathname.startsWith("/admin/system") ? (
                               <NavLink to="/admin/system" style={navPill}>System</NavLink>
@@ -1304,6 +1307,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminOversight />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/admin/support"
+            element={
+              <RequireAuth>
+                <AdminSupportTickets />
               </RequireAuth>
             }
           />

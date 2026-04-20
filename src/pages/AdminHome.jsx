@@ -111,6 +111,12 @@ const CARDS = [
     description: "Consumer session length, SMS validity, and platform-level configuration.",
   },
   {
+    to: "/admin/support",
+    icon: "🎧",
+    title: "Support Tickets",
+    description: "AI-diagnosed support requests from merchants. Pre-populated context, zero merchant input.",
+  },
+  {
     to: "/admin/system",
     icon: "⚙️",
     title: "System",
