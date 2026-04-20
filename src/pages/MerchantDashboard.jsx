@@ -288,10 +288,7 @@ export default function MerchantDashboard() {
 
   return (
     <PageContainer>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: C.navy }}>Dashboard</div>
-        </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 6 }}>
           <button style={presetBtn("default", "Default")} onClick={() => handlePreset("default")}>Default</button>
           <button style={presetBtn("alertsFirst", "Alerts first")} onClick={() => handlePreset("alertsFirst")}>Alerts first</button>
