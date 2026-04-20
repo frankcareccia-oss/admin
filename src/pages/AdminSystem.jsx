@@ -179,6 +179,9 @@ export default function AdminSystem() {
       </div>
       {/* Test Health */}
       <TestHealthSection />
+
+      {/* Agent Pipeline */}
+      <AgentPipelineSection />
     </div>
   );
 }
@@ -284,6 +287,149 @@ function TestHealthSection() {
               ))}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgentPipelineSection() {
+  const [logs, setLogs] = React.useState(null);
+  const [docs, setDocs] = React.useState(null);
+  const [running, setRunning] = React.useState(false);
+  const [runResult, setRunResult] = React.useState(null);
+  const [showDoc, setShowDoc] = React.useState(null);
+
+  React.useEffect(() => {
+    const token = getAccessToken();
+    Promise.all([
+      fetch(`${API_BASE}/admin/system/agent-logs`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+      fetch(`${API_BASE}/admin/system/generated-docs`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : null),
+    ]).then(([l, d]) => { setLogs(l); setDocs(d); }).catch(() => {});
+  }, []);
+
+  const handleRunPipeline = async () => {
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/admin/system/deploy-hook`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      setRunResult(data);
+      // Reload logs
+      const logsRes = await fetch(`${API_BASE}/admin/system/agent-logs`, { headers: { Authorization: `Bearer ${token}` } });
+      if (logsRes.ok) setLogs(await logsRes.json());
+      const docsRes = await fetch(`${API_BASE}/admin/system/generated-docs`, { headers: { Authorization: `Bearer ${token}` } });
+      if (docsRes.ok) setDocs(await docsRes.json());
+    } catch (e) {
+      setRunResult({ message: e?.message || "Pipeline failed" });
+    }
+    setRunning(false);
+  };
+
+  return (
+    <div style={s.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={s.sectionTitle}>AI Support Pipeline</div>
+        <button style={s.refreshBtn} onClick={handleRunPipeline} disabled={running}>
+          {running ? "Running pipeline..." : "Run Full Pipeline"}
+        </button>
+      </div>
+
+      {/* Pipeline run result */}
+      {runResult && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 12,
+          background: runResult.agents ? "#F0FDF4" : "#FEF2F2",
+          border: `1px solid ${runResult.agents ? "#BBF7D0" : "#FECACA"}`,
+        }}>
+          <strong>{runResult.message}</strong>
+          {runResult.agents?.map((a, i) => (
+            <div key={i} style={{ marginTop: 4, color: a.changed ? "#2E7D32" : color.muted }}>
+              {a.changed ? "✓" : "—"} {a.agent} {a.durationMs ? `(${(a.durationMs / 1000).toFixed(1)}s)` : ""}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Knowledge graph stats */}
+      {docs?.kgStats && (
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          {[
+            { label: "Pages", value: docs.kgStats.pages },
+            { label: "Flows", value: docs.kgStats.flows },
+            { label: "Error Codes", value: docs.kgStats.errorCodes },
+            { label: "Snapshots", value: docs.snapshots?.length || 0 },
+          ].map(s => (
+            <div key={s.label} style={{ padding: "8px 14px", borderRadius: 8, background: "#fff", border: `1px solid ${color.border}`, fontSize: 12 }}>
+              <div style={{ fontWeight: 700, color: color.navy }}>{s.value}</div>
+              <div style={{ color: color.muted }}>{s.label}</div>
+            </div>
+          ))}
+          <div style={{ padding: "8px 14px", borderRadius: 8, background: "#fff", border: `1px solid ${color.border}`, fontSize: 11, color: color.muted }}>
+            Source: {docs.kgStats.source || "manual seed"}<br />
+            Updated: {docs.kgStats.generatedAt ? new Date(docs.kgStats.generatedAt).toLocaleDateString() : "—"}
+          </div>
+        </div>
+      )}
+
+      {/* Generated docs */}
+      {docs?.docs && Object.keys(docs.docs).length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: color.navy, marginBottom: 6 }}>Generated Documentation</div>
+          {Object.entries(docs.docs).map(([name, content]) => (
+            <div key={name} style={{ marginBottom: 6 }}>
+              <button
+                onClick={() => setShowDoc(showDoc === name ? null : name)}
+                style={{ background: "none", border: `1px solid ${color.border}`, borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: color.navy }}
+              >
+                {showDoc === name ? "▲" : "▼"} {name} ({content.length} chars)
+              </button>
+              {showDoc === name && (
+                <pre style={{ fontSize: 11, color: color.muted, background: "#fff", padding: 12, borderRadius: 8, border: `1px solid ${color.border}`, overflow: "auto", maxHeight: 400, whiteSpace: "pre-wrap", marginTop: 4 }}>
+                  {content}
+                </pre>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Recent agent logs */}
+      {logs?.logs?.length > 0 && (
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: color.navy, marginBottom: 6 }}>Recent Agent Runs</div>
+          <table style={s.table}>
+            <thead>
+              <tr>
+                <th style={s.th}>Agent</th>
+                <th style={s.th}>Triggered By</th>
+                <th style={s.th}>Status</th>
+                <th style={s.th}>Changed</th>
+                <th style={s.th}>Duration</th>
+                <th style={s.th}>Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.logs.slice(0, 20).map(log => (
+                <tr key={log.id}>
+                  <td style={s.td}>{log.agentName}</td>
+                  <td style={{ ...s.td, fontSize: 11 }}>{log.triggeredBy}</td>
+                  <td style={s.td}>
+                    <span style={log.status === "complete" ? s.statusOk : log.status === "skipped" ? s.statusNever : s.statusFail}>
+                      {log.status}
+                    </span>
+                  </td>
+                  <td style={s.td}>{log.outputChanged ? "Yes" : "—"}</td>
+                  <td style={s.td}>{log.durationMs ? fmtDuration(log.durationMs) : "—"}</td>
+                  <td style={{ ...s.td, fontSize: 11 }}>{fmtTime(log.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
