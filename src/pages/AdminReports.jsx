@@ -15,7 +15,6 @@ import { color, btn } from "../theme";
 import { adminGetPlatformReport } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 
 function pvUiHook(event, fields = {}) {
   try { console.log(JSON.stringify({ pvUiHook: event, ts: new Date().toISOString(), ...fields })); } catch { }
@@ -286,7 +285,6 @@ export default function AdminReports() {
         </>
       )}
 
-      <SupportInfo context={{ page: "AdminReports", lastError, lastSuccessTs }} />
     </PageContainer>
   );
 }

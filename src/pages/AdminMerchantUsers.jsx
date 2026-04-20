@@ -22,7 +22,6 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import { color, btn, inputStyle as themeInput } from "../theme";
 
 const STATUS_COLORS = {
@@ -957,7 +956,6 @@ export default function AdminMerchantUsers() {
           )}
         </div>
 
-      <SupportInfo context={{ page: "AdminMerchantUsers", merchantId }} />
     </PageContainer>
   );
 }

@@ -215,7 +215,9 @@ export default function SupportWidget() {
 
         {diagnosis.resolution_steps?.length > 0 && (
           <ol style={s.stepList}>
-            {diagnosis.resolution_steps.map((step, i) => <li key={i}>{step}</li>)}
+            {diagnosis.resolution_steps.map((step, i) => (
+              <li key={i}>{String(step).replace(/^\d+\.\s*/, "")}</li>
+            ))}
           </ol>
         )}
 

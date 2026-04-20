@@ -22,7 +22,6 @@ import {
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import { color, btn, inputStyle as themeInput } from "../theme";
 
 
@@ -496,7 +495,6 @@ export default function AdminMerchantBilling() {
         tab to set merchant-specific grace days, late fee amounts, or default net terms.
       </div>
 
-      <SupportInfo context={{ page: "AdminMerchantBilling", merchantId }} />
     </PageContainer>
   );
 }

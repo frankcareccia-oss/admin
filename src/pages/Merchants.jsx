@@ -7,7 +7,6 @@ import Toast from "../components/Toast";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import ProductAvatar from "../components/ProductAvatar";
 import useBreakpoint from "../hooks/useBreakpoint";
 import { color, btn, inputStyle as themeInput } from "../theme";
@@ -528,7 +527,6 @@ export default function Merchants() {
         )}
       </div>
 
-      <SupportInfo context={{ page: "Merchants" }} />
       {toast ? <Toast kind={toast.kind} message={toast.message} onClose={() => setToast(null)} /> : null}
     </PageContainer>
   );

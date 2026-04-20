@@ -12,7 +12,6 @@ import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSyst
 import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import useBreakpoint from "../hooks/useBreakpoint";
 import { color, btn } from "../theme";
 
@@ -304,7 +303,6 @@ export default function MerchantDetail() {
         ))}
       </div>
 
-      <SupportInfo context={{ page: "MerchantHub", merchantId, lastError, lastSuccessTs }} />
     </PageContainer>
   );
 }

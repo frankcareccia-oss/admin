@@ -25,7 +25,6 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 
 // ── pvUiHook ──────────────────────────────────────────────────
 function pvUiHook(event, fields = {}) {
@@ -424,7 +423,6 @@ export default function MerchantReports() {
         </>
       )}
 
-      <SupportInfo context={{ page: "MerchantReports", merchantId, lastError, lastSuccessTs }} />
     </PageContainer>
   );
 }

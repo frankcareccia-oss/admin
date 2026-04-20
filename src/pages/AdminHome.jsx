@@ -8,7 +8,6 @@
 
 import React from "react";
 import { Link } from "react-router-dom";
-import SupportInfo from "../components/SupportInfo";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import { color, btn, inputStyle as themeInput } from "../theme";
@@ -150,7 +149,6 @@ export default function AdminHome() {
         ))}
       </div>
 
-      <SupportInfo context={{ page: "AdminHome" }} />
     </PageContainer>
   );
 }

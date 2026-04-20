@@ -31,7 +31,6 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import SuggestionBanner from "../components/SuggestionBanner";
 
 function pvUiHook(event, fields = {}) {
@@ -945,7 +944,6 @@ export default function MerchantBundles() {
         </div>
       )}
 
-      <SupportInfo context={{ page: "MerchantBundles", merchantId, lastError, lastSuccessTs }} />
     </PageContainer>
   );
 }

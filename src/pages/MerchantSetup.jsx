@@ -10,7 +10,6 @@ import { Link, useParams } from "react-router-dom";
 import { getMerchant, updateMerchantStatus, adminListMerchantUsers } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import useBreakpoint from "../hooks/useBreakpoint";
 import { color, btn, inputStyle as themeInput } from "../theme";
 
@@ -207,7 +206,6 @@ export default function MerchantSetup() {
         )}
       </div>
 
-      <SupportInfo context={{ page: "MerchantSetup", merchantId, lastError, lastSuccessTs }} />
     </PageContainer>
   );
 }

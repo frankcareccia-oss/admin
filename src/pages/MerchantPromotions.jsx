@@ -41,7 +41,6 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import SuggestionBanner from "../components/SuggestionBanner";
 import GuidanceCard from "../components/GuidanceCard";
 
@@ -1250,8 +1249,6 @@ export default function MerchantPromotions() {
           ))}
         </div>
       )}
-
-      <SupportInfo context={{ page: "MerchantPromotions", merchantId, lastError, lastSuccessTs }} />
 
       {/* Launch sequence modal */}
       {launchPromo && (

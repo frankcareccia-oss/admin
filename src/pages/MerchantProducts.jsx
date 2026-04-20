@@ -36,7 +36,6 @@ import {
 } from "../api/client";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import ProductAvatar from "../components/ProductAvatar";
 import SuggestionBanner from "../components/SuggestionBanner";
 import GuidanceCard from "../components/GuidanceCard";
@@ -160,7 +159,7 @@ export default function MerchantProducts() {
   const [editError, setEditError] = React.useState("");
   const [editSaving, setEditSaving] = React.useState(false);
 
-  // Last error for SupportInfo
+  // Last error tracking
   const [lastError, setLastError] = React.useState("");
   const [lastSuccessTs, setLastSuccessTs] = React.useState("");
 
@@ -1022,14 +1021,6 @@ export default function MerchantProducts() {
         </div>
       )}
 
-      <SupportInfo
-        context={{
-          page: "MerchantProducts",
-          merchantId,
-          lastError,
-          lastSuccessTs,
-        }}
-      />
     </PageContainer>
   );
 }

@@ -15,7 +15,6 @@ import {
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import { color, btn, inputStyle as themeInput } from "../theme";
 
 /* ── pvUiHook ── */
@@ -484,7 +483,6 @@ export default function AdminMerchantInvoices() {
         </div>
       </div>
 
-      <SupportInfo context={{ page: "AdminMerchantInvoices", merchantId }} />
     </PageContainer>
   );
 }

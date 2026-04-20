@@ -11,7 +11,6 @@ import { getMerchant, createStore } from "../api/client";
 
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 import { color, btn, inputStyle as themeInput } from "../theme";
 
 function pvUiHook(event, fields = {}) {
@@ -348,7 +347,6 @@ export default function AdminMerchantStores() {
         </div>
       </div>
 
-      <SupportInfo context={{ page: "AdminMerchantStores", merchantId }} />
     </PageContainer>
   );
 }

@@ -20,7 +20,6 @@ import {
 import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
-import SupportInfo from "../components/SupportInfo";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -594,7 +593,6 @@ export default function MerchantSettings() {
 
       </div>
 
-      <SupportInfo context={{ page: "MerchantSettings", userId, merchantId }} />
     </PageContainer>
   );
 }

@@ -160,7 +160,9 @@ export default function AdminSupportTickets() {
                     <div style={{ marginTop: 10 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 4 }}>RESOLUTION ATTEMPTED</div>
                       <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: C.navy, lineHeight: 1.6 }}>
-                        {(Array.isArray(t.resolutionAttempted) ? t.resolutionAttempted : []).map((s, i) => <li key={i}>{s}</li>)}
+                        {(Array.isArray(t.resolutionAttempted) ? t.resolutionAttempted : []).map((s, i) => (
+                          <li key={i}>{String(s).replace(/^\d+\.\s*/, "")}</li>
+                        ))}
                       </ol>
                     </div>
                   )}
