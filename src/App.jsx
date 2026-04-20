@@ -73,6 +73,7 @@ import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminReports from "./pages/AdminReports";
 import AdminSystem from "./pages/AdminSystem";
+import MerchantWeeklySummary from "./pages/MerchantWeeklySummary";
 import AdminOversight from "./pages/AdminOversight";
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
@@ -409,6 +410,8 @@ function getMerchantSectionPill(pathname) {
     return { to: '/merchant/reports', label: 'Reports' };
   if (pathname.startsWith('/merchant/growth-advisor'))
     return { to: '/merchant/growth-advisor', label: 'Growth Advisor' };
+  if (pathname.startsWith('/merchant/weekly'))
+    return { to: '/merchant/weekly', label: 'Weekly Summary' };
   if (pathname.startsWith('/merchant/settings') || pathname.startsWith('/account/change-password'))
     return { to: '/merchant/settings', label: 'Settings' };
   return null; // on dashboard — no section pill
@@ -1080,6 +1083,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <MerchantGrowthStudio />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/merchant/weekly"
+            element={
+              <RequireAuth>
+                <MerchantWeeklySummary />
               </RequireAuth>
             }
           />
