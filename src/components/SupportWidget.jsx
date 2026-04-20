@@ -100,8 +100,14 @@ export default function SupportWidget() {
 
   const gatherContext = () => {
     try {
-      return pvSupportGetSnapshot?.() || {};
-    } catch { return {}; }
+      const snapshot = pvSupportGetSnapshot?.() || {};
+      // Always capture the current page from the browser
+      const currentPage = window.location.hash?.replace("#", "") || window.location.pathname || "unknown";
+      if (!snapshot.session) snapshot.session = {};
+      snapshot.session.pathname = currentPage;
+      snapshot.session.capturedAt = new Date().toISOString();
+      return snapshot;
+    } catch { return { session: { pathname: window.location.hash?.replace("#", "") || "unknown" } }; }
   };
 
   const handleDiagnose = async () => {

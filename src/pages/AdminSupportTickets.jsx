@@ -165,13 +165,53 @@ export default function AdminSupportTickets() {
                     </div>
                   )}
 
-                  {/* Platform snapshot */}
+                  {/* Platform snapshot — structured */}
                   {t.platformSnapshot && (
                     <div style={{ marginTop: 10 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 4 }}>PLATFORM CONTEXT</div>
-                      <pre style={{ fontSize: 10, color: C.muted, background: "#fff", padding: 10, borderRadius: 6, overflow: "auto", maxHeight: 200, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap" }}>
-                        {JSON.stringify(t.platformSnapshot, null, 2)}
-                      </pre>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 6 }}>PLATFORM CONTEXT</div>
+
+                      {/* Session info */}
+                      {t.platformSnapshot.session && (
+                        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 6, fontSize: 12 }}>
+                          <strong>Page:</strong> {t.platformSnapshot.session.pathname || "—"} &nbsp;
+                          <strong>Role:</strong> {t.platformSnapshot.session.merchantRole || t.platformSnapshot.session.systemRole || "—"} &nbsp;
+                          <strong>Captured:</strong> {t.platformSnapshot.session.capturedAt ? fmtTime(t.platformSnapshot.session.capturedAt) : "—"}
+                        </div>
+                      )}
+
+                      {/* Last API error */}
+                      {t.platformSnapshot.api?.lastRequest && (
+                        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 6, fontSize: 12 }}>
+                          <strong>Last API call:</strong> {typeof t.platformSnapshot.api.lastRequest === "object"
+                            ? `${t.platformSnapshot.api.lastRequest.method} ${t.platformSnapshot.api.lastRequest.path} → ${t.platformSnapshot.api.lastRequest.status} (${t.platformSnapshot.api.lastRequest.ms}ms)`
+                            : String(t.platformSnapshot.api.lastRequest)}
+                          {t.platformSnapshot.api.lastError && t.platformSnapshot.api.lastError !== "—" && (
+                            <span style={{ color: C.red, marginLeft: 8 }}>Error: {t.platformSnapshot.api.lastError}</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Recent events */}
+                      {t.platformSnapshot.recentEvents?.length > 0 && (
+                        <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", marginBottom: 6 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 4 }}>RECENT EVENTS</div>
+                          {t.platformSnapshot.recentEvents.slice(0, 8).map((e, i) => (
+                            <div key={i} style={{ fontSize: 11, color: e.status >= 400 ? C.red : C.muted, padding: "2px 0" }}>
+                              {e.ts ? new Date(e.ts).toLocaleTimeString() : "—"} &nbsp;
+                              {e.method} {e.path} → {e.status || "pending"}
+                              {e.ms && ` (${e.ms}ms)`}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Raw JSON (collapsible) */}
+                      <details style={{ marginTop: 4 }}>
+                        <summary style={{ fontSize: 11, color: C.teal, cursor: "pointer", fontWeight: 500 }}>Show raw snapshot</summary>
+                        <pre style={{ fontSize: 10, color: C.muted, background: "#fff", padding: 10, borderRadius: 6, overflow: "auto", maxHeight: 200, border: `1px solid ${C.border}`, whiteSpace: "pre-wrap", marginTop: 4 }}>
+                          {JSON.stringify(t.platformSnapshot, null, 2)}
+                        </pre>
+                      </details>
                     </div>
                   )}
 
