@@ -91,9 +91,12 @@ function CatPill({ name }) {
 }
 
 // ─── Empty form ───────────────────────────────────────────────
+const EMPTY_TIER = { tierName: "", threshold: "", rewardType: "discount_fixed", rewardValue: "", rewardNote: "" };
+
 const EMPTY_FORM = {
   name: "",
   description: "",
+  promotionType: "stamp",
   categoryId: "",
   threshold: "",
   rewardType: "free_item",
@@ -104,6 +107,11 @@ const EMPTY_FORM = {
   scope: "merchant",
   storeId: "",
   legalText: "",
+  tiers: [
+    { tierName: "Bronze", threshold: "5", rewardType: "discount_fixed", rewardValue: "200", rewardNote: "" },
+    { tierName: "Silver", threshold: "15", rewardType: "discount_fixed", rewardValue: "500", rewardNote: "" },
+    { tierName: "Gold", threshold: "30", rewardType: "discount_fixed", rewardValue: "1000", rewardNote: "" },
+  ],
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -216,6 +224,7 @@ export default function MerchantPromotions() {
     return {
       name: f.name.trim(),
       description: f.description?.trim() || undefined,
+      promotionType: f.promotionType || "stamp",
       categoryId: parseInt(f.categoryId, 10),
       mechanic: "stamps",
       threshold: parseInt(f.threshold, 10),
@@ -228,6 +237,16 @@ export default function MerchantPromotions() {
       scope: f.scope,
       storeId: f.scope === "store" && f.storeId ? parseInt(f.storeId, 10) : null,
       legalText: f.legalText?.trim() || undefined,
+      ...(f.promotionType === "tiered" && Array.isArray(f.tiers) ? {
+        tiers: f.tiers.filter(t => t.tierName && t.threshold).map((t, idx) => ({
+          tierName: t.tierName.trim(),
+          tierLevel: idx + 1,
+          threshold: parseInt(t.threshold, 10),
+          rewardType: t.rewardType || "discount_fixed",
+          rewardValue: t.rewardValue ? parseInt(t.rewardValue, 10) : null,
+          rewardNote: t.rewardNote?.trim() || null,
+        })),
+      } : {}),
     };
   }
 
@@ -605,6 +624,50 @@ export default function MerchantPromotions() {
                   <input style={inputStyle} value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. Coffee Stamp Card" autoFocus />
                 </div>
 
+                {/* Program Type */}
+                <div style={fieldRow}>
+                  <label style={labelStyle}>Program Type</label>
+                  <select style={selectStyle} value={form.promotionType} onChange={e => setF("promotionType", e.target.value)}>
+                    <option value="stamp">Stamp Card — visit N times, earn a reward</option>
+                    <option value="tiered">Tiered — escalating rewards at Bronze / Silver / Gold</option>
+                  </select>
+                </div>
+
+                {/* Tier Configuration (only for tiered) */}
+                {form.promotionType === "tiered" && (
+                  <div style={{ ...fieldRow, background: "rgba(47,143,139,0.04)", borderRadius: 10, padding: "12px 16px", border: `1px solid rgba(47,143,139,0.15)` }}>
+                    <label style={{ ...labelStyle, marginBottom: 8 }}>Reward Tiers</label>
+                    {form.tiers.map((tier, idx) => (
+                      <div key={idx} style={{ display: "grid", gridTemplateColumns: "120px 80px 140px 100px 1fr 40px", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <input style={{ ...inputStyle, fontSize: 13 }} value={tier.tierName} placeholder="Tier name"
+                          onChange={e => { const t = [...form.tiers]; t[idx] = { ...t[idx], tierName: e.target.value }; setF("tiers", t); }} />
+                        <input style={{ ...inputStyle, fontSize: 13 }} type="number" min="1" value={tier.threshold} placeholder="Visits"
+                          onChange={e => { const t = [...form.tiers]; t[idx] = { ...t[idx], threshold: e.target.value }; setF("tiers", t); }} />
+                        <select style={{ ...selectStyle, fontSize: 12 }} value={tier.rewardType}
+                          onChange={e => { const t = [...form.tiers]; t[idx] = { ...t[idx], rewardType: e.target.value }; setF("tiers", t); }}>
+                          <option value="discount_fixed">$ off</option>
+                          <option value="discount_pct">% off</option>
+                          <option value="free_item">Free item</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                        <input style={{ ...inputStyle, fontSize: 13 }} value={tier.rewardValue} placeholder={tier.rewardType === "discount_fixed" ? "cents" : "%"}
+                          onChange={e => { const t = [...form.tiers]; t[idx] = { ...t[idx], rewardValue: e.target.value }; setF("tiers", t); }} />
+                        <input style={{ ...inputStyle, fontSize: 13 }} value={tier.rewardNote || ""} placeholder="Note (optional)"
+                          onChange={e => { const t = [...form.tiers]; t[idx] = { ...t[idx], rewardNote: e.target.value }; setF("tiers", t); }} />
+                        {form.tiers.length > 1 && (
+                          <button type="button" style={{ background: "none", border: "none", color: "#C62828", cursor: "pointer", fontSize: 14, fontWeight: 700 }}
+                            onClick={() => { const t = form.tiers.filter((_, i) => i !== idx); setF("tiers", t); }}>x</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, marginTop: 4 }}
+                      onClick={() => setF("tiers", [...form.tiers, { ...EMPTY_TIER, tierName: `Tier ${form.tiers.length + 1}` }])}>
+                      + Add Tier
+                    </button>
+                    <div style={hint}>Each tier has its own visit threshold and reward. Consumers progress through tiers permanently — never reset.</div>
+                  </div>
+                )}
+
                 {/* Description — consumer-facing pitch */}
                 <div style={fieldRow}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
@@ -827,14 +890,23 @@ export default function MerchantPromotions() {
                   {promotions.map((promo, idx) => (
                     <React.Fragment key={promo.id}>
                       <tr style={{ borderTop: idx === 0 ? "none" : rowBorder, background: editId === promo.id ? "rgba(0,0,0,0.015)" : "transparent" }}>
-                        <td style={td}><span style={{ fontWeight: 700 }}>{promo.name}</span></td>
+                        <td style={td}>
+                          <span style={{ fontWeight: 700 }}>{promo.name}</span>
+                          {promo.promotionType === "tiered" && (
+                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: "rgba(100,100,200,0.10)", color: "rgba(60,60,160,1)" }}>Tiered</span>
+                          )}
+                        </td>
                         <td style={td}>
                           {promo.category
                             ? <CatPill name={promo.category.name} />
                             : <span style={{ color: color.textFaint, fontSize: 12 }}>—</span>}
                         </td>
                         <td style={{ ...td, fontFamily: "monospace" }}>{promo.threshold}</td>
-                        <td style={{ ...td, fontSize: 13 }}>{rewardSummary(promo)}</td>
+                        <td style={{ ...td, fontSize: 13 }}>
+                          {promo.tiers && promo.tiers.length > 0
+                            ? promo.tiers.map(t => `${t.tierName}: ${t.rewardType === "discount_fixed" ? `$${(t.rewardValue / 100).toFixed(2)}` : t.rewardType === "discount_pct" ? `${t.rewardValue}%` : t.rewardNote || "Reward"}`).join(" → ")
+                            : rewardSummary(promo)}
+                        </td>
                         <td style={{ ...td, fontSize: 13 }}>
                           {promo.timeframeDays ? `${promo.timeframeDays}d` : <span style={{ color: color.textFaint }}>No expiry</span>}
                         </td>
