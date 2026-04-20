@@ -93,6 +93,7 @@ import {
 } from "./api/client";
 
 import SupportInfo from "./components/SupportInfo";
+import SupportWidget from "./components/SupportWidget";
 
 /**
  * pvUiHook: structured UI events for QA/docs/chatbot.
@@ -854,18 +855,8 @@ function Layout({ children }) {
           {children}
         </main>
 
-        <SupportInfo
-          authed={authed}
-          systemRole={sysRole}
-          merchantRole={merchantRole}
-          merchantRolePath={merchantRolePath}
-          deviceTrusted={deviceTrusted}
-          deviceTrustedLoading={deviceTrustedLoading}
-          pathname={location.pathname}
-          apiBase={API_BASE}
-          context={{ page: resolvePageName(location.pathname), merchantId: supportMerchantId || "", storeId: supportRouteCtx.storeId || "" }}
-          meFn={me}
-        />
+        {/* AI Support Widget — floating, state machine */}
+        {authed && <SupportWidget />}
       </div>
     </MerchantCtx.Provider>
   );
