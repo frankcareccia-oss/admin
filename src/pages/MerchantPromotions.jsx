@@ -119,6 +119,10 @@ const EMPTY_FORM = {
     { tierName: "Gold", threshold: "30", rewardType: "discount_fixed", rewardValue: "1000", rewardNote: "" },
   ],
   conditions: [{ ...EMPTY_CONDITION }],
+  bundleItems: [{ sku: "", name: "", quantity: "1" }],
+  bundlePriceCents: "",
+  savingsCents: "",
+  bundleValidityDays: "30",
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -244,6 +248,18 @@ export default function MerchantPromotions() {
       scope: f.scope,
       storeId: f.scope === "store" && f.storeId ? parseInt(f.storeId, 10) : null,
       legalText: f.legalText?.trim() || undefined,
+      ...(f.promotionType === "bundle" && Array.isArray(f.bundleItems) ? {
+        bundleDefinition: {
+          items: f.bundleItems.filter(i => i.name).map(i => ({
+            sku: i.sku?.trim() || i.name.trim().toUpperCase().replace(/\s+/g, "-"),
+            name: i.name.trim(),
+            quantity: parseInt(i.quantity, 10) || 1,
+          })),
+          bundlePriceCents: parseInt(f.bundlePriceCents, 10) || 0,
+          savingsCents: parseInt(f.savingsCents, 10) || 0,
+          validityDays: parseInt(f.bundleValidityDays, 10) || 30,
+        },
+      } : {}),
       ...(f.promotionType === "conditional" && Array.isArray(f.conditions) ? {
         conditions: f.conditions.filter(c => c.conditionType).map(c => ({
           conditionType: c.conditionType,
@@ -650,6 +666,7 @@ export default function MerchantPromotions() {
                     <option value="stamp">Stamp Card — visit N times, earn a reward</option>
                     <option value="tiered">Tiered — escalating rewards at Bronze / Silver / Gold</option>
                     <option value="conditional">Conditional — bonus stamps during specific times or behaviors</option>
+                    <option value="bundle">Bundle — combo deal, consumer collects items across visits</option>
                   </select>
                 </div>
 
@@ -785,6 +802,56 @@ export default function MerchantPromotions() {
                       + Add Condition
                     </button>
                     <div style={hint}>Conditions are bonus multipliers — they amplify the stamps earned, not compete with other programs.</div>
+                  </div>
+                )}
+
+                {/* Bundle Configuration */}
+                {form.promotionType === "bundle" && (
+                  <div style={{ ...fieldRow, background: "rgba(100,100,200,0.04)", borderRadius: 10, padding: "12px 16px", border: "1px solid rgba(100,100,200,0.15)" }}>
+                    <label style={{ ...labelStyle, marginBottom: 8 }}>Bundle Items</label>
+                    {form.bundleItems.map((item, idx) => (
+                      <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 100px 60px 40px", gap: 8, marginBottom: 6, alignItems: "center" }}>
+                        <input style={{ ...inputStyle, fontSize: 13 }} value={item.name} placeholder="Item name (e.g. Latte)"
+                          onChange={e => { const b = [...form.bundleItems]; b[idx] = { ...b[idx], name: e.target.value }; setF("bundleItems", b); }} />
+                        <input style={{ ...inputStyle, fontSize: 13 }} value={item.sku} placeholder="SKU (optional)"
+                          onChange={e => { const b = [...form.bundleItems]; b[idx] = { ...b[idx], sku: e.target.value }; setF("bundleItems", b); }} />
+                        <input style={{ ...inputStyle, fontSize: 13 }} type="number" min="1" value={item.quantity} placeholder="Qty"
+                          onChange={e => { const b = [...form.bundleItems]; b[idx] = { ...b[idx], quantity: e.target.value }; setF("bundleItems", b); }} />
+                        {form.bundleItems.length > 1 && (
+                          <button type="button" style={{ background: "none", border: "none", color: "#C62828", cursor: "pointer", fontSize: 14, fontWeight: 700 }}
+                            onClick={() => setF("bundleItems", form.bundleItems.filter((_, i) => i !== idx))}>x</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, marginTop: 4, marginBottom: 10 }}
+                      onClick={() => setF("bundleItems", [...form.bundleItems, { sku: "", name: "", quantity: "1" }])}>
+                      + Add Item
+                    </button>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                      <div>
+                        <label style={labelStyle}>Bundle Price (cents)</label>
+                        <input style={inputStyle} type="number" value={form.bundlePriceCents} placeholder="e.g. 850 = $8.50"
+                          onChange={e => setF("bundlePriceCents", e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Savings (cents)</label>
+                        <input style={inputStyle} type="number" value={form.savingsCents} placeholder="e.g. 250 = $2.50"
+                          onChange={e => setF("savingsCents", e.target.value)} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Validity (days)</label>
+                        <select style={selectStyle} value={form.bundleValidityDays}
+                          onChange={e => setF("bundleValidityDays", e.target.value)}>
+                          <option value="7">7 days</option>
+                          <option value="14">14 days</option>
+                          <option value="30">30 days</option>
+                          <option value="60">60 days</option>
+                          <option value="90">90 days</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={hint}>Items can be collected across multiple visits. The bundle completes when all items are purchased.</div>
                   </div>
                 )}
 
