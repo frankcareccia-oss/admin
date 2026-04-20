@@ -1,164 +1,142 @@
 /**
- * PromotionValidation.jsx — Projected vs actual comparison
+ * PromotionValidation.jsx — Projected vs actual comparison with AI insights
  *
- * After 2+ weeks of data, compares simulator projections with actual outcomes.
- * Feeds back into future projections — each cycle gets tighter.
+ * After 14+ days of data, shows how the promotion is performing relative to
+ * the simulator's projections. Includes AI-generated actionable advice.
  */
 
 import React from "react";
 import { color } from "../theme";
-import { merchantGetPromotionDetail } from "../api/client";
+import { getPromotionValidation } from "../api/client";
 
 const C = {
   navy: color.navy || "#0B2A33",
   teal: "#1D9E75",
-  muted: "#999",
+  muted: "#888780",
   border: "#E5E5E0",
   green: "#2E7D32",
   amber: "#F57F17",
   red: "#C62828",
+  bg: "#F4F4F0",
 };
 
 const s = {
-  container: { background: "#fff", borderRadius: 12, padding: "20px", border: `1px solid ${C.border}` },
-  title: { fontSize: 16, fontWeight: 700, color: C.navy, marginBottom: 4 },
+  container: { background: "#fff", borderRadius: 12, padding: "20px", border: `1px solid ${C.border}`, marginTop: 12 },
+  title: { fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 4 },
   subtitle: { fontSize: 12, color: C.muted, marginBottom: 16 },
-
-  metricRow: { display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 },
-  metric: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", background: "#F9FAFB", borderRadius: 8 },
-  metricLabel: { fontSize: 13, fontWeight: 600, color: C.navy },
-  metricValues: { display: "flex", gap: 16, alignItems: "center" },
-  metricValue: { fontSize: 14, fontWeight: 700, textAlign: "right" },
-  metricTag: (type) => ({
-    fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "2px 6px",
-    background: type === "ahead" ? "#E8F5E9" : type === "behind" ? "#FFEBEE" : "#F5F5F5",
-    color: type === "ahead" ? C.green : type === "behind" ? C.red : C.muted,
+  metricRow: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 },
+  metricCard: (borderColor) => ({
+    padding: "12px 14px", borderRadius: 8, background: C.bg,
+    borderLeft: `3px solid ${borderColor}`,
   }),
-
-  insight: { fontSize: 13, color: C.navy, lineHeight: 1.6, padding: "12px 16px", background: "#F0FDF4", borderRadius: 8, border: `1px solid #BBF7D0`, marginBottom: 8 },
-
-  notReady: { textAlign: "center", padding: 30, color: C.muted, fontSize: 14 },
+  metricLabel: { fontSize: 11, color: C.muted, marginBottom: 4 },
+  metricValues: { display: "flex", alignItems: "baseline", gap: 8 },
+  metricActual: { fontSize: 20, fontWeight: 700, color: C.navy },
+  metricProjected: { fontSize: 13, color: C.muted },
+  tag: (type) => ({
+    display: "inline-block", fontSize: 10, fontWeight: 700, borderRadius: 4, padding: "2px 8px", marginLeft: 6,
+    background: type === "over" ? "#E8F5E9" : type === "under" ? "#FFEBEE" : "#F5F5F5",
+    color: type === "over" ? C.green : type === "under" ? C.red : C.muted,
+  }),
+  insightBox: (direction) => ({
+    padding: "14px 16px", borderRadius: 8, fontSize: 13, lineHeight: 1.6, marginTop: 12,
+    background: direction === "over" ? "#F0FDF4" : "#FFF5F5",
+    border: `1px solid ${direction === "over" ? "#BBF7D0" : "#FECACA"}`,
+    color: C.navy,
+  }),
+  notReady: { textAlign: "center", padding: 20, color: C.muted, fontSize: 13 },
 };
 
-function compareMetric(actual, projected) {
-  if (!projected || projected === 0) return { pct: 0, tag: "on-track" };
-  const pct = Math.round(((actual - projected) / projected) * 100);
-  const tag = pct > 10 ? "ahead" : pct < -10 ? "behind" : "on-track";
-  return { pct, tag };
-}
-
-export default function PromotionValidation({ promotionId }) {
+export default function PromotionValidation({ promotionId, promotionName }) {
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     if (!promotionId) return;
-    merchantGetPromotionDetail(promotionId, { period: "30d" })
+    getPromotionValidation(promotionId)
       .then(d => setData(d))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [promotionId]);
 
-  if (loading) return <div style={s.notReady}>Loading...</div>;
-  if (!data?.timeSeries?.length || data.timeSeries.length < 14) {
+  if (loading) return null; // Don't show loading state — just appear when ready
+  if (!data) return null;
+
+  if (!data.ready) {
     return (
       <div style={s.container}>
-        <div style={s.title}>Performance vs Projection</div>
+        <div style={s.title}>Performance Validation</div>
         <div style={s.notReady}>
-          Need at least 2 weeks of data to compare projections with actual results.
-          Check back after {14 - (data?.timeSeries?.length || 0)} more days.
+          {data.daysNeeded > 0
+            ? `${data.daysNeeded} more days of data needed to compare projections with actual results.`
+            : "Computing validation data..."}
         </div>
       </div>
     );
   }
 
-  const { summary, timeSeries, promotion } = data;
-  const days = timeSeries.length;
-
-  // Simple projections based on early data (first week → extrapolate)
-  const firstWeek = timeSeries.slice(0, 7);
-  const avgDailyEnrollments = firstWeek.reduce((s, d) => s + d.newEnrollments, 0) / 7;
-  const avgDailyRedemptions = firstWeek.reduce((s, d) => s + d.rewardsRedeemed, 0) / 7;
-
-  const projectedEnrollments = Math.round(avgDailyEnrollments * days);
-  const projectedRedemptions = Math.round(avgDailyRedemptions * days);
-
-  const actualEnrollments = summary.totalEnrolled;
-  const actualRedemptions = summary.rewardsRedeemed;
-
-  const enrollComp = compareMetric(actualEnrollments, projectedEnrollments);
-  const redeemComp = compareMetric(actualRedemptions, projectedRedemptions);
-
-  const insights = [];
-  if (enrollComp.tag === "ahead") {
-    insights.push("Enrollment is ahead of pace — your program is resonating with customers.");
-  }
-  if (enrollComp.tag === "behind") {
-    insights.push("Enrollment is below pace. Consider: Is your team asking every customer? Is the reward compelling enough?");
-  }
-  if (redeemComp.tag === "ahead") {
-    insights.push("Redemption rate is strong — customers are engaged and using their rewards.");
-  }
-  if (redeemComp.tag === "behind" && actualRedemptions > 0) {
-    insights.push("Redemptions are slower than expected. Customers may not know they have rewards — consider sending a reminder notification.");
-  }
+  const { outcome, divergence, insight } = data;
+  const direction = divergence?.direction;
 
   return (
     <div style={s.container}>
-      <div style={s.title}>Performance vs Projection</div>
-      <div style={s.subtitle}>Based on {days} days of data · {promotion?.name}</div>
-
-      <div style={s.metricRow}>
-        <div style={s.metric}>
-          <div style={s.metricLabel}>Enrollments</div>
-          <div style={s.metricValues}>
-            <div style={s.metricValue}>
-              <div>{actualEnrollments}</div>
-              <div style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>actual</div>
-            </div>
-            <div style={{ color: C.muted }}>vs</div>
-            <div style={s.metricValue}>
-              <div>{projectedEnrollments}</div>
-              <div style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>projected</div>
-            </div>
-            <span style={s.metricTag(enrollComp.tag)}>
-              {enrollComp.tag === "ahead" ? `+${enrollComp.pct}%` : enrollComp.tag === "behind" ? `${enrollComp.pct}%` : "On track"}
-            </span>
-          </div>
-        </div>
-
-        <div style={s.metric}>
-          <div style={s.metricLabel}>Redemptions</div>
-          <div style={s.metricValues}>
-            <div style={s.metricValue}>
-              <div>{actualRedemptions}</div>
-              <div style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>actual</div>
-            </div>
-            <div style={{ color: C.muted }}>vs</div>
-            <div style={s.metricValue}>
-              <div>{projectedRedemptions}</div>
-              <div style={{ fontSize: 10, color: C.muted, fontWeight: 400 }}>projected</div>
-            </div>
-            <span style={s.metricTag(redeemComp.tag)}>
-              {redeemComp.tag === "ahead" ? `+${redeemComp.pct}%` : redeemComp.tag === "behind" ? `${redeemComp.pct}%` : "On track"}
-            </span>
-          </div>
-        </div>
-
-        <div style={s.metric}>
-          <div style={s.metricLabel}>Budget consumed</div>
-          <div style={s.metricValues}>
-            <div style={s.metricValue}>
-              ${((summary.redemptionValueCents || 0) / 100).toFixed(0)}
-            </div>
-          </div>
-        </div>
+      <div style={s.title}>
+        Performance Validation
+        {divergence && <span style={s.tag(direction)}>
+          {direction === "over" ? `+${divergence.divergencePct}% ahead` : `${divergence.divergencePct}% behind`}
+        </span>}
+      </div>
+      <div style={s.subtitle}>
+        {promotionName} · {outcome.durationDays} days of data
+        {outcome.objective && ` · Goal: ${outcome.objective.replace("-", " ")}`}
       </div>
 
-      {/* Insights */}
-      {insights.map((text, i) => (
-        <div key={i} style={s.insight}>{text}</div>
-      ))}
+      {/* Metrics grid */}
+      <div style={s.metricRow}>
+        {outcome.enrollmentActual != null && (
+          <div style={s.metricCard(C.teal)}>
+            <div style={s.metricLabel}>Enrollments</div>
+            <div style={s.metricValues}>
+              <div style={s.metricActual}>{outcome.enrollmentActual}</div>
+              <div style={s.metricProjected}>/ {outcome.enrollmentProjected} projected</div>
+            </div>
+          </div>
+        )}
+        {outcome.costActualCents != null && (
+          <div style={s.metricCard(C.amber)}>
+            <div style={s.metricLabel}>Promotion Cost</div>
+            <div style={s.metricValues}>
+              <div style={s.metricActual}>${(outcome.costActualCents / 100).toFixed(0)}</div>
+              <div style={s.metricProjected}>/ ${(outcome.costProjectedCents / 100).toFixed(0)} projected</div>
+            </div>
+          </div>
+        )}
+        {outcome.redemptionRate != null && (
+          <div style={s.metricCard(C.green)}>
+            <div style={s.metricLabel}>Redemption Rate</div>
+            <div style={s.metricValues}>
+              <div style={s.metricActual}>{Math.round(outcome.redemptionRate * 100)}%</div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Attribution rate */}
+      {outcome.attributionRateAvg != null && (
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
+          Attribution rate: <strong style={{ color: outcome.attributionRateAvg >= 0.6 ? C.green : C.amber }}>
+            {Math.round(outcome.attributionRateAvg * 100)}%
+          </strong>
+          {outcome.attributionRateAvg < 0.6 && " — below 60% target"}
+        </div>
+      )}
+
+      {/* AI Insight */}
+      {insight && (
+        <div style={s.insightBox(direction || "over")}>
+          {insight}
+        </div>
+      )}
     </div>
   );
 }

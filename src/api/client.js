@@ -2325,6 +2325,10 @@ export async function getPromotionOutcome(promotionId) {
   return request(`/merchant/promotions/${promotionId}/outcomes`, { auth: "jwt" });
 }
 
+export async function getPromotionValidation(promotionId) {
+  return request(`/merchant/promotions/${promotionId}/validation`, { auth: "jwt" });
+}
+
 export async function recomputePromotionOutcomes() {
   return request("/merchant/promotion-outcomes/recompute", { method: "POST", auth: "jwt" });
 }

@@ -13,6 +13,7 @@ import { Link, useParams } from "react-router-dom";
 import { color, btn, palette, inputStyle as themeInput } from "../theme";
 import PromotionLaunchSequence from "../components/PromotionLaunchSequence";
 import PromotionMonitor from "../components/PromotionMonitor";
+import PromotionValidation from "../components/PromotionValidation";
 import {
   getMerchant,
   me,
@@ -1169,6 +1170,16 @@ export default function MerchantPromotions() {
           <div style={{ fontSize: 15, fontWeight: 700, color: color.text, marginBottom: 10 }}>Live Monitoring</div>
           {promotions.filter(p => p.status === "active").map(p => (
             <PromotionMonitor key={p.id} promotionId={p.id} promotionName={p.name} promotionStatus={p.status} />
+          ))}
+        </div>
+      )}
+
+      {/* Validation — projected vs actual for active promos */}
+      {promotions.filter(p => p.status === "active" || p.status === "paused").length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: color.text, marginBottom: 10 }}>Performance Validation</div>
+          {promotions.filter(p => p.status === "active" || p.status === "paused").map(p => (
+            <PromotionValidation key={p.id} promotionId={p.id} promotionName={p.name} />
           ))}
         </div>
       )}
