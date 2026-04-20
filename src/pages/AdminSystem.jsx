@@ -76,8 +76,24 @@ export default function AdminSystem() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  if (loading) return <div style={s.loading}>Loading...</div>;
-  if (err) return <div style={s.error}>{err}</div>;
+  // Auto-retry: if initial load failed, poll every 2s until token works (max 5 retries)
+  const retryRef = React.useRef(0);
+  React.useEffect(() => {
+    if (!err || retryRef.current >= 5) return;
+    const timer = setTimeout(() => {
+      retryRef.current++;
+      load();
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [err, load]);
+
+  if (loading && !data) return <div style={s.loading}>Loading...</div>;
+  if (err && !data) return (
+    <div style={s.error}>
+      {err}
+      <button style={{ ...s.refreshBtn, marginLeft: 12 }} onClick={() => { retryRef.current = 0; load(); }}>Retry</button>
+    </div>
+  );
 
   const latest = data?.latest || [];
   const logs = data?.logs || [];
