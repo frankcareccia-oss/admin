@@ -118,6 +118,12 @@ const CARDS = [
     title: "System",
     description: "Cron job monitor — scheduled job status, execution history, and health checks.",
   },
+  {
+    to: "/admin/oversight",
+    icon: "📊",
+    title: "Platform Oversight",
+    description: "Platform-wide KPIs, merchant health scores, system alerts, and trend analysis.",
+  },
 ];
 
 export default function AdminHome() {

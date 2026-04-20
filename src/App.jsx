@@ -73,6 +73,7 @@ import MerchantSetup from "./pages/MerchantSetup";
 import AdminHome from "./pages/AdminHome";
 import AdminReports from "./pages/AdminReports";
 import AdminSystem from "./pages/AdminSystem";
+import AdminOversight from "./pages/AdminOversight";
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
@@ -786,7 +787,9 @@ function Layout({ children }) {
                             <NavLink to="/admin" style={navPill}>
                               Dashboard
                             </NavLink>
-                            {location.pathname.startsWith("/admin/system") ? (
+                            {location.pathname.startsWith("/admin/oversight") ? (
+                              <NavLink to="/admin/oversight" style={navPill}>Oversight</NavLink>
+                            ) : location.pathname.startsWith("/admin/system") ? (
                               <NavLink to="/admin/system" style={navPill}>System</NavLink>
                             ) : location.pathname.startsWith("/admin/platform") ? (
                               <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
@@ -1289,6 +1292,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminSystem />
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/admin/oversight"
+            element={
+              <RequireAuth>
+                <AdminOversight />
               </RequireAuth>
             }
           />
