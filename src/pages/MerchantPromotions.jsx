@@ -92,6 +92,11 @@ function CatPill({ name }) {
 
 // ─── Empty form ───────────────────────────────────────────────
 const EMPTY_TIER = { tierName: "", threshold: "", rewardType: "discount_fixed", rewardValue: "", rewardNote: "" };
+const EMPTY_CONDITION = { conditionType: "time", activeDays: [], activeStartHour: "14", activeEndHour: "17", lapseDays: "", minimumSpendCents: "", bonusMultiplier: "2", bonusLabel: "" };
+const DAY_OPTIONS = [
+  { value: "mon", label: "Mon" }, { value: "tue", label: "Tue" }, { value: "wed", label: "Wed" },
+  { value: "thu", label: "Thu" }, { value: "fri", label: "Fri" }, { value: "sat", label: "Sat" }, { value: "sun", label: "Sun" },
+];
 
 const EMPTY_FORM = {
   name: "",
@@ -112,6 +117,7 @@ const EMPTY_FORM = {
     { tierName: "Silver", threshold: "15", rewardType: "discount_fixed", rewardValue: "500", rewardNote: "" },
     { tierName: "Gold", threshold: "30", rewardType: "discount_fixed", rewardValue: "1000", rewardNote: "" },
   ],
+  conditions: [{ ...EMPTY_CONDITION }],
 };
 
 // ══════════════════════════════════════════════════════════════
@@ -237,6 +243,18 @@ export default function MerchantPromotions() {
       scope: f.scope,
       storeId: f.scope === "store" && f.storeId ? parseInt(f.storeId, 10) : null,
       legalText: f.legalText?.trim() || undefined,
+      ...(f.promotionType === "conditional" && Array.isArray(f.conditions) ? {
+        conditions: f.conditions.filter(c => c.conditionType).map(c => ({
+          conditionType: c.conditionType,
+          activeDays: c.conditionType === "time" && c.activeDays?.length ? c.activeDays : null,
+          activeStartHour: c.conditionType === "time" && c.activeStartHour ? parseInt(c.activeStartHour, 10) : null,
+          activeEndHour: c.conditionType === "time" && c.activeEndHour ? parseInt(c.activeEndHour, 10) : null,
+          lapseDays: c.conditionType === "lapse" && c.lapseDays ? parseInt(c.lapseDays, 10) : null,
+          minimumSpendCents: c.conditionType === "spend" && c.minimumSpendCents ? parseInt(c.minimumSpendCents, 10) : null,
+          bonusMultiplier: parseFloat(c.bonusMultiplier) || 2.0,
+          bonusLabel: c.bonusLabel?.trim() || null,
+        })),
+      } : {}),
       ...(f.promotionType === "tiered" && Array.isArray(f.tiers) ? {
         tiers: f.tiers.filter(t => t.tierName && t.threshold).map((t, idx) => ({
           tierName: t.tierName.trim(),
@@ -630,6 +648,7 @@ export default function MerchantPromotions() {
                   <select style={selectStyle} value={form.promotionType} onChange={e => setF("promotionType", e.target.value)}>
                     <option value="stamp">Stamp Card — visit N times, earn a reward</option>
                     <option value="tiered">Tiered — escalating rewards at Bronze / Silver / Gold</option>
+                    <option value="conditional">Conditional — bonus stamps during specific times or behaviors</option>
                   </select>
                 </div>
 
@@ -665,6 +684,106 @@ export default function MerchantPromotions() {
                       + Add Tier
                     </button>
                     <div style={hint}>Each tier has its own visit threshold and reward. Consumers progress through tiers permanently — never reset.</div>
+                  </div>
+                )}
+
+                {/* Conditional Configuration */}
+                {form.promotionType === "conditional" && (
+                  <div style={{ ...fieldRow, background: "rgba(239,159,39,0.06)", borderRadius: 10, padding: "12px 16px", border: "1px solid rgba(239,159,39,0.20)" }}>
+                    <label style={{ ...labelStyle, marginBottom: 8 }}>Bonus Conditions</label>
+                    {form.conditions.map((cond, idx) => (
+                      <div key={idx} style={{ marginBottom: 12, padding: "8px 12px", background: "#fff", borderRadius: 8, border: `1px solid ${color.border}` }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                          <select style={{ ...selectStyle, fontSize: 12, flex: 1 }} value={cond.conditionType}
+                            onChange={e => { const c = [...form.conditions]; c[idx] = { ...EMPTY_CONDITION, conditionType: e.target.value }; setF("conditions", c); }}>
+                            <option value="time">Time-based — bonus during specific days/hours</option>
+                            <option value="lapse">Win-back — bonus for returning after absence</option>
+                            <option value="spend">Spend-based — bonus for orders over a minimum</option>
+                          </select>
+                          {form.conditions.length > 1 && (
+                            <button type="button" style={{ background: "none", border: "none", color: "#C62828", cursor: "pointer", fontSize: 14, fontWeight: 700 }}
+                              onClick={() => { const c = form.conditions.filter((_, i) => i !== idx); setF("conditions", c); }}>x</button>
+                          )}
+                        </div>
+
+                        {cond.conditionType === "time" && (
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: color.textMuted, marginBottom: 3 }}>Active days</div>
+                              <div style={{ display: "flex", gap: 4 }}>
+                                {DAY_OPTIONS.map(d => (
+                                  <button key={d.value} type="button"
+                                    style={{
+                                      padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                                      border: `1px solid ${(cond.activeDays || []).includes(d.value) ? "#1D9E75" : color.border}`,
+                                      background: (cond.activeDays || []).includes(d.value) ? "rgba(29,158,117,0.12)" : "#fff",
+                                      color: (cond.activeDays || []).includes(d.value) ? "#1D9E75" : color.textMuted,
+                                    }}
+                                    onClick={() => {
+                                      const c = [...form.conditions];
+                                      const days = cond.activeDays || [];
+                                      c[idx] = { ...c[idx], activeDays: days.includes(d.value) ? days.filter(x => x !== d.value) : [...days, d.value] };
+                                      setF("conditions", c);
+                                    }}>
+                                    {d.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: color.textMuted, marginBottom: 3 }}>Hours</div>
+                              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                <select style={{ ...selectStyle, fontSize: 12, width: 80 }} value={cond.activeStartHour}
+                                  onChange={e => { const c = [...form.conditions]; c[idx] = { ...c[idx], activeStartHour: e.target.value }; setF("conditions", c); }}>
+                                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`}</option>)}
+                                </select>
+                                <span style={{ fontSize: 12 }}>to</span>
+                                <select style={{ ...selectStyle, fontSize: 12, width: 80 }} value={cond.activeEndHour}
+                                  onChange={e => { const c = [...form.conditions]; c[idx] = { ...c[idx], activeEndHour: e.target.value }; setF("conditions", c); }}>
+                                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`}</option>)}
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {cond.conditionType === "lapse" && (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontSize: 12 }}>Bonus after</span>
+                            <input style={{ ...inputStyle, width: 60, fontSize: 12 }} type="number" min="1" value={cond.lapseDays}
+                              onChange={e => { const c = [...form.conditions]; c[idx] = { ...c[idx], lapseDays: e.target.value }; setF("conditions", c); }} />
+                            <span style={{ fontSize: 12 }}>days without a visit</span>
+                          </div>
+                        )}
+                        {cond.conditionType === "spend" && (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ fontSize: 12 }}>Bonus when order is</span>
+                            <span style={{ fontSize: 14, fontWeight: 600 }}>$</span>
+                            <input style={{ ...inputStyle, width: 70, fontSize: 12 }} type="number" min="1" value={cond.minimumSpendCents ? (cond.minimumSpendCents / 100).toFixed(0) : ""}
+                              onChange={e => { const c = [...form.conditions]; c[idx] = { ...c[idx], minimumSpendCents: String(parseInt(e.target.value || 0, 10) * 100) }; setF("conditions", c); }} />
+                            <span style={{ fontSize: 12 }}>or more</span>
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                          <span style={{ fontSize: 12 }}>Multiplier:</span>
+                          <select style={{ ...selectStyle, fontSize: 12, width: 80 }} value={cond.bonusMultiplier}
+                            onChange={e => { const c = [...form.conditions]; c[idx] = { ...c[idx], bonusMultiplier: e.target.value }; setF("conditions", c); }}>
+                            <option value="2">2x stamps</option>
+                            <option value="3">3x stamps</option>
+                            <option value="4">4x stamps</option>
+                            <option value="5">5x stamps</option>
+                          </select>
+                          <input style={{ ...inputStyle, fontSize: 12, flex: 1 }} value={cond.bonusLabel || ""}
+                            onChange={e => { const c = [...form.conditions]; c[idx] = { ...c[idx], bonusLabel: e.target.value }; setF("conditions", c); }}
+                            placeholder='Label shown to consumer (e.g. "Tuesday afternoon bonus")' />
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" style={{ ...btnSecondary, padding: "4px 12px", fontSize: 12, marginTop: 4 }}
+                      onClick={() => setF("conditions", [...form.conditions, { ...EMPTY_CONDITION }])}>
+                      + Add Condition
+                    </button>
+                    <div style={hint}>Conditions are bonus multipliers — they amplify the stamps earned, not compete with other programs.</div>
                   </div>
                 )}
 
