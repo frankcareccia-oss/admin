@@ -6,10 +6,10 @@
 
 import React from "react";
 import { color } from "../theme";
-import { API_BASE } from "../api/client";
+import { API_BASE, getAccessToken } from "../api/client";
 
 async function fetchCronLogs() {
-  const token = localStorage.getItem("pv_token");
+  const token = getAccessToken();
   const res = await fetch(`${API_BASE}/admin/system/cron-logs`, {
     headers: { Authorization: `Bearer ${token}` },
   });
