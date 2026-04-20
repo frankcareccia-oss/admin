@@ -6,8 +6,7 @@
 
 import React from "react";
 import { color } from "../theme";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+import { API_BASE } from "../api/client";
 
 async function fetchCronLogs() {
   const token = localStorage.getItem("pv_token");
