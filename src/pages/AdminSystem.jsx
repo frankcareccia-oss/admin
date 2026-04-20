@@ -177,6 +177,115 @@ export default function AdminSystem() {
           </tbody>
         </table>
       </div>
+      {/* Test Health */}
+      <TestHealthSection />
+    </div>
+  );
+}
+
+function TestHealthSection() {
+  const [health, setHealth] = React.useState(null);
+  const [running, setRunning] = React.useState(false);
+  const [runResult, setRunResult] = React.useState(null);
+
+  React.useEffect(() => {
+    const token = getAccessToken();
+    fetch(`${API_BASE}/admin/system/test-health`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => setHealth(d))
+      .catch(() => {});
+  }, []);
+
+  const handleRunTests = async () => {
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/admin/system/test-run`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      setRunResult(data);
+    } catch (e) {
+      setRunResult({ success: false, message: e?.message || "Failed to run tests" });
+    }
+    setRunning(false);
+  };
+
+  if (!health) return null;
+
+  const cats = health.categories || {};
+  const lastRun = health.lastRun;
+
+  return (
+    <div style={s.section}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={s.sectionTitle}>Test Health — {health.totalTestFiles} test files</div>
+        {health.environment !== "production" && (
+          <button style={s.refreshBtn} onClick={handleRunTests} disabled={running}>
+            {running ? "Running tests..." : "Run All Tests"}
+          </button>
+        )}
+        {health.environment === "production" && (
+          <span style={{ fontSize: 11, color: color.muted }}>Tests run locally via QA dashboard (localhost:4100)</span>
+        )}
+      </div>
+
+      {/* Category breakdown */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        {Object.entries(cats).map(([cat, files]) => (
+          <div key={cat} style={{
+            padding: "8px 12px", borderRadius: 8, background: "#fff",
+            border: `1px solid ${color.border}`, fontSize: 12,
+          }}>
+            <div style={{ fontWeight: 700, color: color.navy, textTransform: "capitalize" }}>{cat.replace(/-/g, " ")}</div>
+            <div style={{ color: color.muted }}>{files.length} files</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Last run results */}
+      {lastRun && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 8, fontSize: 12,
+          background: lastRun.failedTests === 0 ? "#F0FDF4" : "#FEF2F2",
+          border: `1px solid ${lastRun.failedTests === 0 ? "#BBF7D0" : "#FECACA"}`,
+          marginBottom: 8,
+        }}>
+          <strong>Last run:</strong> {lastRun.passedTests}/{lastRun.totalTests} passed
+          {lastRun.failedTests > 0 && ` · ${lastRun.failedTests} failed`}
+          {lastRun.timestamp && ` · ${new Date(lastRun.timestamp).toLocaleString()}`}
+          {lastRun.duration && ` · ${(lastRun.duration / 1000).toFixed(1)}s`}
+        </div>
+      )}
+
+      {/* Run result */}
+      {runResult && (
+        <div style={{
+          padding: "10px 14px", borderRadius: 8, fontSize: 12,
+          background: runResult.success ? "#F0FDF4" : "#FEF2F2",
+          border: `1px solid ${runResult.success ? "#BBF7D0" : "#FECACA"}`,
+        }}>
+          {runResult.success
+            ? <span style={{ color: "#2E7D32", fontWeight: 700 }}>All {runResult.totalTests} tests passed ({(runResult.duration / 1000).toFixed(1)}s)</span>
+            : runResult.message
+              ? <span style={{ color: "#C62828" }}>{runResult.message}</span>
+              : <span style={{ color: "#C62828", fontWeight: 700 }}>{runResult.failed} of {runResult.totalTests} tests failed</span>
+          }
+          {runResult.failures?.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              {runResult.failures.map((f, i) => (
+                <div key={i} style={{ color: "#C62828", fontSize: 11, marginTop: 2 }}>
+                  {f.file}: {f.message}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
