@@ -104,7 +104,9 @@ export default function AdminSystem() {
           <div style={s.title}>System — Scheduled Jobs</div>
           <div style={s.subtitle}>Cron job execution monitor. pv_admin only.</div>
         </div>
-        <button style={s.refreshBtn} onClick={load}>Refresh</button>
+        <button style={s.refreshBtn} onClick={load} disabled={loading}>
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {/* Latest run per job */}

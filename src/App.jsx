@@ -786,9 +786,13 @@ function Layout({ children }) {
                             <NavLink to="/admin" style={navPill}>
                               Dashboard
                             </NavLink>
-                            <NavLink to="/admin/platform/config" style={navPill}>
-                              Settings
-                            </NavLink>
+                            {pathname.startsWith("/admin/system") ? (
+                              <NavLink to="/admin/system" style={navPill}>System</NavLink>
+                            ) : pathname.startsWith("/admin/platform") ? (
+                              <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
+                            ) : (
+                              <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
+                            )}
                           </>
                         )}
                       </>
