@@ -79,10 +79,12 @@ if (typeof document !== "undefined" && !document.getElementById("pv-support-styl
 }
 
 export default function SupportWidget() {
-  const [state, setState] = React.useState("quiet"); // quiet | alert | diagnose | result | ticket | expanded
+  const [state, setState] = React.useState("quiet"); // quiet | alert | diagnose | result | ticket | expanded | orientation | ask_first | section_detail
   const [diagnosis, setDiagnosis] = React.useState(null);
   const [ticketId, setTicketId] = React.useState(null);
   const [context, setContext] = React.useState(null);
+  const [orientation, setOrientation] = React.useState(null); // { title, summary, sections, pageId }
+  const [sectionDetail, setSectionDetail] = React.useState(null);
 
   // Watch for API errors to auto-trigger alert mode
   React.useEffect(() => {
@@ -110,17 +112,52 @@ export default function SupportWidget() {
     } catch { return { session: { pathname: window.location.hash?.replace("#", "") || "unknown" } }; }
   };
 
-  const handleDiagnose = async () => {
-    setState("diagnose");
+  const handleTap = async () => {
     const ctx = gatherContext();
     setContext(ctx);
+
+    // Check if there's a recent error — if so, go straight to diagnosis
+    const events = pvSupportGetRecentApiEvents?.() || [];
+    const hasError = events.some(e => e.direction === "in" && e.status >= 400 && (Date.now() - new Date(e.ts).getTime()) < 60000);
+
+    if (hasError || state === "alert") {
+      return handleDiagnose(ctx);
+    }
+
+    // No error — ask mode endpoint
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/api/support/mode`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(ctx),
+      });
+      const data = await res.json();
+
+      if (data.mode === "orientation") {
+        setOrientation(data);
+        setState("orientation");
+      } else if (data.mode === "diagnosis") {
+        handleDiagnose(ctx);
+      } else {
+        setState("ask_first");
+      }
+    } catch {
+      setState("ask_first");
+    }
+  };
+
+  const handleDiagnose = async (ctx) => {
+    setState("diagnose");
+    const context = ctx || gatherContext();
+    setContext(context);
 
     try {
       const token = getAccessToken();
       const res = await fetch(`${API_BASE}/api/support/diagnose`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(ctx),
+        body: JSON.stringify(context),
       });
       const data = await res.json();
       setDiagnosis(data);
@@ -133,6 +170,21 @@ export default function SupportWidget() {
         requires_pv_support: false,
       });
       setState("result");
+    }
+  };
+
+  const handleSectionTap = async (sectionId) => {
+    try {
+      const token = getAccessToken();
+      const res = await fetch(`${API_BASE}/api/support/section/${orientation.pageId}/${sectionId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setSectionDetail(data);
+      setState("section_detail");
+    } catch {
+      setSectionDetail({ label: sectionId, description: "Details not available right now." });
+      setState("section_detail");
     }
   };
 
@@ -163,7 +215,7 @@ export default function SupportWidget() {
   // ── Quiet mode ─────────────────────────────────────────────
   if (state === "quiet") {
     return (
-      <button style={s.quiet} onClick={handleDiagnose} title="Get help">
+      <button style={s.quiet} onClick={handleTap} title="Get help">
         ?
       </button>
     );
@@ -172,10 +224,89 @@ export default function SupportWidget() {
   // ── Alert mode ─────────────────────────────────────────────
   if (state === "alert") {
     return (
-      <button style={s.alertPill} onClick={handleDiagnose}>
+      <button style={s.alertPill} onClick={() => handleDiagnose()}>
         <span style={{ fontSize: 14 }}>&#9888;</span>
         Something went wrong — tap for help
       </button>
+    );
+  }
+
+  // ── Ask First mode ─────────────────────────────────────────
+  if (state === "ask_first") {
+    return (
+      <div style={s.card}>
+        <div style={s.cardHeader}>
+          <div style={s.cardTitle}>What can I help you with?</div>
+          <button style={s.closeBtn} onClick={handleClose}>&times;</button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <button style={{ ...s.actionBtn(false), width: "100%", textAlign: "left", padding: "10px 14px" }}
+            onClick={() => { handleTap(); }}>
+            Explain what's on this page
+          </button>
+          <button style={{ ...s.actionBtn(false), width: "100%", textAlign: "left", padding: "10px 14px" }}
+            onClick={() => handleDiagnose()}>
+            Something isn't working
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Orientation mode ───────────────────────────────────────
+  if (state === "orientation" && orientation) {
+    return (
+      <div style={s.card}>
+        <div style={s.cardHeader}>
+          <div style={s.cardTitle}>{orientation.title}</div>
+          <button style={s.closeBtn} onClick={handleClose}>&times;</button>
+        </div>
+        <div style={{ fontSize: 13, color: C.navy, lineHeight: 1.5, marginBottom: 12 }}>
+          {orientation.summary}
+        </div>
+        {orientation.sections?.length > 0 && (
+          <>
+            <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginBottom: 6 }}>Tap a section to learn more:</div>
+            {orientation.sections.map(sec => (
+              <button key={sec.id}
+                onClick={() => handleSectionTap(sec.id)}
+                style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 12px", marginBottom: 4, borderRadius: 6, border: `1px solid ${C.border}`, background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 500, color: C.navy }}>
+                › {sec.label}
+              </button>
+            ))}
+          </>
+        )}
+        <div style={s.moreLink} onClick={() => handleDiagnose()}>
+          Something not working? →
+        </div>
+      </div>
+    );
+  }
+
+  // ── Section detail ─────────────────────────────────────────
+  if (state === "section_detail" && sectionDetail) {
+    return (
+      <div style={s.card}>
+        <div style={s.cardHeader}>
+          <button style={{ background: "none", border: "none", fontSize: 12, color: C.teal, cursor: "pointer", fontWeight: 500 }}
+            onClick={() => setState("orientation")}>
+            ‹ Back
+          </button>
+          <button style={s.closeBtn} onClick={handleClose}>&times;</button>
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.navy, marginBottom: 8 }}>{sectionDetail.label}</div>
+        <div style={{ fontSize: 13, color: C.navy, lineHeight: 1.6, marginBottom: 8 }}>
+          {sectionDetail.description}
+        </div>
+        {sectionDetail.additionalInfo && (
+          <div style={{ fontSize: 12, color: C.muted, background: C.tealBg, padding: "8px 12px", borderRadius: 6, lineHeight: 1.5 }}>
+            {sectionDetail.additionalInfo}
+          </div>
+        )}
+        <div style={s.moreLink} onClick={() => handleDiagnose()}>
+          Something not working? →
+        </div>
+      </div>
     );
   }
 
