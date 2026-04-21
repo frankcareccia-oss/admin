@@ -8,6 +8,24 @@ import React from "react";
 import { color } from "../theme";
 import { API_BASE, getAccessToken } from "../api/client";
 
+// Error boundary for tab content — catches rendering crashes
+class TabErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, margin: "12px 0" }}>
+          <div style={{ fontWeight: 700, color: "#A32D2D", marginBottom: 4 }}>This section encountered an error</div>
+          <div style={{ fontSize: 12, color: "#666" }}>{this.state.error?.message || "Unknown error"}</div>
+          <button onClick={() => this.setState({ hasError: false, error: null })} style={{ marginTop: 8, padding: "4px 12px", borderRadius: 6, border: "1px solid #FECACA", background: "#fff", cursor: "pointer", fontSize: 12 }}>Try again</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 async function fetchCronLogs() {
   const token = getAccessToken();
   const res = await fetch(`${API_BASE}/admin/system/cron-logs`, {
@@ -120,7 +138,8 @@ export default function AdminSystem() {
         </div>
       </div>
 
-      {tab === "crons" && <>
+      {tab === "crons" && (
+      <div>
       {/* Latest run per job */}
       <div style={s.section}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -194,11 +213,12 @@ export default function AdminSystem() {
           </tbody>
         </table>
       </div>
-      </>}
+      </div>
+      )}
 
-      {tab === "tests" && <TestHealthSection />}
+      {tab === "tests" && <TabErrorBoundary><TestHealthSection /></TabErrorBoundary>}
 
-      {tab === "pipeline" && <AgentPipelineSection />}
+      {tab === "pipeline" && <TabErrorBoundary><AgentPipelineSection /></TabErrorBoundary>}
     </div>
   );
 }
