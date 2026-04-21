@@ -943,7 +943,7 @@ export default function AdminMerchantUsers() {
                         status={status}
                         isCurrentOwner={isCurrentOwner}
                         merchantId={mid}
-                        onUpdated={refresh}
+                        onUpdated={() => load()}
                       />
                     );
                   })}
