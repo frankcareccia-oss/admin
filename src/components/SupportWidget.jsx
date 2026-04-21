@@ -91,7 +91,8 @@ export default function SupportWidget() {
     const interval = setInterval(() => {
       try {
         const events = pvSupportGetRecentApiEvents?.() || [];
-        const recentError = events.find(e => e.direction === "in" && e.status >= 400 && (Date.now() - new Date(e.ts).getTime()) < 30000);
+        // Only alert on 500+ errors (server errors), not 4xx (auth/permission — often expected)
+        const recentError = events.find(e => e.direction === "in" && e.status >= 500 && (Date.now() - new Date(e.ts).getTime()) < 30000);
         if (recentError && state === "quiet") {
           setState("alert");
         }
@@ -116,15 +117,7 @@ export default function SupportWidget() {
     const ctx = gatherContext();
     setContext(ctx);
 
-    // Check if there's a recent error — if so, go straight to diagnosis
-    const events = pvSupportGetRecentApiEvents?.() || [];
-    const hasError = events.some(e => e.direction === "in" && e.status >= 400 && (Date.now() - new Date(e.ts).getTime()) < 60000);
-
-    if (hasError || state === "alert") {
-      return handleDiagnose(ctx);
-    }
-
-    // No error — ask mode endpoint
+    // Always check mode endpoint first — let the server decide
     try {
       const token = getAccessToken();
       const res = await fetch(`${API_BASE}/api/support/mode`, {
@@ -210,6 +203,47 @@ export default function SupportWidget() {
     setDiagnosis(null);
     setTicketId(null);
     setContext(null);
+    setOrientation(null);
+    setSectionDetail(null);
+  };
+
+  const handleCopyContext = () => {
+    const ctx = context || gatherContext();
+    const page = ctx?.session?.pathname || "unknown";
+    const diag = diagnosis?.diagnosis || "No diagnosis";
+    const steps = (diagnosis?.resolution_steps || []).map((s, i) => `${i + 1}. ${String(s).replace(/^\d+\.\s*/, "")}`).join("\n");
+    const events = (ctx?.recentEvents || ctx?.apiEvents || [])
+      .filter(e => e.direction === "in")
+      .slice(-5)
+      .map(e => `  ${e.ts ? new Date(e.ts).toLocaleTimeString() : "?"} ${e.method || ""} ${e.path || ""} → ${e.status || "?"}`)
+      .join("\n");
+
+    const text = `PerkValet Support Context
+========================
+Page: ${page}
+Time: ${new Date().toLocaleString()}
+
+Diagnosis: ${diag}
+
+Steps suggested:
+${steps || "  (none)"}
+
+Recent API calls:
+${events || "  (none)"}
+`;
+
+    navigator.clipboard?.writeText(text).then(() => {
+      alert("Copied to clipboard!");
+    }).catch(() => {
+      // Fallback: select text
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      alert("Copied to clipboard!");
+    });
   };
 
   // ── Quiet mode ─────────────────────────────────────────────
@@ -401,16 +435,47 @@ export default function SupportWidget() {
   // ── Expanded (full support panel — for tech details) ───────
   if (state === "expanded") {
     const ctx = context || gatherContext();
+    const page = ctx?.session?.pathname || "unknown";
+    const recentEvents = (ctx?.recentEvents || ctx?.apiEvents || []).filter(e => e.direction === "in").slice(-8);
+
     return (
       <div style={{ ...s.card, maxHeight: 500 }}>
         <div style={s.cardHeader}>
-          <div style={s.cardTitle}>Technical Details</div>
+          <div style={s.cardTitle}>Support Details</div>
           <button style={s.closeBtn} onClick={() => setState("result")}>&times;</button>
         </div>
-        <pre style={{ fontSize: 10, color: C.muted, background: "#f5f5f5", padding: 10, borderRadius: 6, overflow: "auto", maxHeight: 350, whiteSpace: "pre-wrap" }}>
-          {JSON.stringify(ctx, null, 2)}
-        </pre>
-        <button style={{ ...s.actionBtn(false), marginTop: 8 }} onClick={() => setState("result")}>Back to diagnosis</button>
+
+        {/* Structured summary */}
+        <div style={{ fontSize: 12, marginBottom: 10 }}>
+          <div style={{ marginBottom: 6 }}><strong>Page:</strong> {page}</div>
+          <div style={{ marginBottom: 6 }}><strong>Time:</strong> {new Date().toLocaleString()}</div>
+          {diagnosis?.diagnosis && <div style={{ marginBottom: 6 }}><strong>Diagnosis:</strong> {diagnosis.diagnosis}</div>}
+        </div>
+
+        {/* Recent API calls */}
+        {recentEvents.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 4 }}>Recent API calls:</div>
+            {recentEvents.map((e, i) => (
+              <div key={i} style={{ fontSize: 11, color: e.status >= 400 ? "#E24B4A" : C.muted, padding: "1px 0" }}>
+                {e.ts ? new Date(e.ts).toLocaleTimeString() : "?"} {e.method} {e.path} → {e.status || "pending"} {e.ms ? `(${e.ms}ms)` : ""}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Raw JSON (collapsible) */}
+        <details style={{ marginBottom: 8 }}>
+          <summary style={{ fontSize: 11, color: C.teal, cursor: "pointer" }}>Show raw data</summary>
+          <pre style={{ fontSize: 9, color: C.muted, background: "#f5f5f5", padding: 8, borderRadius: 6, overflow: "auto", maxHeight: 200, whiteSpace: "pre-wrap", marginTop: 4 }}>
+            {JSON.stringify(ctx, null, 2)}
+          </pre>
+        </details>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button style={s.actionBtn(true)} onClick={handleCopyContext}>Copy to clipboard</button>
+          <button style={s.actionBtn(false)} onClick={() => setState("result")}>Back to diagnosis</button>
+        </div>
       </div>
     );
   }
