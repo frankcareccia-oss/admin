@@ -161,6 +161,28 @@ export default function MerchantOnboarding() {
   const [helpResponse, setHelpResponse] = React.useState(null);
   const [teamSyncing, setTeamSyncing] = React.useState(false);
   const [teamSyncResult, setTeamSyncResult] = React.useState(null);
+  const [oauthError, setOauthError] = React.useState(null);
+
+  const OAUTH_ERRORS = {
+    cancelled: "You cancelled the connection. No problem — click Connect again when you're ready.",
+    invalid_code: "The authorization expired. Please try again.",
+    wrong_account: "A staff-level login was used. Please sign in with the owner or admin account.",
+    clover_down: "The POS server didn't respond. Wait a minute and try again.",
+    invalid_state: "Your session expired or was opened in another tab. Please try again.",
+    already_connected: "This POS account is already connected to a different PerkValet merchant.",
+    unknown: "Something went wrong. Please try again. If it keeps happening, click 'I need help'.",
+  };
+
+  // Check for OAuth error on mount (redirect back from POS)
+  React.useEffect(() => {
+    const hash = window.location.hash || "";
+    const match = hash.match(/oauth_error=([^&]+)/);
+    if (match) {
+      setOauthError(match[1]);
+      // Clean the URL
+      window.location.hash = hash.replace(/[?&]oauth_error=[^&]+/, "");
+    }
+  }, []);
 
   const load = React.useCallback(async () => {
     setLoading(true); setError(null);
@@ -238,6 +260,18 @@ export default function MerchantOnboarding() {
 
       <div style={s.content}>
         {error && <div style={s.error}>{error}</div>}
+
+        {oauthError && (
+          <div style={{ ...s.card, background: "#FFF3E0", borderColor: "#FFB74D" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.amber, marginBottom: 6 }}>Connection Issue</div>
+            <div style={{ fontSize: 14, color: C.navy, lineHeight: 1.6 }}>
+              {OAUTH_ERRORS[oauthError] || OAUTH_ERRORS.unknown}
+            </div>
+            <button style={{ ...s.secondaryBtn, marginTop: 12, width: "auto" }} onClick={() => setOauthError(null)}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {helpResponse && (
           <div style={{ ...s.card, background: "#F0FDF4", borderColor: C.teal }}>
