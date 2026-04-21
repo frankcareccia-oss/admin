@@ -739,7 +739,11 @@ export default function AdminMerchantUsers() {
               <div style={styles.currentOwnerCard}>
                 <div style={styles.currentOwnerMain}>
                   <div style={styles.currentOwnerName}>
-                    {userDisplayLabel(currentOwner)}
+                    {(() => {
+                      const fn = currentOwner?.firstName || currentOwner?.user?.firstName || "";
+                      const ln = currentOwner?.lastName || currentOwner?.user?.lastName || "";
+                      return [fn, ln].filter(Boolean).join(" ") || userEmail(currentOwner) || "—";
+                    })()}
                   </div>
                 </div>
 
@@ -971,6 +975,10 @@ function DetailBlock({
         <div style={styles.detailRow}>
           <b style={styles.label}>Email:</b>
           <span style={styles.value}>{detail.user?.email || "—"}</span>
+        </div>
+        <div style={styles.detailRow}>
+          <b style={styles.label}>Phone:</b>
+          <span style={styles.value}>{detail.user?.phoneRaw || detail.user?.phoneE164 || "—"}</span>
         </div>
         <div style={styles.detailRow}>
           <b style={styles.label}>User status:</b>
