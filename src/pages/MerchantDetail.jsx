@@ -8,7 +8,7 @@
 
 import React from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
-import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole, updateMerchantType } from "../api/client";
+import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole, updateMerchantType, adminUpdateTeamSetup } from "../api/client";
 import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -99,6 +99,11 @@ export default function MerchantDetail() {
   const [typeSaving, setTypeSaving] = React.useState(false);
   const [typeSaveErr, setTypeSaveErr] = React.useState("");
 
+  const [editingTeam, setEditingTeam] = React.useState(false);
+  const [teamVal, setTeamVal] = React.useState("");
+  const [teamSaving, setTeamSaving] = React.useState(false);
+  const [teamSaveErr, setTeamSaveErr] = React.useState("");
+
   async function load() {
     setLoading(true);
     setErr("");
@@ -131,8 +136,25 @@ export default function MerchantDetail() {
   React.useEffect(() => { load(); }, [merchantId]);
 
   React.useEffect(() => {
-    if (merchant) setTypeVal(merchant.merchantType || "");
+    if (merchant) {
+      setTypeVal(merchant.merchantType || "");
+      setTeamVal(merchant.teamSetupMode || "");
+    }
   }, [merchant]);
+
+  async function handleTeamSave() {
+    setTeamSaving(true);
+    setTeamSaveErr("");
+    try {
+      await adminUpdateTeamSetup(merchantId, teamVal);
+      setMerchant(m => ({ ...m, teamSetupMode: teamVal, teamSetupComplete: true }));
+      setEditingTeam(false);
+    } catch (e) {
+      setTeamSaveErr(e?.message || "Save failed");
+    } finally {
+      setTeamSaving(false);
+    }
+  }
 
   async function handleTypeSave() {
     setTypeSaving(true);
@@ -286,6 +308,56 @@ export default function MerchantDetail() {
               {merchant?.merchantType ? MERCHANT_TYPE_LABELS[merchant.merchantType] || merchant.merchantType : "Not set"}
             </span>
             <button onClick={() => { setTypeVal(merchant?.merchantType || ""); setEditingType(true); }} style={styles.smallBtn}>
+              Edit
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Team setup mode row */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        marginBottom: 20,
+        padding: "10px 14px",
+        border: `1px solid ${color.border}`,
+        borderRadius: 12,
+        background: color.cardBg,
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: color.textMuted, whiteSpace: "nowrap" }}>Team setup</span>
+        {editingTeam ? (
+          <>
+            <select
+              value={teamVal}
+              onChange={e => setTeamVal(e.target.value)}
+              disabled={teamSaving}
+              style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${color.borderInput}`, fontSize: 13 }}
+            >
+              <option value="" disabled>Select mode…</option>
+              <option value="individual">Individual — per-associate tracking</option>
+              <option value="shared">Shared — one register login</option>
+              <option value="solo">Solo — single operator</option>
+              <option value="external">External — managed elsewhere</option>
+            </select>
+            <button onClick={handleTeamSave} disabled={teamSaving || !teamVal} style={{ ...styles.smallBtn, background: color.primary, color: "#fff", border: "none" }}>
+              {teamSaving ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => { setEditingTeam(false); setTeamVal(merchant?.teamSetupMode || ""); setTeamSaveErr(""); }}
+              disabled={teamSaving}
+              style={styles.smallBtn}
+            >
+              Cancel
+            </button>
+            {teamSaveErr && <span style={{ fontSize: 13, color: color.danger }}>{teamSaveErr}</span>}
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 13, color: merchant?.teamSetupMode ? color.text : color.textFaint }}>
+              {merchant?.teamSetupMode
+                ? { individual: "Individual", shared: "Shared register", solo: "Solo operator", external: "External" }[merchant.teamSetupMode] || merchant.teamSetupMode
+                : "Not configured"}
+            </span>
+            <button onClick={() => { setTeamVal(merchant?.teamSetupMode || ""); setEditingTeam(true); }} style={styles.smallBtn}>
               Edit
             </button>
           </>

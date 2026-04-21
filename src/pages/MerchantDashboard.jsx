@@ -20,6 +20,7 @@ import {
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
 import DuplicateCustomerBanner from "../components/DuplicateCustomerBanner";
+import useCapabilities from "../hooks/useCapabilities";
 
 function pvUiHook(event, fields = {}) {
   try {
@@ -185,6 +186,12 @@ export default function MerchantDashboard() {
     );
   }
 
+  const { caps } = useCapabilities();
+  const feat = caps?.features || {};
+  const teamDesc = caps?.upgradeMessage
+    ? `${caps.description} ${caps.upgradeMessage}`
+    : "Invite and manage staff members and their portal access.";
+
   const CARDS = [
     {
       to: "/merchant/weekly",
@@ -197,7 +204,9 @@ export default function MerchantDashboard() {
       to: "/merchant/analytics",
       icon: "📊",
       title: "Analytics",
-      description: "KPIs, loyalty flywheel, consumer engagement, and promotion performance.",
+      description: feat.associateAttribution
+        ? "KPIs, associate leaderboard, consumer engagement, and promotion performance."
+        : "KPIs, store-level trends, consumer engagement, and promotion performance.",
       meta: null,
     },
     {
@@ -239,7 +248,7 @@ export default function MerchantDashboard() {
       to: "/merchant/users",
       icon: "👥",
       title: "Team",
-      description: "Invite and manage staff members and their portal access.",
+      description: teamDesc,
       meta: countLabel(counts.team, "member"),
     },
     {

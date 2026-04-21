@@ -1320,6 +1320,14 @@ export async function adminUpdateMerchantUser(merchantId, userId, { firstName, l
   });
 }
 
+export async function adminUpdateTeamSetup(merchantId, teamSetupMode) {
+  return request(`/admin/merchants/${merchantId}/team-setup`, {
+    method: "PATCH",
+    auth: "auto",
+    body: { teamSetupMode },
+  });
+}
+
 export async function adminTransferOwnership(payload) {
   return request(`/admin/merchant/ownership-transfer`, {
     method: "POST",
@@ -2394,6 +2402,12 @@ export async function merchantSetAvgTransactionValue(avgTransactionValueCents) {
     auth: "jwt",
     body: { avgTransactionValueCents },
   });
+}
+
+// ── Merchant Capabilities ──
+
+export async function merchantGetCapabilities() {
+  return request("/merchant/capabilities", { auth: "jwt" });
 }
 
 // ── Merchant Onboarding ──
