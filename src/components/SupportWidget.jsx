@@ -86,6 +86,21 @@ export default function SupportWidget() {
   const [orientation, setOrientation] = React.useState(null); // { title, summary, sections, pageId }
   const [sectionDetail, setSectionDetail] = React.useState(null);
 
+  // Auto-close when navigating to a different page
+  React.useEffect(() => {
+    const checkRoute = () => {
+      const currentRoute = window.location.hash?.replace("#", "") || window.location.pathname;
+      if (state !== "quiet" && state !== "alert") {
+        setState("quiet");
+        setDiagnosis(null);
+        setOrientation(null);
+        setSectionDetail(null);
+      }
+    };
+    window.addEventListener("hashchange", checkRoute);
+    return () => window.removeEventListener("hashchange", checkRoute);
+  }, [state]);
+
   // Watch for API errors to auto-trigger alert mode
   React.useEffect(() => {
     const interval = setInterval(() => {
