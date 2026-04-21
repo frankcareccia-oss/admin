@@ -1416,6 +1416,11 @@ function TeamMemberRow({ mu, fullName, email, role, status, isCurrentOwner, merc
 
   const handleSave = async () => {
     if (!userId || !merchantId) return;
+    // Validate: names shouldn't contain @ (prevent email in name fields)
+    if (editFirst.includes("@") || editLast.includes("@")) {
+      alert("Name fields should not contain email addresses. Use the Email field for email.");
+      return;
+    }
     setSaving(true);
     try {
       await adminUpdateMerchantUser(merchantId, userId, {
