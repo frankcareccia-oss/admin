@@ -1422,11 +1422,25 @@ function TeamMemberRow({ mu, fullName, email, role, status, isCurrentOwner, merc
 
   const userId = mu?.userId || mu?.user?.id;
 
+  // Format phone as (XXX) XXX-XXXX
+  const formatPhone = (val) => {
+    const digits = val.replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
   const handleSave = async () => {
     if (!userId || !merchantId) return;
-    // Validate: names shouldn't contain @ (prevent email in name fields)
     if (editFirst.includes("@") || editLast.includes("@")) {
-      alert("Name fields should not contain email addresses. Use the Email field for email.");
+      alert("Name fields should not contain email addresses.");
+      return;
+    }
+    if (!editFirst.trim()) { alert("First name is required."); return; }
+    // Validate phone: must be 10 digits if provided
+    const phoneDigits = editPhone.replace(/\D/g, "");
+    if (phoneDigits && phoneDigits.length !== 10) {
+      alert("Phone must be 10 digits (e.g. (408) 555-1234).");
       return;
     }
     setSaving(true);
@@ -1448,20 +1462,29 @@ function TeamMemberRow({ mu, fullName, email, role, status, isCurrentOwner, merc
     return (
       <tr style={styles.row}>
         <td colSpan={4} style={{ padding: 14, borderBottom: `1px solid ${TOKENS.divider}` }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <input value={editFirst} onChange={e => setEditFirst(e.target.value)} placeholder="First name"
-              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
-            <input value={editLast} onChange={e => setEditLast(e.target.value)} placeholder="Last name"
-              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
-            <input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="Phone"
-              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
-            <span style={{ fontSize: 12, color: TOKENS.muted }}>{email}</span>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: TOKENS.muted, marginBottom: 3 }}>First Name *</div>
+              <input value={editFirst} onChange={e => setEditFirst(e.target.value)} placeholder="First name"
+                style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: TOKENS.muted, marginBottom: 3 }}>Last Name</div>
+              <input value={editLast} onChange={e => setEditLast(e.target.value)} placeholder="Last name"
+                style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: TOKENS.muted, marginBottom: 3 }}>Phone</div>
+              <input value={editPhone} onChange={e => setEditPhone(formatPhone(e.target.value))} placeholder="(408) 555-1234"
+                style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 150 }} />
+            </div>
+            <div style={{ fontSize: 12, color: TOKENS.muted, paddingBottom: 4 }}>{email}</div>
             <button onClick={handleSave} disabled={saving}
-              style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "#1D9E75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              style={{ padding: "6px 16px", borderRadius: 6, border: "none", background: "#1D9E75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               {saving ? "..." : "Save"}
             </button>
             <button onClick={() => setEditing(false)}
-              style={{ padding: "5px 14px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, background: "transparent", fontSize: 12, cursor: "pointer" }}>
+              style={{ padding: "6px 16px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, background: "transparent", fontSize: 12, cursor: "pointer" }}>
               Cancel
             </button>
           </div>
