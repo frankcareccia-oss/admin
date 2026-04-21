@@ -86,7 +86,12 @@ export default function Merchants() {
   const [creating, setCreating] = React.useState(false);
   const [newName, setNewName] = React.useState("");
   const [newType, setNewType] = React.useState("");
+  const [ownerFirst, setOwnerFirst] = React.useState("");
+  const [ownerLast, setOwnerLast] = React.useState("");
+  const [ownerEmail, setOwnerEmail] = React.useState("");
+  const [ownerPhone, setOwnerPhone] = React.useState("");
   const [showTypeStep, setShowTypeStep] = React.useState(false);
+  const [ownerResult, setOwnerResult] = React.useState(null);
 
   const [toast, setToast] = React.useState(null);
 
@@ -204,10 +209,26 @@ export default function Merchants() {
 
     setCreating(true);
     try {
-      const created = await createMerchant({ name, merchantType: newType || null });
-      setToast({ kind: "success", message: "Merchant created" });
+      const created = await createMerchant({
+        name,
+        merchantType: newType || null,
+        ownerEmail: ownerEmail.trim() || undefined,
+        ownerFirstName: ownerFirst.trim() || undefined,
+        ownerLastName: ownerLast.trim() || undefined,
+        ownerPhone: ownerPhone.trim() || undefined,
+      });
+
+      if (created.owner) {
+        setOwnerResult(created.owner);
+      }
+
+      setToast({ kind: "success", message: created.owner ? `Merchant created with owner ${created.owner.email}` : "Merchant created" });
       setNewName("");
       setNewType("");
+      setOwnerFirst("");
+      setOwnerLast("");
+      setOwnerEmail("");
+      setOwnerPhone("");
       setShowTypeStep(false);
 
       pvUiHook("admin.merchants.create_succeeded.ui", {
@@ -399,19 +420,39 @@ export default function Merchants() {
       <div style={{ ...card, marginBottom: 12 }}>
         <div style={{ fontWeight: 800, marginBottom: 10 }}>Create Merchant</div>
 
+        {ownerResult && ownerResult.tempPassword && (
+          <div style={{ background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 8, padding: "12px 16px", marginBottom: 12 }}>
+            <div style={{ fontWeight: 700, color: "#2E7D32", marginBottom: 4 }}>Owner account created</div>
+            <div style={{ fontSize: 13 }}>Email: <strong>{ownerResult.email}</strong></div>
+            <div style={{ fontSize: 13 }}>Temporary password: <strong style={{ fontFamily: "monospace", background: "#fff", padding: "2px 6px", borderRadius: 4 }}>{ownerResult.tempPassword}</strong></div>
+            <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>Share these credentials with the owner. They'll be asked to change the password on first login.</div>
+          </div>
+        )}
+
         {!showTypeStep ? (
-          /* ── Step 1: name ── */
-          <form onSubmit={onNameSubmit} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="Merchant name"
-              disabled={creating}
-              style={{ ...themeInput, minWidth: 240, flex: 1 }}
-              autoFocus
-            />
+          /* ── Step 1: name + owner ── */
+          <form onSubmit={onNameSubmit}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Merchant / business name"
+                disabled={creating}
+                style={{ ...themeInput, minWidth: 240, flex: 1 }}
+                autoFocus
+              />
+            </div>
+
+            <div style={{ fontSize: 12, fontWeight: 700, color: color.textMuted, marginBottom: 6 }}>Owner (optional — can add later)</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+              <input value={ownerFirst} onChange={e => setOwnerFirst(e.target.value)} placeholder="First name" style={themeInput} disabled={creating} />
+              <input value={ownerLast} onChange={e => setOwnerLast(e.target.value)} placeholder="Last name" style={themeInput} disabled={creating} />
+              <input value={ownerEmail} onChange={e => setOwnerEmail(e.target.value)} placeholder="Email" type="email" style={themeInput} disabled={creating} />
+              <input value={ownerPhone} onChange={e => setOwnerPhone(e.target.value)} placeholder="Phone (optional)" style={themeInput} disabled={creating} />
+            </div>
+
             <button type="submit" disabled={!newName.trim()} style={buttonBase}>
-              Create Merchant
+              Next — Choose Business Type
             </button>
           </form>
         ) : (
