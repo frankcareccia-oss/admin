@@ -8,24 +8,6 @@ import React from "react";
 import { color } from "../theme";
 import { API_BASE, getAccessToken } from "../api/client";
 
-// Error boundary for tab content — catches rendering crashes
-class TabErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: 20, background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 8, margin: "12px 0" }}>
-          <div style={{ fontWeight: 700, color: "#A32D2D", marginBottom: 4 }}>This section encountered an error</div>
-          <div style={{ fontSize: 12, color: "#666" }}>{this.state.error?.message || "Unknown error"}</div>
-          <button onClick={() => this.setState({ hasError: false, error: null })} style={{ marginTop: 8, padding: "4px 12px", borderRadius: 6, border: "1px solid #FECACA", background: "#fff", cursor: "pointer", fontSize: 12 }}>Try again</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 async function fetchCronLogs() {
   const token = getAccessToken();
   const res = await fetch(`${API_BASE}/admin/system/cron-logs`, {
@@ -81,6 +63,7 @@ export default function AdminSystem() {
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [err, setErr] = React.useState(null);
+  const [tab, setTab] = React.useState("crons");
 
   const load = React.useCallback(async () => {
     setLoading(true); setErr(null);
@@ -114,8 +97,6 @@ export default function AdminSystem() {
 
   const latest = data?.latest || [];
   const logs = data?.logs || [];
-
-  const [tab, setTab] = React.useState("crons");
 
   const tabStyle = (t) => ({
     padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
@@ -216,9 +197,9 @@ export default function AdminSystem() {
       </div>
       )}
 
-      {tab === "tests" && <TabErrorBoundary><TestHealthSection /></TabErrorBoundary>}
+      {tab === "tests" && <TestHealthSection />}
 
-      {tab === "pipeline" && <TabErrorBoundary><AgentPipelineSection /></TabErrorBoundary>}
+      {tab === "pipeline" && <AgentPipelineSection />}
     </div>
   );
 }
