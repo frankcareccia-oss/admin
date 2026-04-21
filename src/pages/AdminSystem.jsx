@@ -353,12 +353,42 @@ function AgentPipelineSection() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={s.sectionTitle}>AI Support Pipeline</div>
         <button style={s.refreshBtn} onClick={handleRunPipeline} disabled={running}>
-          {running ? "Running pipeline..." : "Run Full Pipeline"}
+          {running ? "Running..." : "Run Full Pipeline"}
         </button>
       </div>
 
+      {/* Progress bar while running */}
+      {running && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 0, marginBottom: 8 }}>
+            {["Agent 1: Scan Code", "Agent 2: Structure", "Agent 3: Write Docs", "Agent 4: Snapshot"].map((step, i) => (
+              <div key={i} style={{ flex: 1, textAlign: "center" }}>
+                <div style={{ fontSize: 10, color: "#888", marginBottom: 4 }}>{step}</div>
+                <div style={{ height: 4, background: "#eee", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", borderRadius: 2,
+                    background: "#1D9E75",
+                    width: "100%",
+                    animation: `pipelineStep${i} 120s linear`,
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: "#1D9E75", textAlign: "center" }}>
+            Pipeline running — Agent 1 scans code (~1s), Agent 2 structures (~60s), Agent 3 writes docs (~90s)...
+          </div>
+          <style>{`
+            @keyframes pipelineStep0 { 0% { width: 0%; } 1% { width: 100%; } 100% { width: 100%; } }
+            @keyframes pipelineStep1 { 0% { width: 0%; } 1% { width: 0%; } 50% { width: 100%; } 100% { width: 100%; } }
+            @keyframes pipelineStep2 { 0% { width: 0%; } 50% { width: 0%; } 90% { width: 100%; } 100% { width: 100%; } }
+            @keyframes pipelineStep3 { 0% { width: 0%; } 90% { width: 0%; } 95% { width: 100%; } 100% { width: 100%; } }
+          `}</style>
+        </div>
+      )}
+
       {/* Pipeline run result */}
-      {runResult && (
+      {runResult && !running && (
         <div style={{
           padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 12,
           background: runResult.agents ? "#F0FDF4" : "#FEF2F2",
