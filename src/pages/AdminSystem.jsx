@@ -97,21 +97,38 @@ export default function AdminSystem() {
   const latest = data?.latest || [];
   const logs = data?.logs || [];
 
+  const [tab, setTab] = React.useState("crons");
+
+  const tabStyle = (t) => ({
+    padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+    border: "none",
+    background: tab === t ? "#1D9E75" : "transparent",
+    color: tab === t ? "#fff" : color.muted,
+    transition: "all 0.15s",
+  });
+
   return (
     <div style={s.page}>
       <div style={s.header}>
         <div>
-          <div style={s.title}>System — Scheduled Jobs</div>
-          <div style={s.subtitle}>Cron job execution monitor. pv_admin only.</div>
+          <div style={s.title}>System</div>
         </div>
-        <button style={s.refreshBtn} onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </button>
+        <div style={{ display: "flex", gap: 4, background: "#F4F4F0", borderRadius: 10, padding: 3 }}>
+          <button style={tabStyle("crons")} onClick={() => setTab("crons")}>Cron Jobs</button>
+          <button style={tabStyle("tests")} onClick={() => setTab("tests")}>Test Health</button>
+          <button style={tabStyle("pipeline")} onClick={() => setTab("pipeline")}>AI Pipeline</button>
+        </div>
       </div>
 
+      {tab === "crons" && <>
       {/* Latest run per job */}
       <div style={s.section}>
-        <div style={s.sectionTitle}>Current Status</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={s.sectionTitle}>Cron Job Status</div>
+          <button style={s.refreshBtn} onClick={load} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
         <table style={s.table}>
           <thead>
             <tr>
@@ -177,11 +194,11 @@ export default function AdminSystem() {
           </tbody>
         </table>
       </div>
-      {/* Test Health */}
-      <TestHealthSection />
+      </>}
 
-      {/* Agent Pipeline */}
-      <AgentPipelineSection />
+      {tab === "tests" && <TestHealthSection />}
+
+      {tab === "pipeline" && <AgentPipelineSection />}
     </div>
   );
 }
