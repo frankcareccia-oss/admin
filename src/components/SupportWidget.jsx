@@ -352,12 +352,53 @@ ${events || "  (none)"}
           {sectionDetail.description}
         </div>
         {sectionDetail.additionalInfo && (
-          <div style={{ fontSize: 12, color: C.muted, background: C.tealBg, padding: "8px 12px", borderRadius: 6, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: C.muted, background: C.tealBg, padding: "8px 12px", borderRadius: 6, lineHeight: 1.5, marginBottom: 8 }}>
             {sectionDetail.additionalInfo}
           </div>
         )}
+        <button
+          style={{ ...s.actionBtn(true), width: "100%", textAlign: "center", marginBottom: 8 }}
+          onClick={async () => {
+            try {
+              const token = getAccessToken();
+              const res = await fetch(`${API_BASE}/api/support/help/${orientation.pageId}`, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              const data = await res.json();
+              setSectionDetail({ ...sectionDetail, fullGuide: data.content });
+              setState("full_guide");
+            } catch { /* stay on section detail */ }
+          }}>
+          Full guide →
+        </button>
         <div style={s.moreLink} onClick={() => handleDiagnose()}>
           Something not working? →
+        </div>
+      </div>
+    );
+  }
+
+  // ── Full guide view ────────────────────────────────────────
+  if (state === "full_guide" && sectionDetail?.fullGuide) {
+    return (
+      <div style={{ ...s.card, maxHeight: 550 }}>
+        <div style={s.cardHeader}>
+          <button style={{ background: "none", border: "none", fontSize: 12, color: C.teal, cursor: "pointer", fontWeight: 500 }}
+            onClick={() => setState("section_detail")}>
+            ‹ Back
+          </button>
+          <button style={s.closeBtn} onClick={handleClose}>&times;</button>
+        </div>
+        <div style={{ fontSize: 13, color: C.navy, lineHeight: 1.7, overflow: "auto", maxHeight: 450, whiteSpace: "pre-wrap" }}>
+          {sectionDetail.fullGuide.split("\n").map((line, i) => {
+            if (line.startsWith("# ")) return <div key={i} style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, marginTop: i > 0 ? 16 : 0 }}>{line.slice(2)}</div>;
+            if (line.startsWith("## ")) return <div key={i} style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, marginTop: 14, color: C.teal }}>{line.slice(3)}</div>;
+            if (line.startsWith("### ")) return <div key={i} style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, marginTop: 10 }}>{line.slice(4)}</div>;
+            if (line.match(/^\d+\./)) return <div key={i} style={{ paddingLeft: 16, marginBottom: 2 }}>{line}</div>;
+            if (line.startsWith("- ")) return <div key={i} style={{ paddingLeft: 16, marginBottom: 2 }}>{line}</div>;
+            if (line.trim() === "") return <div key={i} style={{ height: 8 }} />;
+            return <div key={i}>{line}</div>;
+          })}
         </div>
       </div>
     );
