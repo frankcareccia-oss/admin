@@ -275,7 +275,26 @@ ${events || "  (none)"}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button style={{ ...s.actionBtn(false), width: "100%", textAlign: "left", padding: "10px 14px" }}
-            onClick={() => { handleTap(); }}>
+            onClick={async () => {
+              // Force orientation — call mode endpoint with explicit request
+              const ctx = gatherContext();
+              try {
+                const token = getAccessToken();
+                const res = await fetch(`${API_BASE}/api/support/mode`, {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...ctx, forceOrientation: true }),
+                });
+                const data = await res.json();
+                if (data.mode === "orientation" && data.sections) {
+                  setOrientation(data);
+                  setState("orientation");
+                } else {
+                  // No manifest — use AI diagnosis as fallback explanation
+                  handleDiagnose(ctx);
+                }
+              } catch { handleDiagnose(ctx); }
+            }}>
             Explain what's on this page
           </button>
           <button style={{ ...s.actionBtn(false), width: "100%", textAlign: "left", padding: "10px 14px" }}
