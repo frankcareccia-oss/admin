@@ -1312,6 +1312,14 @@ export async function adminCreateMerchantUser(merchantId, { email, firstName, la
   });
 }
 
+export async function adminUpdateMerchantUser(merchantId, userId, { firstName, lastName, phoneRaw } = {}) {
+  return request(`/admin/merchants/${merchantId}/users/${userId}`, {
+    method: "PATCH",
+    auth: "auto",
+    body: { firstName, lastName, phoneRaw },
+  });
+}
+
 export async function adminTransferOwnership(payload) {
   return request(`/admin/merchant/ownership-transfer`, {
     method: "POST",

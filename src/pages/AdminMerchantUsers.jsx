@@ -17,6 +17,7 @@ import {
   adminListMerchantUsers,
   adminGetMerchantUser,
   adminCreateMerchantUser,
+  adminUpdateMerchantUser,
   getMerchant,
   getSystemRole,
 } from "../api/client";
@@ -933,21 +934,17 @@ export default function AdminMerchantUsers() {
                     const isCurrentOwner = currentOwner && merchantUserIdOf(mu) === merchantUserIdOf(currentOwner);
 
                     return (
-                      <tr key={String(rowKey)} style={styles.row}>
-                        <td style={tdUser}>
-                          <span style={{ fontWeight: 700, color: TOKENS.navy }}>
-                            {fullName || <span style={{ color: TOKENS.muted, fontStyle: "italic" }}>No name</span>}
-                          </span>
-                          {isCurrentOwner && (
-                            <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,150,80,0.10)", color: "rgba(0,110,50,1)", border: "1px solid rgba(0,150,80,0.25)", padding: "1px 7px", borderRadius: 999 }}>
-                              current
-                            </span>
-                          )}
-                        </td>
-                        <td style={tdText}>{email || "—"}</td>
-                        <td style={tdText}>{prettyRole(role)}</td>
-                        <td style={tdText}>{prettyStatus(status)}</td>
-                      </tr>
+                      <TeamMemberRow
+                        key={String(rowKey)}
+                        mu={mu}
+                        fullName={fullName}
+                        email={email}
+                        role={role}
+                        status={status}
+                        isCurrentOwner={isCurrentOwner}
+                        merchantId={mid}
+                        onUpdated={refresh}
+                      />
                     );
                   })}
                 </tbody>
@@ -1407,3 +1404,78 @@ const tdText = {
   fontSize: 14,
   color: TOKENS.navy,
 };
+
+function TeamMemberRow({ mu, fullName, email, role, status, isCurrentOwner, merchantId, onUpdated }) {
+  const [editing, setEditing] = React.useState(false);
+  const [editFirst, setEditFirst] = React.useState(mu?.firstName || mu?.user?.firstName || "");
+  const [editLast, setEditLast] = React.useState(mu?.lastName || mu?.user?.lastName || "");
+  const [editPhone, setEditPhone] = React.useState(mu?.phoneRaw || mu?.user?.phoneRaw || "");
+  const [saving, setSaving] = React.useState(false);
+
+  const userId = mu?.userId || mu?.user?.id;
+
+  const handleSave = async () => {
+    if (!userId || !merchantId) return;
+    setSaving(true);
+    try {
+      await adminUpdateMerchantUser(merchantId, userId, {
+        firstName: editFirst.trim(),
+        lastName: editLast.trim(),
+        phoneRaw: editPhone.trim() || undefined,
+      });
+      setEditing(false);
+      if (onUpdated) onUpdated();
+    } catch (e) {
+      alert(e?.message || "Failed to update");
+    }
+    setSaving(false);
+  };
+
+  if (editing) {
+    return (
+      <tr style={styles.row}>
+        <td colSpan={4} style={{ padding: 14, borderBottom: `1px solid ${TOKENS.divider}` }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input value={editFirst} onChange={e => setEditFirst(e.target.value)} placeholder="First name"
+              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
+            <input value={editLast} onChange={e => setEditLast(e.target.value)} placeholder="Last name"
+              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
+            <input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="Phone"
+              style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, fontSize: 13, width: 140 }} />
+            <span style={{ fontSize: 12, color: TOKENS.muted }}>{email}</span>
+            <button onClick={handleSave} disabled={saving}
+              style={{ padding: "5px 14px", borderRadius: 6, border: "none", background: "#1D9E75", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              {saving ? "..." : "Save"}
+            </button>
+            <button onClick={() => setEditing(false)}
+              style={{ padding: "5px 14px", borderRadius: 6, border: `1px solid ${TOKENS.divider}`, background: "transparent", fontSize: 12, cursor: "pointer" }}>
+              Cancel
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr style={styles.row}>
+      <td style={tdUser}>
+        <span style={{ fontWeight: 700, color: TOKENS.navy }}>
+          {fullName || <span style={{ color: TOKENS.muted, fontStyle: "italic" }}>No name</span>}
+        </span>
+        {isCurrentOwner && (
+          <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,150,80,0.10)", color: "rgba(0,110,50,1)", border: "1px solid rgba(0,150,80,0.25)", padding: "1px 7px", borderRadius: 999 }}>
+            current
+          </span>
+        )}
+        <button onClick={() => setEditing(true)}
+          style={{ marginLeft: 8, background: "none", border: "none", fontSize: 11, color: "#1D9E75", cursor: "pointer", fontWeight: 600 }}>
+          Edit
+        </button>
+      </td>
+      <td style={tdText}>{email || "—"}</td>
+      <td style={tdText}>{prettyRole(role)}</td>
+      <td style={tdText}>{prettyStatus(status)}</td>
+    </tr>
+  );
+}
