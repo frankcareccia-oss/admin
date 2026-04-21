@@ -119,83 +119,7 @@ export default function AdminSystem() {
         </div>
       </div>
 
-      {tab === "crons" && (
-      <div>
-      {/* Latest run per job */}
-      <div style={s.section}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={s.sectionTitle}>Cron Job Status</div>
-          <button style={s.refreshBtn} onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </button>
-        </div>
-        <table style={s.table}>
-          <thead>
-            <tr>
-              <th style={s.th}>Job</th>
-              <th style={s.th}>Status</th>
-              <th style={s.th}>Last Run</th>
-              <th style={s.th}>Duration</th>
-              <th style={s.th}>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {latest.map(job => (
-              <tr key={job.jobName}>
-                <td style={s.td}>{job.jobName}</td>
-                <td style={s.td}>
-                  <span style={job.status === "ok" ? s.statusOk : job.status === "failed" ? s.statusFail : s.statusNever}>
-                    {job.status === "ok" ? "✓ OK" : job.status === "failed" ? "✗ FAIL" : "Never run"}
-                  </span>
-                </td>
-                <td style={s.td}>{fmtTime(job.lastRun)}</td>
-                <td style={s.td}>{fmtDuration(job.durationMs)}</td>
-                <td style={{ ...s.td, fontSize: 12, color: job.error ? "#C62828" : color.muted }}>
-                  {job.error || summarize(job.summary)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Full history */}
-      <div style={s.section}>
-        <div style={s.sectionTitle}>Recent History (last 50 runs)</div>
-        <table style={s.table}>
-          <thead>
-            <tr>
-              <th style={s.th}>Job</th>
-              <th style={s.th}>Status</th>
-              <th style={s.th}>Started</th>
-              <th style={s.th}>Duration</th>
-              <th style={s.th}>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map(log => (
-              <tr key={log.id} style={{ background: log.status === "failed" ? "#FFF5F5" : "transparent" }}>
-                <td style={s.td}>{log.jobName}</td>
-                <td style={s.td}>
-                  <span style={log.status === "ok" ? s.statusOk : s.statusFail}>
-                    {log.status === "ok" ? "✓" : "✗"}
-                  </span>
-                </td>
-                <td style={s.td}>{fmtTime(log.startedAt)}</td>
-                <td style={s.td}>{fmtDuration(log.durationMs)}</td>
-                <td style={{ ...s.td, fontSize: 12, color: log.error ? "#C62828" : color.muted }}>
-                  {log.error || summarize(log.summary)}
-                </td>
-              </tr>
-            ))}
-            {logs.length === 0 && (
-              <tr><td colSpan={5} style={{ ...s.td, textAlign: "center", color: color.muted }}>No cron runs recorded yet. Jobs will appear after their next scheduled execution.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      </div>
-      )}
+      {tab === "crons" && <CronJobsTab latest={latest} logs={logs} loading={loading} onRefresh={load} />}
 
       {tab === "tests" && <TestHealthSection />}
 
@@ -480,6 +404,139 @@ function AgentPipelineSection() {
           </table>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Job metadata ─────────────────────────────────────────────
+
+const JOB_INFO = {
+  "growth-advisor": { label: "Growth Advisor", desc: "Analyzes merchant performance. Detects attribution decline, promo stalling, revenue trends.", sched: "Every 6 hours" },
+  "gift-card-reconcile": { label: "Gift Card Reconcile", desc: "Verifies gift card balances with Square. Adjusts discrepancies.", sched: "3:00 AM UTC" },
+  "reward-expiry": { label: "Reward Expiry", desc: "Sends 14d/7d/48h expiry notifications. Deactivates expired gift cards.", sched: "8:00 AM UTC" },
+  "seed-morning": { label: "Seed Data (AM)", desc: "Generates test transactions for seed merchants. Morning rush pattern.", sched: "12:00 PM Pacific" },
+  "seed-afternoon": { label: "Seed Data (PM)", desc: "Generates test transactions. Afternoon traffic pattern.", sched: "5:00 PM Pacific" },
+  "reporting": { label: "Reporting", desc: "Aggregates into summary tables. Powers analytics dashboard and weekly summary.", sched: "2:00 AM UTC" },
+  "stamp-expiry": { label: "Stamp Expiry", desc: "Resets expired stamp progress. Safety net for inline expiry check.", sched: "4:00 AM UTC" },
+  "knowledge-pipeline": { label: "Knowledge Pipeline", desc: "Scans codebase, rebuilds AI knowledge graph, writes help docs, saves snapshot.", sched: "2:30 AM UTC" },
+  "knowledge-snapshot": { label: "Knowledge Snapshot", desc: "Legacy — merged into knowledge-pipeline.", sched: "—" },
+};
+
+function humanDetail(summary) {
+  if (!summary) return "—";
+  if (typeof summary === "string") return summary;
+  const p = [];
+  if (summary.totalTransactions != null) p.push(`${summary.totalTransactions} txns`);
+  if (summary.totalProcessed != null) p.push(`${summary.totalProcessed} merchants`);
+  if (summary.errors != null) p.push(`${summary.errors} errors`);
+  if (summary.reconciled != null) p.push(`${summary.reconciled} reconciled`);
+  if (summary.adjusted > 0) p.push(`${summary.adjusted} adjusted`);
+  if (summary.promosChecked != null) p.push(`${summary.promosChecked} promos`);
+  if (summary.consumersExpired != null) p.push(`${summary.consumersExpired} expired`);
+  if (summary.results) {
+    const t = summary.results.reduce((acc, r) => acc + (r.transactionsGenerated || 0), 0);
+    p.push(`${t} txns / ${summary.results.length} merchants`);
+  }
+  return p.length > 0 ? p.join(" · ") : JSON.stringify(summary).slice(0, 60);
+}
+
+function healthDot(job) {
+  if (job.status === "failed") return "#E24B4A";
+  if (job.status === "never" || !job.lastRun) return "#999";
+  const hrs = (Date.now() - new Date(job.lastRun).getTime()) / 3600000;
+  if (hrs > 48) return "#EF9F27";
+  return "#1D9E75";
+}
+
+function dateLabel(iso) {
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
+function CronJobsTab({ latest, logs, loading, onRefresh }) {
+  const [expanded, setExpanded] = React.useState(null);
+
+  const sorted = [...latest].sort((a, b) => {
+    if (!a.lastRun) return 1; if (!b.lastRun) return -1;
+    return new Date(b.lastRun) - new Date(a.lastRun);
+  });
+
+  const sortedLogs = [...logs].sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt));
+  const byDate = {};
+  for (const log of sortedLogs) {
+    const dk = dateLabel(log.startedAt);
+    if (!byDate[dk]) byDate[dk] = [];
+    byDate[dk].push(log);
+  }
+
+  return (
+    <div>
+      <div style={s.section}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={s.sectionTitle}>Current Status</div>
+          <button style={s.refreshBtn} onClick={onRefresh} disabled={loading}>{loading ? "Refreshing..." : "Refresh"}</button>
+        </div>
+        <div style={{ border: `1px solid ${color.border}`, borderRadius: 10, overflow: "hidden" }}>
+          {sorted.map((job, idx) => {
+            const info = JOB_INFO[job.jobName] || {};
+            const hc = healthDot(job);
+            const isExp = expanded === job.jobName;
+            return (
+              <React.Fragment key={job.jobName}>
+                <div
+                  onClick={() => setExpanded(isExp ? null : job.jobName)}
+                  style={{
+                    display: "grid", gridTemplateColumns: "200px 70px 140px 80px 1fr", alignItems: "center",
+                    padding: "12px 16px", cursor: "pointer",
+                    borderTop: idx > 0 ? `1px solid ${color.border}` : "none",
+                    background: isExp ? "#F9FAFB" : "transparent",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: hc, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: color.navy }}>{info.label || job.jobName}</span>
+                  </div>
+                  <span style={job.status === "ok" ? s.statusOk : job.status === "failed" ? s.statusFail : s.statusNever}>
+                    {job.status === "ok" ? "✓ OK" : job.status === "failed" ? "✗ FAIL" : "Never run"}
+                  </span>
+                  <span style={{ fontSize: 12, color: color.muted }}>{fmtTime(job.lastRun)}</span>
+                  <span style={{ fontSize: 12, color: color.muted }}>{fmtDuration(job.durationMs)}</span>
+                  <span style={{ fontSize: 12, color: job.error ? "#C62828" : color.muted }}>{job.error ? job.error.slice(0, 60) : humanDetail(job.summary)}</span>
+                </div>
+                {isExp && (
+                  <div style={{ padding: "0 16px 14px 32px", background: "#F9FAFB", borderTop: `1px solid ${color.border}` }}>
+                    <div style={{ fontSize: 13, color: color.navy, lineHeight: 1.6, margin: "8px 0" }}>{info.desc || "No description."}</div>
+                    <div style={{ fontSize: 11, color: color.muted }}>Schedule: {info.sched || "—"}</div>
+                    {job.error && <div style={{ marginTop: 8, padding: "8px 12px", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 6, fontSize: 12, color: "#A32D2D" }}>Error: {job.error}</div>}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={s.section}>
+        <div style={s.sectionTitle}>Run History (last 7 days)</div>
+        {Object.entries(byDate).map(([dk, dLogs]) => (
+          <div key={dk} style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#1D9E75", padding: "6px 0", borderBottom: "2px solid #E1F5EE", marginBottom: 4 }}>{dk}</div>
+            {dLogs.map(log => {
+              const info = JOB_INFO[log.jobName] || {};
+              return (
+                <div key={log.id} style={{ display: "grid", gridTemplateColumns: "180px 60px 100px 70px 1fr", alignItems: "center", padding: "6px 8px", fontSize: 12, background: log.status === "failed" ? "#FFF5F5" : "transparent", borderBottom: `1px solid ${color.border}` }}>
+                  <span style={{ color: color.navy, fontWeight: 500 }}>{info.label || log.jobName}</span>
+                  <span style={log.status === "ok" ? s.statusOk : s.statusFail}>{log.status === "ok" ? "✓" : "✗"}</span>
+                  <span style={{ color: color.muted }}>{new Date(log.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>
+                  <span style={{ color: color.muted }}>{fmtDuration(log.durationMs)}</span>
+                  <span style={{ color: log.error ? "#C62828" : color.muted, fontSize: 11 }}>{log.error ? log.error.slice(0, 50) : humanDetail(log.summary)}</span>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+        {Object.keys(byDate).length === 0 && <div style={{ textAlign: "center", padding: 20, color: color.muted, fontSize: 13 }}>No cron runs recorded yet.</div>}
+      </div>
     </div>
   );
 }
