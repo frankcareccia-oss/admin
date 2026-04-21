@@ -14,6 +14,8 @@ import {
   requestOnboardingHelp,
   initiateOnboardingConnect,
   completeOnboardingConnection,
+  merchantTeamSync,
+  merchantTeamSyncStatus,
 } from "../api/client";
 
 // ── Stage definitions ──
@@ -22,7 +24,8 @@ const STAGES = [
   { id: "pos-access", label: "POS Access", icon: "2" },
   { id: "connect", label: "Connect", icon: "3" },
   { id: "map-stores", label: "Map Stores", icon: "4" },
-  { id: "first-promo", label: "First Promo", icon: "5" },
+  { id: "your-team", label: "Your Team", icon: "5" },
+  { id: "first-promo", label: "First Promo", icon: "6" },
   { id: "live", label: "Live", icon: "✓" },
 ];
 
@@ -156,6 +159,8 @@ export default function MerchantOnboarding() {
   const [existingConnection, setExistingConnection] = React.useState(null);
   const [connecting, setConnecting] = React.useState(false);
   const [helpResponse, setHelpResponse] = React.useState(null);
+  const [teamSyncing, setTeamSyncing] = React.useState(false);
+  const [teamSyncResult, setTeamSyncResult] = React.useState(null);
 
   const load = React.useCallback(async () => {
     setLoading(true); setError(null);
@@ -490,7 +495,7 @@ export default function MerchantOnboarding() {
               </div>
             ))}
             <div style={s.question}>Do these look right?</div>
-            <button style={s.primaryBtn} onClick={() => updateSession({ storesMapped: stores.length, currentStage: "first-promo", currentStep: "5.1" })}>
+            <button style={s.primaryBtn} onClick={() => updateSession({ storesMapped: stores.length, currentStage: "your-team", currentStep: "4.5" })}>
               Yes, these are correct
             </button>
             <button style={{ ...s.secondaryBtn, marginTop: 8 }} onClick={() => updateSession({ currentStep: "4.3" })}>
@@ -503,7 +508,7 @@ export default function MerchantOnboarding() {
           <div style={s.card}>
             <div style={s.question}>Additional locations may be on a separate account.</div>
             <div style={s.hint}>Each POS account needs its own connection. You can add more after completing setup.</div>
-            <button style={s.primaryBtn} onClick={() => updateSession({ storesMapped: stores.length, currentStage: "first-promo", currentStep: "5.1" })}>
+            <button style={s.primaryBtn} onClick={() => updateSession({ storesMapped: stores.length, currentStage: "your-team", currentStep: "4.5" })}>
               Continue with what we have
             </button>
           </div>
@@ -513,13 +518,143 @@ export default function MerchantOnboarding() {
           <div style={s.card}>
             <div style={s.question}>Tell us about your store:</div>
             <div style={s.hint}>You can add more locations later in Settings.</div>
-            <button style={s.primaryBtn} onClick={() => updateSession({ currentStage: "first-promo", currentStep: "5.1" })}>
+            <button style={s.primaryBtn} onClick={() => updateSession({ currentStage: "your-team", currentStep: "4.5" })}>
               Continue — I'll add store details in Settings
             </button>
           </div>
         )}
 
-        {/* ── STAGE 5: First Promotion ── */}
+        {/* ── STAGE 4.5: Your Team ── */}
+        {stage === "your-team" && step === "4.5" && (
+          <div style={s.card}>
+            <div style={s.question}>How does your team use the register?</div>
+            <div style={s.hint}>This helps us show you the right features. You can change this anytime in Settings.</div>
+            <div style={s.stepList}>
+              {[
+                { value: "individual", label: "Each employee has their own login", sub: "Unlocks per-associate tracking, leaderboard, and attribution" },
+                { value: "shared", label: "Everyone shares one register login", sub: "Store-level tracking — we can't identify individual associates" },
+                { value: "solo", label: "I'm the only one working the register", sub: "All transactions attributed to you" },
+                { value: "external", label: "My team is managed in a separate system", sub: "You'll add team members manually in Settings → Team" },
+              ].map(opt => (
+                <button key={opt.value} style={s.optionBtnFull(session?.teamSetupMode === opt.value)}
+                  onClick={() => updateSession({ teamSetupMode: opt.value, currentStep: opt.value === "individual" ? "4.6" : "4.8" })}
+                >
+                  <div>{opt.label}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2, fontWeight: 400 }}>{opt.sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {stage === "your-team" && step === "4.6" && (
+          <div style={s.card}>
+            <div style={s.question}>Let's import your team from {session?.posType === "clover" ? "Clover" : session?.posType === "square" ? "Square" : "your POS"}.</div>
+            <div style={s.hint}>
+              We'll pull your employees' <strong>names and roles only</strong> so you can see who's on your team inside PerkValet.
+            </div>
+
+            {/* Privacy notice */}
+            <div style={{
+              background: "#F0F4FF", border: "1px solid #C5CAE9", borderRadius: 8,
+              padding: "14px 16px", marginBottom: 16, lineHeight: 1.6, fontSize: 13,
+            }}>
+              <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6 }}>What we sync:</div>
+              <div style={{ color: C.navy }}>
+                Employee name and job title — that's it.
+              </div>
+              <div style={{ fontWeight: 700, color: C.navy, marginTop: 10, marginBottom: 6 }}>What we never access:</div>
+              <div style={{ color: "#C62828" }}>
+                No wages, no payroll, no PINs, no scheduling, no tax info, no personal data.
+              </div>
+              <div style={{ color: C.muted, marginTop: 10, fontSize: 12 }}>
+                PerkValet is <strong>read-only</strong> — we never modify your POS employee records. Your payroll and HR data stays exactly where it is.
+              </div>
+            </div>
+
+            {teamSyncResult && (
+              <div style={{ ...s.infoBox, background: "#F0FDF4", borderColor: "#A5D6A7", color: C.green }}>
+                Synced! {teamSyncResult.created} new team member{teamSyncResult.created !== 1 ? "s" : ""} added
+                {teamSyncResult.updated > 0 ? `, ${teamSyncResult.updated} updated` : ""}.
+                {teamSyncResult.total} total employees found.
+              </div>
+            )}
+
+            <button
+              style={s.primaryBtn}
+              disabled={teamSyncing}
+              onClick={async () => {
+                setTeamSyncing(true); setError(null);
+                try {
+                  const result = await merchantTeamSync();
+                  setTeamSyncResult(result);
+                  // Auto-advance after brief delay so they see the result
+                  setTimeout(() => updateSession({ currentStep: "4.7" }), 1500);
+                } catch (e) {
+                  setError(e?.message || "Sync failed — you can skip and add team members manually.");
+                } finally {
+                  setTeamSyncing(false);
+                }
+              }}
+            >
+              {teamSyncing ? "Importing team…" : "Import My Team"}
+            </button>
+            <button style={{ ...s.secondaryBtn, marginTop: 8 }} onClick={() => updateSession({ currentStep: "4.8" })}>
+              Skip — I'll add team members manually
+            </button>
+          </div>
+        )}
+
+        {stage === "your-team" && step === "4.7" && (
+          <div style={s.card}>
+            <div style={s.celebration}>
+              <div style={s.celebrationIcon}>👥</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: C.teal }}>Team imported!</div>
+              <div style={{ fontSize: 14, color: C.muted, marginTop: 8, lineHeight: 1.6 }}>
+                {teamSyncResult
+                  ? `${teamSyncResult.total} employee${teamSyncResult.total !== 1 ? "s" : ""} from your POS are now in PerkValet.`
+                  : "Your team has been synced from your POS."}
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
+                We'll automatically check for new employees each night — names and roles only, never payroll or sensitive data.
+              </div>
+            </div>
+            <button style={s.primaryBtn} onClick={() => updateSession({ currentStage: "first-promo", currentStep: "5.1" })}>
+              Continue
+            </button>
+            <div style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 12 }}>
+              You can manage your team anytime in Settings → Team
+            </div>
+          </div>
+        )}
+
+        {stage === "your-team" && step === "4.8" && (
+          <div style={s.card}>
+            <div style={s.question}>
+              {session?.teamSetupMode === "solo"
+                ? "Got it — you're running solo!"
+                : session?.teamSetupMode === "shared"
+                  ? "Shared register — got it!"
+                  : session?.teamSetupMode === "external"
+                    ? "External team management — understood!"
+                    : "No problem!"}
+            </div>
+            <div style={s.hint}>
+              {session?.teamSetupMode === "solo"
+                ? "All transactions will be attributed to you. If you hire staff later, just update this in Settings."
+                : session?.teamSetupMode === "shared"
+                  ? "We'll track performance at the store level. Switch to individual register logins anytime to unlock per-associate tracking."
+                  : session?.teamSetupMode === "external"
+                    ? "Add your team members in Settings → Team whenever you're ready."
+                    : "You can add team members later in Settings → Team."}
+            </div>
+            <button style={s.primaryBtn} onClick={() => updateSession({ currentStage: "first-promo", currentStep: "5.1" })}>
+              Continue to First Promotion
+            </button>
+          </div>
+        )}
+
+        {/* ── STAGE 6: First Promotion ── */}
         {stage === "first-promo" && step === "5.1" && (
           <div style={s.card}>
             <div style={s.question}>Your stores are connected! Now let's set up your first loyalty program.</div>

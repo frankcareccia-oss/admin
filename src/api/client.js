@@ -1328,6 +1328,13 @@ export async function adminUpdateTeamSetup(merchantId, teamSetupMode) {
   });
 }
 
+export async function adminTriggerTeamSync(merchantId) {
+  return request(`/admin/merchants/${merchantId}/team-sync`, {
+    method: "POST",
+    auth: "auto",
+  });
+}
+
 export async function adminTransferOwnership(payload) {
   return request(`/admin/merchant/ownership-transfer`, {
     method: "POST",
@@ -2408,6 +2415,16 @@ export async function merchantSetAvgTransactionValue(avgTransactionValueCents) {
 
 export async function merchantGetCapabilities() {
   return request("/merchant/capabilities", { auth: "jwt" });
+}
+
+// ── Merchant Team Sync ──
+
+export async function merchantTeamSync() {
+  return request("/merchant/team/sync", { method: "POST", auth: "jwt" });
+}
+
+export async function merchantTeamSyncStatus() {
+  return request("/merchant/team/sync-status", { auth: "jwt" });
 }
 
 // ── Merchant Onboarding ──

@@ -8,7 +8,7 @@
 
 import React from "react";
 import { Link, useParams, Navigate } from "react-router-dom";
-import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole, updateMerchantType, adminUpdateTeamSetup } from "../api/client";
+import { getMerchant, adminListMerchantUsers, adminListMerchantProducts, getSystemRole, updateMerchantType, adminUpdateTeamSetup, adminTriggerTeamSync } from "../api/client";
 import { MERCHANT_TYPE_OPTIONS, MERCHANT_TYPE_LABELS } from "../config/merchantTypes";
 import PageContainer from "../components/layout/PageContainer";
 import PageHeader from "../components/layout/PageHeader";
@@ -103,6 +103,8 @@ export default function MerchantDetail() {
   const [teamVal, setTeamVal] = React.useState("");
   const [teamSaving, setTeamSaving] = React.useState(false);
   const [teamSaveErr, setTeamSaveErr] = React.useState("");
+  const [teamSyncing, setTeamSyncing] = React.useState(false);
+  const [teamSyncMsg, setTeamSyncMsg] = React.useState("");
 
   async function load() {
     setLoading(true);
@@ -360,6 +362,25 @@ export default function MerchantDetail() {
             <button onClick={() => { setTeamVal(merchant?.teamSetupMode || ""); setEditingTeam(true); }} style={styles.smallBtn}>
               Edit
             </button>
+            {merchant?.teamSetupMode === "individual" && (
+              <button
+                disabled={teamSyncing}
+                onClick={async () => {
+                  setTeamSyncing(true); setTeamSyncMsg("");
+                  try {
+                    const r = await adminTriggerTeamSync(merchantId);
+                    setTeamSyncMsg(`Synced: ${r.created} new, ${r.updated} updated, ${r.total} total`);
+                    setTimeout(() => setTeamSyncMsg(""), 5000);
+                  } catch (e) {
+                    setTeamSyncMsg(e?.message || "Sync failed");
+                  } finally { setTeamSyncing(false); }
+                }}
+                style={{ ...styles.smallBtn, background: "#E8F5E9", borderColor: "#A5D6A7" }}
+              >
+                {teamSyncing ? "Syncing…" : "Sync Team"}
+              </button>
+            )}
+            {teamSyncMsg && <span style={{ fontSize: 12, color: color.textMuted }}>{teamSyncMsg}</span>}
           </>
         )}
       </div>
