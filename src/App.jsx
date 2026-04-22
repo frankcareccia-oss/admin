@@ -828,7 +828,7 @@ function Layout({ children }) {
                   </NavLink>
                 ) : (
                   <>
-                    {(sysRole === "pv_admin" || sysRole === "support") ? (
+                    {["pv_admin", "support", "pv_ar_clerk", "pv_ap_clerk"].includes(sysRole) ? (
                       <>
                         {!deviceTrustedLoading && deviceTrusted === false ? (
                           <div style={{ fontSize: 12, color: color.textMuted, fontWeight: 800 }}>
