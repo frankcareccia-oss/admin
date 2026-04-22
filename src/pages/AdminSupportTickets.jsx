@@ -71,7 +71,7 @@ export default function AdminSupportTickets() {
   const [expanded, setExpanded] = React.useState(null);
   const [resolveNote, setResolveNote] = React.useState("");
   const [internalNote, setInternalNote] = React.useState("");
-  const [statusFilter, setStatusFilter] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("open");
 
   const load = React.useCallback(async () => {
     setLoading(true);
