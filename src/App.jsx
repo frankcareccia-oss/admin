@@ -861,7 +861,7 @@ function Layout({ children }) {
                       </>
                     )}
 
-                    {!pos && sysRole === "pv_admin" && !location.pathname.startsWith("/merchants/") && (
+                    {!pos && ["pv_admin", "support", "pv_ar_clerk", "pv_ap_clerk"].includes(sysRole) && !location.pathname.startsWith("/merchants/") && (
                       <NavLink to="/account/change-password" style={navPill}>
                         Change Password
                       </NavLink>
