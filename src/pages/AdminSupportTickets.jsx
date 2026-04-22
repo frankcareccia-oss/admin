@@ -26,6 +26,7 @@ const statusStyle = {
   open: { bg: C.amberBg, color: C.amber, label: "Open" },
   in_progress: { bg: C.tealBg, color: C.teal, label: "In Progress" },
   resolved: { bg: "#F0FDF4", color: "#2E7D32", label: "Resolved" },
+  closed: { bg: "#F5F5F5", color: "#999", label: "Closed" },
 };
 
 async function fetchTickets() {
@@ -69,6 +70,8 @@ export default function AdminSupportTickets() {
   const [loading, setLoading] = React.useState(true);
   const [expanded, setExpanded] = React.useState(null);
   const [resolveNote, setResolveNote] = React.useState("");
+  const [internalNote, setInternalNote] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -95,6 +98,7 @@ export default function AdminSupportTickets() {
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: C.muted }}>Loading tickets...</div>;
 
+  const filtered = statusFilter ? tickets.filter(t => t.status === statusFilter) : tickets;
   const openCount = tickets.filter(t => t.status === "open").length;
 
   return (
@@ -106,16 +110,31 @@ export default function AdminSupportTickets() {
             {openCount > 0 ? `${openCount} open ticket${openCount === 1 ? "" : "s"}` : "No open tickets"}
           </div>
         </div>
-        <button onClick={load} style={{ padding: "6px 16px", borderRadius: 6, border: `1px solid ${C.border}`, background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, color: C.navy }}>
-          Refresh
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            style={{ padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13 }}
+          >
+            <option value="">All tickets</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
+          <button onClick={load} style={{ padding: "6px 16px", borderRadius: 6, border: `1px solid ${C.border}`, background: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600, color: C.navy }}>
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {tickets.length === 0 ? (
-        <div style={{ textAlign: "center", padding: 40, color: C.muted }}>No support tickets yet.</div>
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: 40, color: C.muted }}>
+          {tickets.length === 0 ? "No support tickets yet." : "No tickets match this filter."}
+        </div>
       ) : (
         <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, overflow: "hidden" }}>
-          {tickets.map((t, idx) => (
+          {filtered.map((t, idx) => (
             <React.Fragment key={t.id}>
               <div
                 style={{
@@ -217,27 +236,75 @@ export default function AdminSupportTickets() {
                     </div>
                   )}
 
+                  {/* Internal notes */}
+                  {Array.isArray(t.internalNotes) && t.internalNotes.length > 0 && (
+                    <div style={{ marginTop: 10 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.muted, marginBottom: 4 }}>NOTES</div>
+                      {t.internalNotes.map((n, i) => (
+                        <div key={i} style={{ fontSize: 12, color: C.navy, padding: "4px 0", borderBottom: `1px solid ${C.border}` }}>
+                          <span style={{ color: C.muted }}>{n.ts ? fmtTime(n.ts) : ""}</span> — {n.note}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Resolution note */}
+                  {t.resolutionNote && (
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: "#F0FDF4", borderRadius: 8, fontSize: 12, color: "#2E7D32" }}>
+                      <strong>Resolution:</strong> {t.resolutionNote}
+                    </div>
+                  )}
+
                   {/* Actions */}
-                  <div style={{ marginTop: 14, display: "flex", gap: 8, alignItems: "center" }}>
+                  <div style={{ marginTop: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     {t.status === "open" && (
-                      <button onClick={() => handleInProgress(t.id)} style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.teal}`, background: "transparent", color: C.teal, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                        Mark In Progress
-                      </button>
+                      <>
+                        <button onClick={() => { updateTicket(t.id, { status: "in_progress", assignToMe: true }); load(); }} style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.teal}`, background: "transparent", color: C.teal, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                          Take &amp; Start
+                        </button>
+                        <button onClick={() => { updateTicket(t.id, { status: "closed", resolutionNote: "Closed — no action needed" }); load(); }} style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                          Close
+                        </button>
+                      </>
                     )}
-                    {(t.status === "open" || t.status === "in_progress") && (
+                    {t.status === "in_progress" && (
                       <>
                         <input
                           value={resolveNote} onChange={e => setResolveNote(e.target.value)}
-                          placeholder="Resolution note (optional)"
-                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12 }}
+                          placeholder="Resolution note"
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, minWidth: 200 }}
                         />
                         <button onClick={() => handleResolve(t.id)} style={{ padding: "6px 14px", borderRadius: 6, border: "none", background: C.teal, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                           Resolve
                         </button>
                       </>
                     )}
-                    {t.status === "resolved" && t.resolutionNote && (
-                      <div style={{ fontSize: 12, color: "#2E7D32" }}>Resolved: {t.resolutionNote}</div>
+                    {t.status === "resolved" && (
+                      <button onClick={() => { updateTicket(t.id, { status: "closed" }); load(); }} style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        Close
+                      </button>
+                    )}
+                    {(t.status === "resolved" || t.status === "closed") && (
+                      <button onClick={() => { updateTicket(t.id, { status: "open" }); load(); }} style={{ padding: "6px 14px", borderRadius: 6, border: `1px solid ${C.amber}`, background: "transparent", color: C.amber, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        Reopen
+                      </button>
+                    )}
+                    {/* Add note (any state) */}
+                    {t.status !== "closed" && (
+                      <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 200 }}>
+                        <input
+                          value={internalNote} onChange={e => setInternalNote(e.target.value)}
+                          placeholder="Add internal note..."
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12 }}
+                        />
+                        <button
+                          disabled={!internalNote.trim()}
+                          onClick={() => { updateTicket(t.id, { note: internalNote }); setInternalNote(""); load(); }}
+                          style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${C.border}`, background: "#fff", color: C.navy, fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                        >
+                          Add Note
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>

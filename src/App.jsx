@@ -242,6 +242,7 @@ function computeHome() {
 
   const sys = getSystemRole();
   if (sys === "pv_admin") return "/admin";
+  if (sys === "support") return "/admin/support";
   return "/merchant";
 }
 
@@ -585,7 +586,7 @@ function Layout({ children }) {
     let cancelled = false;
 
     async function loadDeviceTrust() {
-      if (!authed || sysRole !== "pv_admin" || onAuthPage || onPublicPay) {
+      if (!authed || (sysRole !== "pv_admin" && sysRole !== "support") || onAuthPage || onPublicPay) {
         setDeviceTrusted(true);
         setDeviceTrustedLoading(false);
         return;
@@ -781,7 +782,7 @@ function Layout({ children }) {
                   </NavLink>
                 ) : (
                   <>
-                    {sysRole === "pv_admin" ? (
+                    {(sysRole === "pv_admin" || sysRole === "support") ? (
                       <>
                         {!deviceTrustedLoading && deviceTrusted === false ? (
                           <div style={{ fontSize: 12, color: color.textMuted, fontWeight: 800 }}>
