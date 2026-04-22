@@ -127,6 +127,12 @@ const CARDS = [
     title: "Platform Oversight",
     description: "Platform-wide KPIs, merchant health scores, system alerts, and trend analysis.",
   },
+  {
+    to: "/admin/team",
+    icon: "👤",
+    title: "PV Team",
+    description: "Manage platform users — admins, support agents, AR/AP clerks. Create accounts and reset passwords.",
+  },
 ];
 
 export default function AdminHome() {

@@ -76,6 +76,7 @@ import AdminSystem from "./pages/AdminSystem";
 import MerchantWeeklySummary from "./pages/MerchantWeeklySummary";
 import AdminOversight from "./pages/AdminOversight";
 import AdminSupportTickets from "./pages/AdminSupportTickets";
+import AdminTeam from "./pages/AdminTeam";
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
@@ -1317,6 +1318,14 @@ export default function App() {
             element={
               <RequireAuth>
                 <AdminSupportTickets />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/admin/team"
+            element={
+              <RequireAuth>
+                <AdminTeam />
               </RequireAuth>
             }
           />
