@@ -77,6 +77,28 @@ import MerchantWeeklySummary from "./pages/MerchantWeeklySummary";
 import AdminOversight from "./pages/AdminOversight";
 import AdminSupportTickets from "./pages/AdminSupportTickets";
 import AdminTeam from "./pages/AdminTeam";
+
+function SupportHome() {
+  const cards = [
+    { to: "/admin/support", icon: "🎧", title: "Support Tickets", description: "View and resolve merchant support requests." },
+    { to: "/merchants", icon: "🏪", title: "Merchants", description: "View merchant accounts, stores, and team info (read-only)." },
+  ];
+  return (
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px" }}>
+      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Support Dashboard</div>
+      <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Select a section to get started.</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
+        {cards.map(c => (
+          <a key={c.to} href={`#${c.to}`} style={{ textDecoration: "none", color: "inherit", border: "1px solid #E0DDD6", borderRadius: 16, padding: "24px", background: "#fff", display: "block" }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>{c.icon}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{c.title}</div>
+            <div style={{ fontSize: 13, color: "#888", lineHeight: 1.5 }}>{c.description}</div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 import MerchantOnboarding from "./pages/MerchantOnboarding";
 import AdminMerchantStoreDetail from "./pages/AdminMerchantStoreDetail";
 import AdminMerchantBilling from "./pages/AdminMerchantBilling";
@@ -793,7 +815,13 @@ function Layout({ children }) {
                           <>
                             {sysRole === "support" ? (
                               <>
-                                <NavLink to="/admin/support" style={navPill}>Support Tickets</NavLink>
+                                <NavLink to="/admin" style={navPill}>Dashboard</NavLink>
+                                {location.pathname.startsWith("/admin/support") && (
+                                  <NavLink to="/admin/support" style={navPill}>Support</NavLink>
+                                )}
+                                {location.pathname.startsWith("/merchants") && (
+                                  <NavLink to="/merchants" style={navPill}>Merchants</NavLink>
+                                )}
                               </>
                             ) : (
                               <>
@@ -1289,7 +1317,7 @@ export default function App() {
             path="/admin"
             element={
               <RequireAuth>
-                {getSystemRole() === "support" ? <Navigate to="/admin/support" replace /> : <AdminHome />}
+                {getSystemRole() === "support" ? <SupportHome /> : <AdminHome />}
               </RequireAuth>
             }
           />
