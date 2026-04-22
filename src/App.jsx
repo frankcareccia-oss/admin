@@ -78,17 +78,40 @@ import AdminOversight from "./pages/AdminOversight";
 import AdminSupportTickets from "./pages/AdminSupportTickets";
 import AdminTeam from "./pages/AdminTeam";
 
-function SupportHome() {
-  const cards = [
-    { to: "/admin/support", icon: "🎧", title: "Support Tickets", description: "View and resolve merchant support requests." },
-    { to: "/merchants", icon: "🏪", title: "Merchants", description: "View merchant accounts, stores, and team info (read-only)." },
-  ];
+const ROLE_DASHBOARDS = {
+  support: {
+    title: "Support Dashboard",
+    cards: [
+      { to: "/admin/support", icon: "🎧", title: "Support Tickets", description: "View and resolve merchant support requests." },
+      { to: "/merchants", icon: "🏪", title: "Merchants", description: "View merchant accounts, stores, and team info (read-only)." },
+    ],
+  },
+  pv_ar_clerk: {
+    title: "Accounts Receivable",
+    cards: [
+      { to: "/merchants", icon: "🏪", title: "Merchants", description: "View merchant accounts and billing info (read-only)." },
+      { to: "/admin/billing-policy", icon: "📋", title: "Billing Policy", description: "Fee schedules, net terms, and late fee rules." },
+      { to: "/admin/invoices", icon: "🧾", title: "Invoices", description: "View, generate, issue, and track invoices." },
+    ],
+  },
+  pv_ap_clerk: {
+    title: "Accounts Payable",
+    cards: [
+      { to: "/merchants", icon: "🏪", title: "Merchants", description: "View merchant accounts (read-only)." },
+      { to: "/admin/invoices", icon: "🧾", title: "Invoices", description: "View invoices and payment status." },
+    ],
+  },
+};
+
+function RoleDashboard({ role }) {
+  const config = ROLE_DASHBOARDS[role];
+  if (!config) return null;
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 24px" }}>
-      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Support Dashboard</div>
+      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{config.title}</div>
       <div style={{ fontSize: 14, color: "#888", marginBottom: 24 }}>Select a section to get started.</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
-        {cards.map(c => (
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(config.cards.length, 3)}, 1fr)`, gap: 16 }}>
+        {config.cards.map(c => (
           <a key={c.to} href={`#${c.to}`} style={{ textDecoration: "none", color: "inherit", border: "1px solid #E0DDD6", borderRadius: 16, padding: "24px", background: "#fff", display: "block" }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>{c.icon}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{c.title}</div>
@@ -813,11 +836,17 @@ function Layout({ children }) {
                           </div>
                         ) : (
                           <>
-                            {sysRole === "support" ? (
+                            {ROLE_DASHBOARDS[sysRole] ? (
                               <>
                                 <NavLink to="/admin" style={navPill}>Dashboard</NavLink>
                                 {location.pathname.startsWith("/merchants") && (
                                   <NavLink to="/merchants" style={navPill}>Merchants</NavLink>
+                                )}
+                                {location.pathname.startsWith("/admin/invoices") && (
+                                  <NavLink to="/admin/invoices" style={navPill}>Invoices</NavLink>
+                                )}
+                                {location.pathname.startsWith("/admin/billing") && (
+                                  <NavLink to="/admin/billing-policy" style={navPill}>Billing</NavLink>
                                 )}
                               </>
                             ) : (
@@ -1314,7 +1343,7 @@ export default function App() {
             path="/admin"
             element={
               <RequireAuth>
-                {getSystemRole() === "support" ? <SupportHome /> : <AdminHome />}
+                {ROLE_DASHBOARDS[getSystemRole()] ? <RoleDashboard role={getSystemRole()} /> : <AdminHome />}
               </RequireAuth>
             }
           />
