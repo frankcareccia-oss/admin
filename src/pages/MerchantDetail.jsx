@@ -179,9 +179,20 @@ export default function MerchantDetail() {
 
   const base = `/merchants/${merchantId}`;
   const storeCount = merchant.storeCount ?? merchant.stores?.length ?? null;
+  const role = getSystemRole();
 
-  const cards = [
+  // Role-gated card visibility
+  const CARD_ACCESS = {
+    pv_admin:    ["setup", "team", "stores", "products", "billing", "invoices", "promotions", "bundles", "reports"],
+    support:     ["setup", "team", "stores"],
+    pv_ar_clerk: ["billing", "invoices"],
+    pv_ap_clerk: ["invoices"],
+  };
+  const allowedCards = new Set(CARD_ACCESS[role] || CARD_ACCESS.pv_admin);
+
+  const allCards = [
     {
+      key: "setup",
       to: `${base}/setup`,
       icon: "⚙️",
       title: "Setup",
@@ -189,6 +200,7 @@ export default function MerchantDetail() {
       meta: merchant.status ? `Status: ${merchant.status}` : null,
     },
     {
+      key: "team",
       to: `${base}/users`,
       icon: "👥",
       title: "Team",
@@ -196,6 +208,7 @@ export default function MerchantDetail() {
       meta: userCount != null ? `${userCount} user${userCount !== 1 ? "s" : ""}` : null,
     },
     {
+      key: "stores",
       to: `${base}/stores`,
       icon: "🏪",
       title: "Stores",
@@ -203,6 +216,7 @@ export default function MerchantDetail() {
       meta: storeCount != null ? `${storeCount} store${storeCount !== 1 ? "s" : ""}` : null,
     },
     {
+      key: "products",
       to: `${base}/products`,
       icon: "📦",
       title: "Products",
@@ -210,6 +224,7 @@ export default function MerchantDetail() {
       meta: productCount != null ? `${productCount} product${productCount !== 1 ? "s" : ""}` : null,
     },
     {
+      key: "billing",
       to: `${base}/billing`,
       icon: "💳",
       title: "Billing",
@@ -217,6 +232,7 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
+      key: "invoices",
       to: `${base}/invoices`,
       icon: "🧾",
       title: "Invoices",
@@ -224,6 +240,7 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
+      key: "promotions",
       to: `${base}/promotions`,
       icon: "🎁",
       title: "Promotions",
@@ -231,6 +248,7 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
+      key: "bundles",
       to: `${base}/bundles`,
       icon: "🎫",
       title: "Bundles",
@@ -238,12 +256,15 @@ export default function MerchantDetail() {
       meta: null,
     },
     {
+      key: "reports",
       to: `/merchants/${merchantId}/reports`,
       icon: "📊",
       title: "Reports",
       description: "Visit analytics, reward redemption, and promotion funnel.",
     },
   ];
+
+  const cards = allCards.filter(c => allowedCards.has(c.key));
 
   return (
     <PageContainer size="wide">
@@ -270,7 +291,8 @@ export default function MerchantDetail() {
 
       <div style={{ marginTop: 20 }} />
 
-      {/* Business Type row */}
+      {/* Business Type row (admin only) */}
+      {role === "pv_admin" && (
       <div style={{
         display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
         marginBottom: 20,
@@ -316,8 +338,10 @@ export default function MerchantDetail() {
           </>
         )}
       </div>
+      )}
 
-      {/* Team setup mode row */}
+      {/* Team setup mode row (admin only) */}
+      {role === "pv_admin" && (
       <div style={{
         display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
         marginBottom: 20,
@@ -385,6 +409,7 @@ export default function MerchantDetail() {
           </>
         )}
       </div>
+      )}
 
       {/* Hub card grid */}
       <div style={{
