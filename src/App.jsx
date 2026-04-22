@@ -816,9 +816,6 @@ function Layout({ children }) {
                             {sysRole === "support" ? (
                               <>
                                 <NavLink to="/admin" style={navPill}>Dashboard</NavLink>
-                                {location.pathname.startsWith("/admin/support") && (
-                                  <NavLink to="/admin/support" style={navPill}>Support</NavLink>
-                                )}
                                 {location.pathname.startsWith("/merchants") && (
                                   <NavLink to="/merchants" style={navPill}>Merchants</NavLink>
                                 )}
