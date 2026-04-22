@@ -111,6 +111,7 @@ export default function MerchantDashboard() {
     stores: null, team: null, products: null,
     promotions: null, bundles: null, invoices: null,
   });
+  const { caps } = useCapabilities();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -186,7 +187,6 @@ export default function MerchantDashboard() {
     );
   }
 
-  const { caps } = useCapabilities();
   const feat = caps?.features || {};
   const teamDesc = caps?.upgradeMessage
     ? `${caps.description} ${caps.upgradeMessage}`
