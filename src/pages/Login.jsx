@@ -98,8 +98,19 @@ export default function Login() {
     } catch {}
   }
 
+  const PV_PLATFORM_ROLES = ["pv_admin", "support", "pv_ar_clerk", "pv_ap_clerk"];
+
+  function isAdminRole(role) {
+    return PV_PLATFORM_ROLES.includes(role);
+  }
+
+  function getAdminLanding(role) {
+    if (role === "support") return "/admin/support";
+    return "/admin";
+  }
+
   function buildDefaultDest({ uiRole, landing }) {
-    return landing || ((uiRole === "pv_admin" || uiRole === "pv_ar_clerk") ? "/merchants" : "/merchant");
+    return landing || (isAdminRole(uiRole) ? getAdminLanding(uiRole) : "/merchant");
   }
 
   function getIncomingFrom() {
@@ -118,7 +129,7 @@ export default function Login() {
   function goHome() {
     const role = String(localStorage.getItem(SYSTEM_ROLE_STORAGE) || "").trim();
     const landing = String(localStorage.getItem(LANDING_STORAGE) || "").trim();
-    const dest = landing || ((role === "pv_admin" || role === "pv_ar_clerk") ? "/merchants" : "/merchant");
+    const dest = landing || (isAdminRole(role) ? getAdminLanding(role) : "/merchant");
 
     pvUiHook("auth.login.go_home.click.ui", {
       tc: "TC-LOGIN-UI-20",
@@ -281,7 +292,7 @@ export default function Login() {
       if (landing) localStorage.setItem(LANDING_STORAGE, landing);
       else localStorage.removeItem(LANDING_STORAGE);
 
-      const safeDefault = landing || ((uiRole === "pv_admin" || uiRole === "pv_ar_clerk") ? "/admin" : "/merchant");
+      const safeDefault = landing || (isAdminRole(uiRole) ? getAdminLanding(uiRole) : "/merchant");
       const rt = readReturnTo();
       const dest = rt || safeDefault;
 
