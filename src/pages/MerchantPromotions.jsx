@@ -69,7 +69,7 @@ const STATUS_COLORS = {
   draft:    { background: "rgba(100,100,200,0.08)", color: "rgba(60,60,160,1)",  border: "1px solid rgba(100,100,200,0.20)" },
   staged:   { background: "rgba(0,120,200,0.08)",   color: "rgba(0,90,170,1)",   border: "1px solid rgba(0,120,200,0.20)" },
   active:   { background: "rgba(0,150,80,0.10)",    color: "rgba(0,110,50,1)",   border: "1px solid rgba(0,150,80,0.25)" },
-  paused:   { background: "rgba(200,120,0,0.10)",   color: "rgba(160,90,0,1)",   border: "1px solid rgba(200,120,0,0.25)" },
+  suspended:{ background: "rgba(200,50,50,0.10)",    color: "rgba(180,30,30,1)",  border: "1px solid rgba(200,50,50,0.25)" },
   archived: { background: "rgba(0,0,0,0.06)",       color: "rgba(0,0,0,0.45)",   border: "1px solid rgba(0,0,0,0.10)" },
 };
 
@@ -463,7 +463,7 @@ export default function MerchantPromotions() {
   // ─── Status transitions ────────────────────────────────────
   async function handleTransition(promo, toStatus) {
     // Intercept "active" transitions — show launch sequence first
-    if (toStatus === "active" && promo.status !== "paused") {
+    if (toStatus === "active" && promo.status !== "suspended") {
       setLaunchPromo(promo);
       return;
     }
@@ -588,7 +588,7 @@ export default function MerchantPromotions() {
         <>
           {/* ── Status filter ── */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-            {["draft", "staged", "active", "paused", "archived", ""].map(f => (
+            {["draft", "staged", "active", "suspended", "archived", ""].map(f => (
               <button
                 key={f || "all"}
                 type="button"
@@ -1116,11 +1116,11 @@ export default function MerchantPromotions() {
                             </>}
                             {promo.status === "active" && <>
                               <button type="button" style={btnSmall} onClick={() => toggleOutcome(promo.id)}>Performance</button>
-                              <button type="button" style={btnSmall} onClick={() => handleTransition(promo, "paused")}>Pause</button>
+                              <button type="button" style={btnSmall} onClick={() => handleTransition(promo, "suspended")}>Suspend</button>
                               {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
                               <button type="button" style={btnSmallDanger} onClick={() => handleArchive(promo)}>Archive</button>
                             </>}
-                            {promo.status === "paused" && <>
+                            {promo.status === "suspended" && <>
                               <button type="button" style={btnSmall} onClick={() => toggleOutcome(promo.id)}>Performance</button>
                               <button type="button" style={btnSmallSuccess} onClick={() => handleTransition(promo, "active")}>Resume</button>
                               {editId !== promo.id && <button type="button" style={btnSmall} onClick={() => startEdit(promo)}>Edit</button>}
@@ -1241,10 +1241,10 @@ export default function MerchantPromotions() {
       )}
 
       {/* Validation — projected vs actual for active promos */}
-      {promotions.filter(p => p.status === "active" || p.status === "paused").length > 0 && (
+      {promotions.filter(p => p.status === "active" || p.status === "suspended").length > 0 && (
         <div style={{ marginTop: 20 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: color.text, marginBottom: 10 }}>Performance Validation</div>
-          {promotions.filter(p => p.status === "active" || p.status === "paused").map(p => (
+          {promotions.filter(p => p.status === "active" || p.status === "suspended").map(p => (
             <PromotionValidation key={p.id} promotionId={p.id} promotionName={p.name} />
           ))}
         </div>

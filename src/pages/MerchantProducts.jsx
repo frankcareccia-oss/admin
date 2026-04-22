@@ -71,13 +71,15 @@ function detectMerchantType(name) {
 // ─── Helpers ─────────────────────────────────────────────────
 
 const STATUS_COLORS = {
-  draft:    { background: "rgba(100,100,200,0.08)", color: "rgba(60,60,160,1)", border: "1px solid rgba(100,100,200,0.20)" },
-  active:   { background: "rgba(0,150,80,0.10)",   color: "rgba(0,110,50,1)",  border: "1px solid rgba(0,150,80,0.25)" },
-  inactive: { background: "rgba(0,0,0,0.06)",      color: "rgba(0,0,0,0.50)",  border: "1px solid rgba(0,0,0,0.12)" },
+  draft:     { background: "rgba(100,100,200,0.08)", color: "rgba(60,60,160,1)",  border: "1px solid rgba(100,100,200,0.20)" },
+  staged:    { background: "rgba(200,150,0,0.10)",   color: "rgba(160,110,0,1)",  border: "1px solid rgba(200,150,0,0.25)" },
+  active:    { background: "rgba(0,150,80,0.10)",    color: "rgba(0,110,50,1)",   border: "1px solid rgba(0,150,80,0.25)" },
+  suspended: { background: "rgba(200,50,50,0.10)",   color: "rgba(180,30,30,1)",  border: "1px solid rgba(200,50,50,0.25)" },
+  archived:  { background: "rgba(0,0,0,0.06)",       color: "rgba(0,0,0,0.50)",   border: "1px solid rgba(0,0,0,0.12)" },
 };
 
 function StatusBadge({ status }) {
-  const s = STATUS_COLORS[status] || STATUS_COLORS.inactive;
+  const s = STATUS_COLORS[status] || STATUS_COLORS.archived;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, ...s }}>
       {status || "unknown"}
@@ -779,7 +781,7 @@ export default function MerchantProducts() {
 
       {/* ── Filter ── */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {["draft", "active", "inactive", ""].map(f => (
+        {["draft", "staged", "active", "suspended", "archived", ""].map(f => (
           <button
             key={f || "all"}
             type="button"
@@ -868,9 +870,9 @@ export default function MerchantProducts() {
                           <button type="button" style={btnSmallSuccess} onClick={() => handleActivate(p)}>Activate</button>
                         )}
                         {p.status === "active" && (
-                          <button type="button" style={btnSmallDanger} onClick={() => handleDeactivate(p)}>Deactivate</button>
+                          <button type="button" style={btnSmallDanger} onClick={() => handleDeactivate(p)}>Suspend</button>
                         )}
-                        {p.status === "inactive" && (
+                        {p.status === "suspended" && (
                           <button type="button" style={btnSmall} onClick={() => handleReactivate(p)}>Reactivate</button>
                         )}
                       </div>
