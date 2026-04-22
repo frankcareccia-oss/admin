@@ -82,7 +82,8 @@ export default function MerchantDetail() {
   const { isMobile, isTablet } = useBreakpoint();
 
   // Merchant users should not access this admin-only page
-  if (getSystemRole() !== "pv_admin") {
+  const platformRoles = ["pv_admin", "support", "pv_ar_clerk", "pv_ap_clerk"];
+  if (!platformRoles.includes(getSystemRole())) {
     return <Navigate to="/merchant/dashboard" replace />;
   }
 
