@@ -842,12 +842,6 @@ function Layout({ children }) {
                                 {location.pathname.startsWith("/merchants") && (
                                   <NavLink to="/merchants" style={navPill}>Merchants</NavLink>
                                 )}
-                                {location.pathname.startsWith("/admin/invoices") && (
-                                  <NavLink to="/admin/invoices" style={navPill}>Invoices</NavLink>
-                                )}
-                                {location.pathname.startsWith("/admin/billing") && (
-                                  <NavLink to="/admin/billing-policy" style={navPill}>Billing</NavLink>
-                                )}
                               </>
                             ) : (
                               <>
