@@ -398,6 +398,9 @@ ${events || "  (none)"}
 
   // ── Full guide view ────────────────────────────────────────
   if (state === "full_guide" && sectionDetail?.fullGuide) {
+    const toSlug = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const targetSlug = sectionDetail.label ? toSlug(sectionDetail.label) : null;
+
     return (
       <div style={{ ...s.card, maxHeight: 550 }}>
         <div style={s.cardHeader}>
@@ -407,10 +410,20 @@ ${events || "  (none)"}
           </button>
           <button style={s.closeBtn} onClick={handleClose}>&times;</button>
         </div>
-        <div style={{ fontSize: 13, color: C.navy, lineHeight: 1.7, overflow: "auto", maxHeight: 450, whiteSpace: "pre-wrap" }}>
+        <div
+          ref={(el) => {
+            if (el && targetSlug) {
+              const target = el.querySelector(`[data-section-id="${targetSlug}"]`);
+              if (target) setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+            }
+          }}
+          style={{ fontSize: 13, color: C.navy, lineHeight: 1.7, overflow: "auto", maxHeight: 450, whiteSpace: "pre-wrap" }}>
           {sectionDetail.fullGuide.split("\n").map((line, i) => {
             if (line.startsWith("# ")) return <div key={i} style={{ fontSize: 16, fontWeight: 700, marginBottom: 8, marginTop: i > 0 ? 16 : 0 }}>{line.slice(2)}</div>;
-            if (line.startsWith("## ")) return <div key={i} style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, marginTop: 14, color: C.teal }}>{line.slice(3)}</div>;
+            if (line.startsWith("## ")) {
+              const heading = line.slice(3);
+              return <div key={i} data-section-id={toSlug(heading)} style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, marginTop: 14, color: C.teal }}>{heading}</div>;
+            }
             if (line.startsWith("### ")) return <div key={i} style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, marginTop: 10 }}>{line.slice(4)}</div>;
             if (line.match(/^\d+\./)) return <div key={i} style={{ paddingLeft: 16, marginBottom: 2 }}>{line}</div>;
             if (line.startsWith("- ")) return <div key={i} style={{ paddingLeft: 16, marginBottom: 2 }}>{line}</div>;
