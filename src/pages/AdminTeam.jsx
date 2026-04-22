@@ -180,10 +180,16 @@ export default function AdminTeam() {
           </div>
           {createError && <div style={{ marginTop: 8, fontSize: 13, color: color.danger }}>{createError}</div>}
           {tempPassword && (
-            <div style={{ marginTop: 12, padding: "12px 16px", background: "#FFF8E1", border: "1px solid #FFE082", borderRadius: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Temporary password (shown once):</div>
-              <code style={{ fontSize: 15, fontWeight: 700, color: color.navy || "#0B2A33", userSelect: "all" }}>{tempPassword}</code>
-              <div style={{ fontSize: 11, color: color.textMuted, marginTop: 4 }}>Share this with the user. They should change it after first login.</div>
+            <div style={{ marginTop: 12, padding: "12px 16px", background: "#FFF8E1", border: "1px solid #FFE082", borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Temporary password (shown once):</div>
+                <code style={{ fontSize: 15, fontWeight: 700, color: color.navy || "#0B2A33", userSelect: "all" }}>{tempPassword}</code>
+                <div style={{ fontSize: 11, color: color.textMuted, marginTop: 4 }}>Share this with the user. They should change it after first login.</div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { navigator.clipboard.writeText(tempPassword); }} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #FFE082", background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Copy</button>
+                <button onClick={() => { setTempPassword(null); setShowCreate(false); }} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #FFE082", background: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>Close</button>
+              </div>
             </div>
           )}
         </div>
