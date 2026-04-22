@@ -791,19 +791,27 @@ function Layout({ children }) {
                           </div>
                         ) : (
                           <>
-                            <NavLink to="/admin" style={navPill}>
-                              Dashboard
-                            </NavLink>
-                            {location.pathname.startsWith("/admin/support") ? (
-                              <NavLink to="/admin/support" style={navPill}>Support</NavLink>
-                            ) : location.pathname.startsWith("/admin/oversight") ? (
-                              <NavLink to="/admin/oversight" style={navPill}>Oversight</NavLink>
-                            ) : location.pathname.startsWith("/admin/system") ? (
-                              <NavLink to="/admin/system" style={navPill}>System</NavLink>
-                            ) : location.pathname.startsWith("/admin/platform") ? (
-                              <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
+                            {sysRole === "support" ? (
+                              <>
+                                <NavLink to="/admin/support" style={navPill}>Support Tickets</NavLink>
+                              </>
                             ) : (
-                              <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
+                              <>
+                                <NavLink to="/admin" style={navPill}>
+                                  Dashboard
+                                </NavLink>
+                                {location.pathname.startsWith("/admin/support") ? (
+                                  <NavLink to="/admin/support" style={navPill}>Support</NavLink>
+                                ) : location.pathname.startsWith("/admin/oversight") ? (
+                                  <NavLink to="/admin/oversight" style={navPill}>Oversight</NavLink>
+                                ) : location.pathname.startsWith("/admin/system") ? (
+                                  <NavLink to="/admin/system" style={navPill}>System</NavLink>
+                                ) : location.pathname.startsWith("/admin/platform") ? (
+                                  <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
+                                ) : (
+                                  <NavLink to="/admin/platform/config" style={navPill}>Settings</NavLink>
+                                )}
+                              </>
                             )}
                           </>
                         )}
@@ -1281,7 +1289,7 @@ export default function App() {
             path="/admin"
             element={
               <RequireAuth>
-                <AdminHome />
+                {getSystemRole() === "support" ? <Navigate to="/admin/support" replace /> : <AdminHome />}
               </RequireAuth>
             }
           />
