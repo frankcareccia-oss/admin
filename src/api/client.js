@@ -1838,6 +1838,22 @@ export async function merchantActivateProduct(productId) {
   return request(`/merchant/products/${productId}/activate`, { method: "POST", auth: "jwt" });
 }
 
+export async function merchantArchiveProduct(productId) {
+  return request(`/merchant/products/${productId}/archive`, { method: "POST", auth: "jwt" });
+}
+
+export async function merchantDuplicateProduct(productId) {
+  return request(`/merchant/products/${productId}/duplicate`, { method: "POST", auth: "jwt" });
+}
+
+export async function merchantStageProduct(productId, { startAt } = {}) {
+  return request(`/merchant/products/${productId}/stage`, { method: "POST", auth: "jwt", body: { startAt } });
+}
+
+export async function merchantRevertProductToDraft(productId) {
+  return request(`/merchant/products/${productId}/revert-to-draft`, { method: "POST", auth: "jwt" });
+}
+
 export async function adminListMerchantProducts(merchantId, { status } = {}) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return request(`/admin/merchants/${merchantId}/products${qs}`, { auth: "jwt" });

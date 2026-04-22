@@ -21,6 +21,8 @@ import {
   merchantDeactivateProduct,
   merchantReactivateProduct,
   merchantActivateProduct,
+  merchantArchiveProduct,
+  merchantDuplicateProduct,
   merchantListCategories,
   merchantCreateCategory,
   adminListMerchantProducts,
@@ -478,6 +480,33 @@ export default function MerchantProducts() {
     }
   }
 
+  async function handleArchive(product) {
+    if (!confirm(`Archive "${product.name}"? This is permanent — you'll need to duplicate it to create a new version.`)) return;
+    try {
+      if (isPvAdmin) {
+        await merchantArchiveProduct(product.id); // TODO: admin endpoint
+      } else {
+        await merchantArchiveProduct(product.id);
+      }
+      setProducts(ps => ps.map(p => p.id === product.id ? { ...p, status: "archived" } : p));
+    } catch (err) {
+      alert(err?.message || "Archive failed");
+    }
+  }
+
+  async function handleDuplicate(product) {
+    try {
+      const res = isPvAdmin
+        ? await merchantDuplicateProduct(product.id)
+        : await merchantDuplicateProduct(product.id);
+      if (res?.product) {
+        setProducts(ps => [res.product, ...ps]);
+      }
+    } catch (err) {
+      alert(err?.message || "Duplicate failed");
+    }
+  }
+
   // ─── Render ────────────────────────────────────────────────
   const merchantName = merchant?.name || `Merchant ${merchantId}`;
 
@@ -860,11 +889,11 @@ export default function MerchantProducts() {
                     </td>
                     <td style={td}><StatusBadge status={p.status} /></td>
                     <td style={{ ...td, textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: 8 }}>
+                      <div style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
                         {editingId === p.id ? (
                           <span style={{ fontSize: 11, color: color.primary, fontWeight: 700 }}>Editing below &#8595;</span>
                         ) : (
-                          <button type="button" style={btnSmall} onClick={() => startEdit(p)}>Edit</button>
+                          p.status === "draft" && <button type="button" style={btnSmall} onClick={() => startEdit(p)}>Edit</button>
                         )}
                         {p.status === "draft" && (
                           <button type="button" style={btnSmallSuccess} onClick={() => handleActivate(p)}>Activate</button>
@@ -872,10 +901,24 @@ export default function MerchantProducts() {
                         {p.status === "active" && (
                           <button type="button" style={btnSmallDanger} onClick={() => handleDeactivate(p)}>Suspend</button>
                         )}
+                        {p.status === "active" && (
+                          <button type="button" style={btnSmall} onClick={() => handleArchive(p)}>Archive</button>
+                        )}
                         {p.status === "suspended" && (
                           <button type="button" style={btnSmall} onClick={() => handleReactivate(p)}>Reactivate</button>
                         )}
+                        {p.status === "suspended" && (
+                          <button type="button" style={btnSmall} onClick={() => handleArchive(p)}>Archive</button>
+                        )}
+                        {p.status === "archived" && (
+                          <button type="button" style={btnSmall} onClick={() => handleDuplicate(p)}>Duplicate</button>
+                        )}
                       </div>
+                      {!p.pvOrigin && p.externalCatalogId && (
+                        <div style={{ fontSize: 10, color: color.textFaint, marginTop: 4 }}>
+                          From POS {p.posLastSyncedAt ? `· synced ${new Date(p.posLastSyncedAt).toLocaleDateString()}` : ""}
+                        </div>
+                      )}
                     </td>
                   </tr>
 
