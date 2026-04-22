@@ -548,12 +548,10 @@ export default function MerchantPromotions() {
         ) : (
           <Link to="/merchant/dashboard" style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
         )}
-        {" / "}
-        <span>Promotions</span>
       </div>
 
       <PageHeader
-        title="Reward Programs"
+        title="Promotions"
         subtitle={`Loyalty promotions for ${merchantName}`}
         right={
           <button

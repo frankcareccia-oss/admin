@@ -441,29 +441,10 @@ function RequirePosSession({ children }) {
   return children;
 }
 
-// Resolves which single section pill to show beside Dashboard in merchant nav
-function getMerchantSectionPill(pathname) {
-  if (pathname.startsWith('/merchant/stores') || /\/merchants\/[^/]+\/stores/.test(pathname))
-    return { to: '/merchant/stores', label: 'My Stores' };
-  if (pathname.startsWith('/merchant/users'))
-    return { to: '/merchant/users', label: 'Team' };
-  if (pathname.startsWith('/merchant/products') || /\/merchants\/[^/]+\/products/.test(pathname))
-    return { to: '/merchant/products', label: 'Products' };
-  if (pathname.startsWith('/merchant/promotions') || /\/merchants\/[^/]+\/promotions/.test(pathname))
-    return { to: '/merchant/promotions', label: 'Promotions' };
-  if (pathname.startsWith('/merchant/bundles') || /\/merchants\/[^/]+\/bundles/.test(pathname))
-    return { to: '/merchant/bundles', label: 'Bundles' };
-  if (pathname.startsWith('/merchant/invoices'))
-    return { to: '/merchant/invoices', label: 'Billing' };
-  if (pathname.startsWith('/merchant/reports') || /\/merchants\/[^/]+\/reports/.test(pathname))
-    return { to: '/merchant/reports', label: 'Reports' };
-  if (pathname.startsWith('/merchant/growth-advisor'))
-    return { to: '/merchant/growth-advisor', label: 'Growth Advisor' };
-  if (pathname.startsWith('/merchant/weekly'))
-    return { to: '/merchant/weekly', label: 'Weekly Summary' };
-  if (pathname.startsWith('/merchant/settings') || pathname.startsWith('/account/change-password'))
-    return { to: '/merchant/settings', label: 'Settings' };
-  return null; // on dashboard — no section pill
+// Section pills removed — each page has its own heading, so the nav pill was redundant.
+// Dashboard pill is kept (rendered separately).
+function getMerchantSectionPill(/* pathname */) {
+  return null;
 }
 
 // Resolve human-readable page name for Support panel

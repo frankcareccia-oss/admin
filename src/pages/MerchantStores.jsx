@@ -439,8 +439,6 @@ export default function MerchantStores() {
     <PageContainer size="wide">
       <div style={breadcrumbRow}>
         <span>Merchant</span>
-        <span style={{ color: TOKENS.muted }}>›</span>
-        <span>Stores</span>
       </div>
 
       <div style={headerRow}>

@@ -1,0 +1,1066 @@
+{
+  "config": {
+    "configFile": "C:\\Users\\frank\\perkvalet\\admin\\playwright.config.cjs",
+    "rootDir": "C:/Users/frank/perkvalet/admin/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 4
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/frank/perkvalet/admin/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 4
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/Users/frank/perkvalet/admin/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.cjs"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "e2e-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.59.1",
+    "workers": 4,
+    "webServer": {
+      "command": "npm run dev -- --port 5176",
+      "port": 5176,
+      "timeout": 15000,
+      "reuseExistingServer": true
+    }
+  },
+  "suites": [
+    {
+      "title": "login.spec.cjs",
+      "file": "login.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Admin Login",
+          "file": "login.spec.cjs",
+          "line": 5,
+          "column": 6,
+          "specs": [
+            {
+              "title": "displays login page with branding",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8225,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:41.382Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-18c315c6e67c2228ce48",
+              "file": "login.spec.cjs",
+              "line": 15,
+              "column": 3
+            },
+            {
+              "title": "shows email and password fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1780,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:50.139Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-bf39f3c209059cfd9f8a",
+              "file": "login.spec.cjs",
+              "line": 19,
+              "column": 3
+            },
+            {
+              "title": "shows Sign In button",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2097,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:51.961Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-9d7b02c4ba8dd99bf716",
+              "file": "login.spec.cjs",
+              "line": 24,
+              "column": 3
+            },
+            {
+              "title": "email field has default value",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1526,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:54.102Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-029508cac687933bbe1c",
+              "file": "login.spec.cjs",
+              "line": 28,
+              "column": 3
+            },
+            {
+              "title": "shows error on invalid credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3894,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:55.671Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-11b67e55c7105c094f44",
+              "file": "login.spec.cjs",
+              "line": 33,
+              "column": 3
+            },
+            {
+              "title": "successful admin login navigates away from login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2122,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:59.606Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-872fe178b216baf6dabc",
+              "file": "login.spec.cjs",
+              "line": 52,
+              "column": 3
+            },
+            {
+              "title": "forgot password link exists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1358,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:21:01.774Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-fed893f5ac240bb5e01d",
+              "file": "login.spec.cjs",
+              "line": 79,
+              "column": 3
+            },
+            {
+              "title": "POS login link exists",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1263,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:21:03.161Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b7f41ffa7202353a0a8e-8533133e74bf74483f8f",
+              "file": "login.spec.cjs",
+              "line": 83,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "merchant-portal.spec.cjs",
+      "file": "merchant-portal.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Merchant Stores",
+          "file": "merchant-portal.spec.cjs",
+          "line": 83,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows stores page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 10584,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:41.094Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-9a788defa514745194e0",
+              "file": "merchant-portal.spec.cjs",
+              "line": 84,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Products",
+          "file": "merchant-portal.spec.cjs",
+          "line": 93,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows products page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4120,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:52.153Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-d05b29926652d0d02395",
+              "file": "merchant-portal.spec.cjs",
+              "line": 94,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Promotions",
+          "file": "merchant-portal.spec.cjs",
+          "line": 102,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows promotions page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4042,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:56.346Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-299048301130fdef4321",
+              "file": "merchant-portal.spec.cjs",
+              "line": 103,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Users",
+          "file": "merchant-portal.spec.cjs",
+          "line": 111,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows users page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3607,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:21:00.420Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-1383be90256e00c82fcb",
+              "file": "merchant-portal.spec.cjs",
+              "line": 112,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Invoices",
+          "file": "merchant-portal.spec.cjs",
+          "line": 120,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows invoices page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2298,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:21:04.078Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-1b33ed86a0eb548110f3",
+              "file": "merchant-portal.spec.cjs",
+              "line": 121,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Growth Advisor",
+          "file": "merchant-portal.spec.cjs",
+          "line": 130,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows growth advisor page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3233,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:21:06.398Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-6058e2300c396a8d6f23",
+              "file": "merchant-portal.spec.cjs",
+              "line": 131,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Settings",
+          "file": "merchant-portal.spec.cjs",
+          "line": 139,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows settings page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2219,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:21:09.649Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "76803fcbc5be4c86492a-ee51e5dbc69760d6a9a0",
+              "file": "merchant-portal.spec.cjs",
+              "line": 140,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "navigation.spec.cjs",
+      "file": "navigation.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Auth Guards",
+          "file": "navigation.spec.cjs",
+          "line": 62,
+          "column": 6,
+          "specs": [
+            {
+              "title": "unauthenticated user redirected to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 9599,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:41.112Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "542a9eca2813a94b3627-8795ad0f3e7c40be5132",
+              "file": "navigation.spec.cjs",
+              "line": 63,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Admin Navigation",
+          "file": "navigation.spec.cjs",
+          "line": 72,
+          "column": 6,
+          "specs": [
+            {
+              "title": "admin sees merchants list",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 1968,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:51.214Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "542a9eca2813a94b3627-cffce1768e3a9eec8f62",
+              "file": "navigation.spec.cjs",
+              "line": 73,
+              "column": 3
+            },
+            {
+              "title": "admin can navigate to merchant detail page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 3721,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:53.231Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "542a9eca2813a94b3627-602561e3fb6442ad671a",
+              "file": "navigation.spec.cjs",
+              "line": 79,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Merchant Navigation",
+          "file": "navigation.spec.cjs",
+          "line": 97,
+          "column": 6,
+          "specs": [
+            {
+              "title": "merchant user sees dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 2724,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:57.034Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "542a9eca2813a94b3627-f29a028ceb5e799f0932",
+              "file": "navigation.spec.cjs",
+              "line": 98,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Logout",
+          "file": "navigation.spec.cjs",
+          "line": 106,
+          "column": 6,
+          "specs": [
+            {
+              "title": "logout clears session and redirects to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 2904,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:59.804Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "542a9eca2813a94b3627-3c90b8e7f988d669b51b",
+              "file": "navigation.spec.cjs",
+              "line": 107,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "payment-events.spec.cjs",
+      "file": "payment-events.spec.cjs",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Payment Event Audit View",
+          "file": "payment-events.spec.cjs",
+          "line": 48,
+          "column": 6,
+          "specs": [
+            {
+              "title": "shows audit ledger page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 8894,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:41.073Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4d3f1139cea2895e57f6-8aa10c6a69964b3e5624",
+              "file": "payment-events.spec.cjs",
+              "line": 49,
+              "column": 3
+            },
+            {
+              "title": "shows event table rows",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 1975,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:50.419Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4d3f1139cea2895e57f6-2caf8842a9e6d07d2dd6",
+              "file": "payment-events.spec.cjs",
+              "line": 55,
+              "column": 3
+            },
+            {
+              "title": "shows source filter dropdown",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2031,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:52.494Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4d3f1139cea2895e57f6-92a5d7cedc79543ddc4d",
+              "file": "payment-events.spec.cjs",
+              "line": 63,
+              "column": 3
+            },
+            {
+              "title": "shows export CSV button",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 1727,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:54.576Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4d3f1139cea2895e57f6-49e8661c62ee93c72803",
+              "file": "payment-events.spec.cjs",
+              "line": 70,
+              "column": 3
+            },
+            {
+              "title": "shows subsidy total",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2046,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-04-11T20:20:56.340Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4d3f1139cea2895e57f6-908f48022ff365302172",
+              "file": "payment-events.spec.cjs",
+              "line": 76,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-04-11T20:20:32.685Z",
+    "duration": 39774.152,
+    "expected": 25,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

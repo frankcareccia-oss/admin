@@ -516,8 +516,6 @@ export default function MerchantProducts() {
       <div style={{ fontSize: 13, color: color.textMuted, marginBottom: 12 }}>
         {isPvAdmin && <><Link to="/merchants" style={{ color: "inherit", textDecoration: "none" }}>Merchants</Link>{" / "}</>}
         <Link to={`/merchants/${merchantId}`} style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
-        {" / "}
-        <span>Products</span>
       </div>
 
       <PageHeader

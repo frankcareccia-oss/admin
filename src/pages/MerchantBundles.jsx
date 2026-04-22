@@ -603,8 +603,6 @@ export default function MerchantBundles() {
         ) : (
           <Link to="/merchant/dashboard" style={{ color: "inherit", textDecoration: "none" }}>{merchantName}</Link>
         )}
-        {" / "}
-        <span>Bundles</span>
       </div>
 
       <PageHeader title="Bundles" subtitle={`Prepaid credit packs for ${merchantName}`} />

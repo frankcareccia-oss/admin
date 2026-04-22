@@ -897,8 +897,6 @@ export default function MerchantUsers({ readOnly = false }) {
           >
             Stores
           </Link>
-          <span style={{ color: TOKENS.muted }}>›</span>
-          <span>Team</span>
         </div>
 
         <div style={styles.headerRow}>
