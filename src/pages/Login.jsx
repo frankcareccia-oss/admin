@@ -79,8 +79,7 @@ export default function Login() {
 
   function normalizeUiRole(apiRole) {
     const r = String(apiRole || "");
-    if (r === "pv_admin") return "pv_admin";
-    if (r === "pv_ar_clerk") return "pv_ar_clerk";
+    if (PV_PLATFORM_ROLES.includes(r)) return r;
     return "merchant";
   }
 
