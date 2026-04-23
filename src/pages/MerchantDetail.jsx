@@ -107,16 +107,31 @@ export default function MerchantDetail() {
   const [teamSyncing, setTeamSyncing] = React.useState(false);
   const [teamSyncMsg, setTeamSyncMsg] = React.useState("");
 
+  // Role-gated card visibility (used to skip API calls the role cannot access)
+  const CARD_ACCESS = {
+    pv_admin:    ["setup", "team", "stores", "products", "billing", "invoices", "promotions", "bundles", "reports"],
+    support:     ["setup", "team", "stores"],
+    pv_ar_clerk: ["billing", "invoices"],
+    pv_ap_clerk: ["invoices"],
+  };
+
   async function load() {
     setLoading(true);
     setErr("");
     try {
-      const [mRes, uRes, pRes] = await Promise.allSettled([
-        getMerchant(merchantId),
-        adminListMerchantUsers(merchantId),
-        adminListMerchantProducts(merchantId),
-      ]);
+      const role = getSystemRole();
+      const allowed = new Set(CARD_ACCESS[role] || CARD_ACCESS.pv_admin);
 
+      const promises = [getMerchant(merchantId)];
+      const fetchUsers = allowed.has("team");
+      const fetchProducts = allowed.has("products");
+      if (fetchUsers) promises.push(adminListMerchantUsers(merchantId));
+      if (fetchProducts) promises.push(adminListMerchantProducts(merchantId));
+
+      const results = await Promise.allSettled(promises);
+      let idx = 0;
+
+      const mRes = results[idx++];
       if (mRes.status === "fulfilled") {
         setMerchant(mRes.value);
         setLastSuccessTs(new Date().toISOString());
@@ -125,8 +140,14 @@ export default function MerchantDetail() {
         throw new Error(mRes.reason?.message || "Failed to load merchant");
       }
 
-      if (uRes.status === "fulfilled") setUserCount((uRes.value?.users || []).length);
-      if (pRes.status === "fulfilled") setProductCount((pRes.value?.items || []).length);
+      if (fetchUsers) {
+        const uRes = results[idx++];
+        if (uRes.status === "fulfilled") setUserCount((uRes.value?.users || []).length);
+      }
+      if (fetchProducts) {
+        const pRes = results[idx++];
+        if (pRes.status === "fulfilled") setProductCount((pRes.value?.items || []).length);
+      }
     } catch (e) {
       const msg = e?.message || "Failed to load merchant";
       setErr(msg);
@@ -180,14 +201,6 @@ export default function MerchantDetail() {
   const base = `/merchants/${merchantId}`;
   const storeCount = merchant.storeCount ?? merchant.stores?.length ?? null;
   const role = getSystemRole();
-
-  // Role-gated card visibility
-  const CARD_ACCESS = {
-    pv_admin:    ["setup", "team", "stores", "products", "billing", "invoices", "promotions", "bundles", "reports"],
-    support:     ["setup", "team", "stores"],
-    pv_ar_clerk: ["billing", "invoices"],
-    pv_ap_clerk: ["invoices"],
-  };
   const allowedCards = new Set(CARD_ACCESS[role] || CARD_ACCESS.pv_admin);
 
   const allCards = [
